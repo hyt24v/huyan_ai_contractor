@@ -9,17 +9,7 @@ jobs:
   release:
     permissions:
       contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # Apple Silicon (M 系列)
-          - platform: macos-14
-            arch: aarch64
-          # Intel Mac
-          - platform: macos-13
-            arch: x86_64
-    runs-on: ${{ matrix.platform }}
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
 
@@ -29,8 +19,11 @@ jobs:
           node-version: 20
           cache: npm
 
+      # Universal 2 二进制：同时内嵌 arm64 + x86_64，一个 dmg 通吃两种芯片
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -42,5 +35,7 @@ jobs:
 
       - name: Build and upload release
         uses: tauri-apps/tauri-action@v0
+        with:
+          args: --target universal-apple-darwin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
