@@ -114,6 +114,7 @@ export interface JsonTreeNode {
   type: JsonValueType;
   preview: string; // 值摘要
   childCount: number;
+  value?: string | number | boolean | null; // 原始值（仅叶子类型有）
   children?: JsonTreeNode[];
 }
 
@@ -166,6 +167,9 @@ export function buildJsonTree(value: unknown): JsonTreeNode {
       preview: preview(val, type),
       childCount: 0,
     };
+    if (type === 'string' || type === 'number' || type === 'boolean' || type === 'null') {
+      node.value = val as string | number | boolean | null;
+    }
     if (type === 'array') {
       const arr = val as unknown[];
       node.childCount = arr.length;
@@ -182,6 +186,32 @@ export function buildJsonTree(value: unknown): JsonTreeNode {
     return node;
   }
   return build('root', '', value);
+}
+
+/**
+ * 按 key / 值过滤树：保留命中节点及其祖先（JSON Hero 风格搜索）。
+ * 返回 null 表示整棵子树都不命中。
+ */
+export function filterJsonTree(
+  node: JsonTreeNode,
+  query: string,
+): JsonTreeNode | null {
+  const q = query.trim().toLowerCase();
+  if (q === '') return node;
+  const selfMatch =
+    node.key.toLowerCase().includes(q) ||
+    node.preview.toLowerCase().includes(q);
+  const filteredChildren = node.children
+    ?.map((c) => filterJsonTree(c, q))
+    .filter((c): c is JsonTreeNode => c !== null);
+  if (selfMatch || (filteredChildren && filteredChildren.length > 0)) {
+    return {
+      ...node,
+      children: filteredChildren,
+      childCount: node.childCount,
+    };
+  }
+  return null;
 }
 
 /** 复制文本到剪贴板（带回退） */

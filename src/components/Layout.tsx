@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Braces, ListOrdered, Moon, Sun, Wrench } from 'lucide-react';
+import { Braces, Moon, Sun, Wrench } from 'lucide-react';
 
 export const TOOLS = [
   { path: '/json', name: 'JSON 编辑器', icon: Braces },
-  { path: '/jsonl', name: 'JSONL 编辑器', icon: ListOrdered },
 ];
 
 const THEME_KEY = 'huyan_tool:theme';

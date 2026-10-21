@@ -1,7 +1,6 @@
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
-import JsonEditorPage from './pages/JsonEditorPage';
-import JsonlEditorPage from './pages/JsonlEditorPage';
+import JsonToolPage from './pages/JsonToolPage';
 
 export default function App() {
   return (
@@ -9,8 +8,9 @@ export default function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<Navigate to="/json" replace />} />
-          <Route path="/json" element={<JsonEditorPage />} />
-          <Route path="/jsonl" element={<JsonlEditorPage />} />
+          <Route path="/json" element={<JsonToolPage />} />
+          {/* 旧路由兼容：重定向到统一编辑器 */}
+          <Route path="/jsonl" element={<Navigate to="/json" replace />} />
         </Route>
       </Routes>
     </HashRouter>
