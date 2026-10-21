@@ -1,6 +1,13 @@
 # AI包工头
 
-个人本地工具集合，纯前端、数据不出本机。
+个人本地工具集合，纯前端、数据不出本机。支持网页版和 macOS 桌面 App（Tauri，对标 cc-switch 形式）。
+
+## 桌面 App
+
+```bash
+npm run tauri:dev    # 开发模式（热更新）
+npm run tauri:build  # 打包 AI包工头.app + .dmg（产物在 src-tauri/target/release/bundle/）
+```
 
 ## 第一期工具
 
@@ -11,7 +18,7 @@
 
 ```bash
 npm install
-npm run dev      # 本地开发
+npm run dev      # 本地开发（http://localhost:1420）
 npm test         # Vitest 单测
 npm run build    # 产出 dist/ 纯静态文件，可丢任意静态托管
 npm run preview  # 预览构建产物
@@ -19,7 +26,7 @@ npm run preview  # 预览构建产物
 
 ## 技术栈
 
-Vite + React 18 + TypeScript + Tailwind CSS + Monaco Editor（本地打包，不走 CDN）+ HashRouter。
+Vite + React 18 + TypeScript + Tailwind CSS（shadcn/ui 设计 token）+ Monaco Editor（本地打包，不走 CDN）+ HashRouter + Tauri 2（桌面壳）。
 
 ## 新增一个工具
 
