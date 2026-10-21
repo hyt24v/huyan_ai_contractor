@@ -33,9 +33,14 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      # tauri-action 需要 @tauri-apps/cli 的 bin 可用，npm ci 偶尔不链接，显式补装
+      # tauri-action 需要 tauri CLI 可用：优先本地，装不上则全局装，最后验证
       - name: Ensure tauri CLI
-        run: npm install --no-save @tauri-apps/cli@^2.12.3
+        run: |
+          npm install --no-save @tauri-apps/cli@^2.12.3 || true
+          if [ ! -x node_modules/.bin/tauri ]; then
+            npm install -g @tauri-apps/cli@^2.12.3
+          fi
+          npx tauri --version
 
       - name: Build and upload release
         uses: tauri-apps/tauri-action@v0
