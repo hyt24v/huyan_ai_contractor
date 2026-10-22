@@ -59,4 +59,6 @@ jobs:
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: false
+          # GitHub 会把非 ASCII 资产名改写成 "AI._..."，导致 tauri-action 无法识别已存在资产而重跑失败；用固定 ASCII 名保证幂等
+          assetNamePattern: 'AI-Baogongtou_[version]_[platform]_[arch][ext]'
           args: --target universal-apple-darwin
