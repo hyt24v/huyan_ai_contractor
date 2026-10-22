@@ -4,12 +4,10 @@
  */
 import { invoke } from '@tauri-apps/api/core';
 import {
-  copyFile,
   exists,
   mkdir,
   readDir,
   readTextFile,
-  remove,
   rename,
   writeTextFile,
 } from '@tauri-apps/plugin-fs';
@@ -49,16 +47,9 @@ export async function absPath(rel: string): Promise<string> {
 }
 
 async function copyDirRecursive(src: string, dst: string): Promise<void> {
-  await mkdir(dst, { recursive: true });
-  for (const entry of await readDir(src)) {
-    const s = `${src}/${entry.name}`;
-    const d = `${dst}/${entry.name}`;
-    if (entry.isDirectory && !entry.isSymlink) {
-      await copyDirRecursive(s, d);
-    } else {
-      await copyFile(s, d);
-    }
-  }
+  // 走 Rust 自定义命令：plugin-fs 会解析软链真实路径并按 scope 校验，
+  // 导致收编 ~/.claude/skills 里指向其它目录的软链 skill 时被判定为 forbidden。
+  await invoke<void>('copy_dir', { src, dest: dst });
 }
 
 export const tauriFs: FsPort = {
@@ -77,7 +68,9 @@ export const tauriFs: FsPort = {
       }));
   },
   mkdir: (p) => mkdir(p, { recursive: true }),
-  remove: (p, recursive) => remove(p, { recursive: recursive ?? false }),
+  // 同上：软链本身可能指向 scope 外的真实目录，删除时用 Rust 命令只删链接。
+  remove: (p, recursive) =>
+    invoke<void>('remove_path', { path: p, recursive: recursive ?? false }),
   rename: (from, to) => rename(from, to),
   copyDir: (src, dst) => copyDirRecursive(src, dst),
   readLink: (p) => invoke<string>('read_symlink', { path: p }),

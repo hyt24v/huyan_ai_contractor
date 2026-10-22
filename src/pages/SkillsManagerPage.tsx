@@ -18,6 +18,7 @@ import {
   installFromGit,
   type SkillsSnapshot,
 } from '../services/agentSkills';
+import { isTauri } from '@tauri-apps/api/core';
 
 const AGENT_SHORT: Record<AgentId, string> = {
   claude: 'Claude',
@@ -147,7 +148,8 @@ export default function SkillsManagerPage() {
       )}
       {error && (
         <div className="shrink-0 border-b bg-destructive/10 px-4 py-1.5 text-xs text-destructive">
-          {error}（此功能仅在桌面 App 中可用）
+          {error}
+          {!isTauri() && '（此功能仅在桌面 App 中可用）'}
         </div>
       )}
 

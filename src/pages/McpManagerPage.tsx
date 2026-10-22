@@ -4,6 +4,7 @@ import { SegmentedControl, Toolbar, ToolbarButton, ToolbarDivider } from '../com
 import { AGENTS, type AgentId } from '../lib/agents';
 import type { CentralManifest, CentralServer } from '../lib/mcp';
 import { distribute, saveManifest, scanMcp } from '../services/agentMcp';
+import { isTauri } from '@tauri-apps/api/core';
 
 const AGENT_SHORT: Record<AgentId, string> = {
   claude: 'Claude',
@@ -209,7 +210,8 @@ export default function McpManagerPage() {
 
       {error && (
         <div className="shrink-0 border-b bg-destructive/10 px-4 py-1.5 text-xs text-destructive">
-          {error}（此功能仅在桌面 App 中可用）
+          {error}
+          {!isTauri() && '（此功能仅在桌面 App 中可用）'}
         </div>
       )}
 
