@@ -71,7 +71,7 @@ export default function Layout() {
           <img
             src={logo}
             alt="AI包工头"
-            className="h-6 w-6 shrink-0 rounded-md object-cover"
+            className="h-7 w-7 shrink-0 rounded-[7px] object-cover shadow-sm"
           />
           {!collapsed && (
             <span className="truncate text-sm font-semibold tracking-tight">
