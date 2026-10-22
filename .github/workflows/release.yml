@@ -5,18 +5,21 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   release:
-    permissions:
-      contents: write
     runs-on: macos-14
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # jsonpath-plus 要求 Node >= 22，Node 20 下 npm ci 会失败/卡住
+          node-version: 22
           cache: npm
 
       # Universal 2 二进制：同时内嵌 arm64 + x86_64，一个 dmg 通吃两种芯片
@@ -30,21 +33,29 @@ jobs:
         with:
           workspaces: src-tauri -> target
 
+      # lockfile 已指向公共 registry.npmjs.org；网络抖动时重试一次
       - name: Install frontend dependencies
-        run: npm ci
-
-      # tauri-action 需要 tauri CLI 可用：优先本地，装不上则全局装，最后验证
-      - name: Ensure tauri CLI
         run: |
-          npm install --no-save @tauri-apps/cli@^2.12.3 || true
-          if [ ! -x node_modules/.bin/tauri ]; then
-            npm install -g @tauri-apps/cli@^2.12.3
-          fi
-          npx tauri --version
+          npm ci --no-audit --no-fund || npm ci --no-audit --no-fund
+          test -x node_modules/.bin/tsc
+          test -x node_modules/.bin/tauri
 
-      - name: Build and upload release
+      - name: Check frontend build
+        run: npm run build
+
+      - name: Build and publish GitHub Release
         uses: tauri-apps/tauri-action@v0
-        with:
-          args: --target universal-apple-darwin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'AI包工头 ${{ github.ref_name }}'
+          releaseBody: |
+            自动构建的 macOS Universal 安装包（Apple Silicon + Intel 通用）。
+
+            下载 `.dmg` 后打开，把「AI包工头」拖入「应用程序」即可。
+            首次打开如提示未验证开发者，请右键点击 App → 打开。
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: false
+          args: --target universal-apple-darwin
