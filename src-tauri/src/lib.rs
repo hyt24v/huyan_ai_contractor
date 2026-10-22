@@ -72,6 +72,43 @@ fn remove_path(path: String, recursive: bool) -> Result<(), String> {
     }
 }
 
+/// 运行 git 子命令并合并 stdout/stderr；失败时把输出作为错误返回。
+fn run_git(args: &[&str]) -> Result<String, String> {
+    let output = std::process::Command::new("git")
+        .args(args)
+        .output()
+        .map_err(|e| e.to_string())?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{}{}", stdout, stderr);
+    let trimmed = combined.trim();
+    if output.status.success() {
+        Ok(trimmed.to_string())
+    } else if trimmed.is_empty() {
+        Err(format!("git 失败，退出码 {:?}", output.status.code()))
+    } else {
+        Err(trimmed.to_string())
+    }
+}
+
+/// 快进更新库内 skill 仓库。
+#[tauri::command]
+fn git_pull(path: String) -> Result<String, String> {
+    run_git(&["-C", path.as_str(), "pull", "--ff-only"])
+}
+
+/// 读取 origin 地址。
+#[tauri::command]
+fn git_remote(path: String) -> Result<String, String> {
+    run_git(&["-C", path.as_str(), "remote", "get-url", "origin"])
+}
+
+/// 读取当前 commit 短 hash。
+#[tauri::command]
+fn git_head(path: String) -> Result<String, String> {
+    run_git(&["-C", path.as_str(), "rev-parse", "--short", "HEAD"])
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -82,7 +119,10 @@ pub fn run() {
             is_symlink,
             git_clone,
             copy_dir,
-            remove_path
+            remove_path,
+            git_pull,
+            git_remote,
+            git_head
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

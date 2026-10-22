@@ -1,4 +1,5 @@
 /** Skills 管理服务：fsPort + skills.ts 纯逻辑的粘合层 */
+import { invoke } from '@tauri-apps/api/core';
 import { AGENTS, SKILL_LIBRARY_DIR, type AgentId } from '../lib/agents';
 import { absPath, tauriFs, type FsPort } from '../lib/fsPort';
 import {
@@ -112,6 +113,40 @@ export async function installFromGit(
     await fs.remove(dest, true);
     throw new Error('克隆成功但目录下没有 SKILL.md，不是合法 skill');
   }
+}
+
+/** 中央库 skill 目录（不存在则报错） */
+async function librarySkillPath(skillName: string, fs: FsPort): Promise<string> {
+  const dest = await absPath(`${SKILL_LIBRARY_DIR}/${skillName}`);
+  if (!(await fs.exists(dest))) throw new Error(`中央库不存在 ${skillName}`);
+  return dest;
+}
+
+/** git pull --ff-only 更新库内 skill，返回命令输出 */
+export async function updateSkillFromGit(
+  skillName: string,
+  fs: FsPort = tauriFs,
+): Promise<string> {
+  const path = await librarySkillPath(skillName, fs);
+  return (await invoke<string>('git_pull', { path })).trim();
+}
+
+/** 读取库内 skill 的 origin 地址；非 git 仓库会抛错 */
+export async function skillGitRemote(
+  skillName: string,
+  fs: FsPort = tauriFs,
+): Promise<string> {
+  const path = await librarySkillPath(skillName, fs);
+  return (await invoke<string>('git_remote', { path })).trim();
+}
+
+/** 读取库内 skill 当前 commit 短 hash；非 git 仓库会抛错 */
+export async function skillGitStatus(
+  skillName: string,
+  fs: FsPort = tauriFs,
+): Promise<string> {
+  const path = await librarySkillPath(skillName, fs);
+  return (await invoke<string>('git_head', { path })).trim();
 }
 
 /** 读取 skill 描述（库优先，其次任一 agent 本地） */
