@@ -9,10 +9,13 @@ npm run tauri:dev    # 开发模式（热更新）
 npm run tauri:build  # 打包 AI包工头.app + .dmg（产物在 src-tauri/target/release/bundle/）
 ```
 
-## 第一期工具
+## 功能
 
 - **JSON 编辑器**（对标 json.cn）：校验、格式化、压缩、转义/去转义、Unicode 转中文、复制、下载、打开本地文件/拖拽载入；右侧树形视图（展开/收起、复制值/路径）；错误行列定位跳转
 - **JSONL 编辑器**：逐行校验（错误行红标 + 状态栏统计）、格式化/压缩（空行可选保留）、代码/表格双视图（表格取字段并集，非法行单独列出）、行级操作（跳转/删除/复制/下个错误）
+- **Skills 管理**：`~/ai-skills` 中央库 + 各 agent 目录软链启停、本地 skill 收编、GitHub URL 安装
+- **MCP 管理**：中央清单 `~/.ai-baogongtou/mcp-central.json`，勾选分发到 Claude / Codex / Pi / Cursor / Gemini，写入前自动备份
+- **界面**：左侧栏可收起/展开（⌘B / Ctrl+B），主题切换，纯本地运行
 
 ## 开发
 

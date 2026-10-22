@@ -46,7 +46,7 @@ const MODE_KEY = 'huyan_tool:editor-mode';
 
 const SAMPLE = `{
   "name": "AI包工头",
-  "version": "0.2.0",
+  "version": "0.3.2",
   "site": "https://github.com/hyt24v/huyan_ai_contractor",
   "created": "2026-10-21",
   "tags": ["json", "jsonl"],
