@@ -19,7 +19,7 @@ export default function SkillGrid({
     <div
       className={
         layout === 'grid'
-          ? 'grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3'
+          ? 'grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3'
           : 'flex flex-col gap-1.5'
       }
     >
