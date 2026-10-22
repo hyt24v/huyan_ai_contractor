@@ -1,21 +1,14 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
-  Braces,
-  Cable,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
-  Puzzle,
   Sun,
   Wrench,
 } from 'lucide-react';
-
-export const TOOLS = [
-  { path: '/json', name: 'JSON 编辑器', icon: Braces },
-  { path: '/skills', name: 'Skills 管理', icon: Puzzle },
-  { path: '/mcp', name: 'MCP 管理', icon: Cable },
-];
+import CommandPalette from './CommandPalette';
+import { TOOLS } from '../lib/tools';
 
 const THEME_KEY = 'huyan_tool:theme';
 const SIDEBAR_KEY = 'huyan_tool:sidebar_collapsed';
@@ -155,6 +148,7 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+      <CommandPalette />
     </div>
   );
 }

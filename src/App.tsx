@@ -3,6 +3,10 @@ import Layout from './components/Layout';
 import JsonToolPage from './pages/JsonToolPage';
 import McpManagerPage from './pages/McpManagerPage';
 import SkillsManagerPage from './pages/SkillsManagerPage';
+import HealthPage from './pages/HealthPage';
+import ProfilesPage from './pages/ProfilesPage';
+import ProvidersPage from './pages/ProvidersPage';
+import PromptsPage from './pages/PromptsPage';
 
 export default function App() {
   return (
@@ -13,6 +17,10 @@ export default function App() {
           <Route path="/json" element={<JsonToolPage />} />
           <Route path="/skills" element={<SkillsManagerPage />} />
           <Route path="/mcp" element={<McpManagerPage />} />
+          <Route path="/health" element={<HealthPage />} />
+          <Route path="/profiles" element={<ProfilesPage />} />
+          <Route path="/providers" element={<ProvidersPage />} />
+          <Route path="/prompts" element={<PromptsPage />} />
           {/* 旧路由兼容：重定向到统一编辑器 */}
           <Route path="/jsonl" element={<Navigate to="/json" replace />} />
         </Route>
