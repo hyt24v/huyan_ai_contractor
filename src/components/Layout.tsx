@@ -5,11 +5,11 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Sun,
-  Wrench,
 } from 'lucide-react';
 import CommandPalette from './CommandPalette';
 import { useAutoBackup } from '../hooks/useAutoBackup';
 import { TOOLS } from '../lib/tools';
+import logo from '../../src-tauri/icons/icon.png';
 
 const THEME_KEY = 'huyan_tool:theme';
 const SIDEBAR_KEY = 'huyan_tool:sidebar_collapsed';
@@ -68,9 +68,11 @@ export default function Layout() {
             collapsed ? 'justify-center px-2' : 'gap-2 px-4'
           }`}
         >
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Wrench className="h-3.5 w-3.5" />
-          </div>
+          <img
+            src={logo}
+            alt="AI包工头"
+            className="h-6 w-6 shrink-0 rounded-md object-cover"
+          />
           {!collapsed && (
             <span className="truncate text-sm font-semibold tracking-tight">
               AI包工头
