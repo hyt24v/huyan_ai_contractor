@@ -20,6 +20,8 @@ export interface McpSnapshot {
   manifest: CentralManifest;
   /** 每个 agent 当前实际配置里的 server 名（用于展示差异） */
   perAgent: Partial<Record<AgentId, string[]>>;
+  /** 每个 agent 当前实际的 server 规格（用于分发预览 / 漂移检测） */
+  current: Partial<Record<AgentId, Record<string, McpServerSpec>>>;
 }
 
 async function manifestPath(): Promise<string> {
@@ -59,6 +61,7 @@ export async function scanMcp(fs: FsPort = tauriFs): Promise<McpSnapshot> {
   const manifest = await loadManifest(fs);
   const scans: Partial<Record<AgentId, { servers: Record<string, McpServerSpec>; enabled: Record<string, boolean> }>> = {};
   const perAgent: Partial<Record<AgentId, string[]>> = {};
+  const current: Partial<Record<AgentId, Record<string, McpServerSpec>>> = {};
   for (const agent of AGENTS) {
     const p = await absPath(agent.mcpFile);
     if (!(await fs.exists(p))) continue;
@@ -70,6 +73,7 @@ export async function scanMcp(fs: FsPort = tauriFs): Promise<McpSnapshot> {
         scans[agent.id] = parseTomlMcpServers(text);
       }
       perAgent[agent.id] = Object.keys(scans[agent.id]!.servers);
+      current[agent.id] = scans[agent.id]!.servers;
     } catch {
       // 单个 agent 配置坏了不影响整体
     }
@@ -83,7 +87,7 @@ export async function scanMcp(fs: FsPort = tauriFs): Promise<McpSnapshot> {
       ? { ...s, agents: { ...s.agents, ...existing.agents } }
       : s;
   });
-  return { manifest: { servers }, perAgent };
+  return { manifest: { servers }, perAgent, current };
 }
 
 /** 简单解析 codex config.toml 里的 mcp_servers（只读我们生成的标准形态 + 常见形态） */

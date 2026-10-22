@@ -1,9 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Pencil, Plus, RefreshCw, Send, Trash2 } from 'lucide-react';
+import { AlertTriangle, History, Pencil, Plus, RefreshCw, Send, Trash2 } from 'lucide-react';
 import { SegmentedControl, Toolbar, ToolbarButton, ToolbarDivider } from '../components/Toolbar';
+import DiffView from '../components/DiffView';
 import { AGENTS, type AgentId } from '../lib/agents';
+import { snapshotDisplayTime, type SnapshotRecord } from '../lib/backups';
 import type { CentralManifest, CentralServer } from '../lib/mcp';
-import { distribute, saveManifest, scanMcp } from '../services/agentMcp';
+import { computeMcpDiff, type McpDiff, type PerAgentServers } from '../lib/mcpDiff';
+import { distribute, loadManifest, saveManifest, scanMcp } from '../services/agentMcp';
+import {
+  createSnapshot,
+  listSnapshots,
+  pruneSnapshots,
+  restoreSnapshot,
+} from '../services/backups';
 import { isTauri } from '@tauri-apps/api/core';
 
 const AGENT_SHORT: Record<AgentId, string> = {
@@ -97,6 +106,12 @@ export default function McpManagerPage() {
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<EditDraft | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [current, setCurrent] = useState<PerAgentServers>({});
+  const [diff, setDiff] = useState<McpDiff | null>(null);
+  const [driftCount, setDriftCount] = useState(0);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [history, setHistory] = useState<SnapshotRecord[]>([]);
+  const [historyBusy, setHistoryBusy] = useState(false);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -107,7 +122,22 @@ export default function McpManagerPage() {
     setError('');
     try {
       const snap = await scanMcp();
-      setManifest(snap.manifest);
+      // 以已保存的中央清单为准：清单里有、磁盘配置里缺失的 server 也要保留在页面中，
+      // 否则「保存并分发」无法用它修复漂移。
+      const persisted = await loadManifest();
+      const pageServers: CentralServer[] = persisted.servers.map(
+        (p) => snap.manifest.servers.find((m) => m.name === p.name) ?? p,
+      );
+      for (const m of snap.manifest.servers) {
+        if (!pageServers.some((x) => x.name === m.name)) pageServers.push(m);
+      }
+      setManifest({ servers: pageServers });
+      setCurrent(snap.current ?? {});
+      setDriftCount(
+        persisted.servers.length > 0
+          ? computeMcpDiff(persisted, snap.current ?? {}).summary.changedAgents
+          : 0,
+      );
       setDirty(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -159,10 +189,25 @@ export default function McpManagerPage() {
     setDraft(null);
   }, [draft, mutate, showToast]);
 
-  const applyAll = useCallback(async () => {
+  /** 「保存并分发」第一步：先算差异，无变更直接提示，有变更打开预览 */
+  const applyAll = useCallback(() => {
+    if (!manifest) return;
+    const nextDiff = computeMcpDiff(manifest, current);
+    if (!nextDiff.summary.hasChanges) {
+      showToast('无变更，无需分发');
+      setDirty(false);
+      return;
+    }
+    setDiff(nextDiff);
+  }, [manifest, current, showToast]);
+
+  /** 预览确认后：快照 → 写中央清单 → 分发 → 刷新 */
+  const confirmDistribute = useCallback(async () => {
     if (!manifest) return;
     setBusy(true);
     try {
+      const snapshot = await createSnapshot(undefined, '分发前自动快照');
+      await pruneSnapshots();
       await saveManifest(manifest);
       const { written, errors } = await distribute(manifest);
       const errList = Object.entries(errors)
@@ -170,11 +215,12 @@ export default function McpManagerPage() {
         .join('；');
       showToast(
         errList
-          ? `已写入 ${written.length} 个 agent；失败：${errList}`
+          ? `已快照 ${snapshot}；写入 ${written.length} 个 agent；失败：${errList}`
           : written.length > 0
-            ? `已分发到 ${written.map((a) => AGENT_SHORT[a]).join('、')}（原文件已备份 .bak）`
-            : '无变更',
+            ? `已快照 ${snapshot}，分发到 ${written.map((a) => AGENT_SHORT[a]).join('、')}`
+            : `已保存中央清单（快照 ${snapshot}），无文件需写入`,
       );
+      setDiff(null);
       setDirty(false);
       await refresh();
     } catch (e) {
@@ -183,6 +229,42 @@ export default function McpManagerPage() {
       setBusy(false);
     }
   }, [manifest, refresh, showToast]);
+
+  const openHistory = useCallback(async () => {
+    setHistoryOpen(true);
+    setHistoryBusy(true);
+    try {
+      setHistory(await listSnapshots());
+    } catch (e) {
+      showToast(`读取快照失败：${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setHistoryBusy(false);
+    }
+  }, [showToast]);
+
+  const rollback = useCallback(
+    async (record: SnapshotRecord) => {
+      if (!window.confirm(`确定回滚到快照 ${snapshotDisplayTime(record)}？当前配置将被覆盖。`)) {
+        return;
+      }
+      setHistoryBusy(true);
+      try {
+        const result = await restoreSnapshot(undefined, record.id);
+        showToast(
+          result.missing.length > 0
+            ? `已回滚 ${result.restored.length} 个文件，${result.missing.length} 个缺失已跳过`
+            : `已回滚 ${result.restored.length} 个文件`,
+        );
+        setHistoryOpen(false);
+        await refresh();
+      } catch (e) {
+        showToast(`回滚失败：${e instanceof Error ? e.message : String(e)}`);
+      } finally {
+        setHistoryBusy(false);
+      }
+    },
+    [refresh, showToast],
+  );
 
   const servers = manifest?.servers ?? [];
 
@@ -198,7 +280,15 @@ export default function McpManagerPage() {
           新增 Server
         </ToolbarButton>
         <ToolbarDivider />
-        <ToolbarButton primary disabled={busy || !dirty} onClick={() => void applyAll()}>
+        <ToolbarButton onClick={() => void openHistory()} title="查看配置快照并回滚">
+          <History className="mr-1 inline h-3.5 w-3.5" />
+          历史
+        </ToolbarButton>
+        <ToolbarButton
+          primary
+          disabled={busy || (!dirty && driftCount === 0)}
+          onClick={applyAll}
+        >
           <Send className="mr-1 inline h-3.5 w-3.5" />
           保存并分发
         </ToolbarButton>
@@ -212,6 +302,16 @@ export default function McpManagerPage() {
         <div className="shrink-0 border-b bg-destructive/10 px-4 py-1.5 text-xs text-destructive">
           {error}
           {!isTauri() && '（此功能仅在桌面 App 中可用）'}
+        </div>
+      )}
+
+      {driftCount > 0 && (
+        <div className="flex shrink-0 items-center gap-2 border-b bg-warning/10 px-4 py-1.5 text-xs text-warning">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <span>检测到 {driftCount} 个 agent 配置与中央清单不一致</span>
+          <span className="text-warning/70">
+            可点「保存并分发」按中央清单覆盖，或「刷新」重新导入
+          </span>
         </div>
       )}
 
@@ -377,6 +477,79 @@ export default function McpManagerPage() {
       <div className="flex h-7 shrink-0 items-center border-t bg-card px-3 text-xs text-muted-foreground">
         勾选 = 分发时写入该 agent 配置文件；取消勾选并分发 = 从该 agent 移除。写入前自动备份（.bak.时间戳）
       </div>
+
+      {diff && (
+        <DiffView
+          diff={diff}
+          busy={busy}
+          onCancel={() => setDiff(null)}
+          onConfirm={() => void confirmDistribute()}
+        />
+      )}
+
+      {historyOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border bg-card shadow-lg">
+            <div className="flex shrink-0 items-center gap-2 border-b px-4 py-2.5">
+              <h2 className="text-sm font-semibold">配置快照历史</h2>
+              <span className="text-xs text-muted-foreground">
+                回滚会覆盖当前各 agent 的 MCP 配置文件
+              </span>
+              <button
+                onClick={() => setHistoryOpen(false)}
+                className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+              >
+                关闭
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-auto">
+              {historyBusy && history.length === 0 && (
+                <div className="px-4 py-8 text-center text-xs text-muted-foreground">读取中…</div>
+              )}
+              {!historyBusy && history.length === 0 && (
+                <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+                  暂无快照。分发前和每 6 小时会自动创建快照。
+                </div>
+              )}
+              {history.map((record) => {
+                const existing = record.files.filter((f) => f.exists);
+                return (
+                  <div
+                    key={record.id}
+                    className="flex items-center gap-3 border-b px-4 py-2.5 text-xs last:border-b-0"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{snapshotDisplayTime(record)}</span>
+                        {record.label && (
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                            {record.label}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
+                        {existing.length > 0
+                          ? existing.map((f) => f.file).join('、')
+                          : record.id}
+                      </div>
+                    </div>
+                    <ToolbarButton
+                      disabled={historyBusy || existing.length === 0}
+                      onClick={() => void rollback(record)}
+                    >
+                      回滚
+                    </ToolbarButton>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex shrink-0 items-center justify-between border-t bg-muted/20 px-4 py-2 text-[11px] text-muted-foreground">
+              <span>共 {history.length} 个快照，默认只保留最新 20 个</span>
+              <span>目录：~/.ai-baogongtou/backups/</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
