@@ -13,6 +13,11 @@ fn read_symlink(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+fn path_exists(path: String) -> bool {
+    std::path::Path::new(&path).exists()
+}
+
+#[tauri::command]
 fn is_symlink(path: String) -> bool {
     std::fs::symlink_metadata(&path)
         .map(|md| md.file_type().is_symlink())
@@ -117,6 +122,7 @@ pub fn run() {
             create_symlink,
             read_symlink,
             is_symlink,
+            path_exists,
             git_clone,
             copy_dir,
             remove_path,

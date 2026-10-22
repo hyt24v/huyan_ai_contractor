@@ -12,6 +12,7 @@ import {
   type HealthReport,
   type SkillHealthEntry,
 } from '../lib/diagnostics';
+import { invoke } from '@tauri-apps/api/core';
 import { absPath, tauriFs, type FsPort } from '../lib/fsPort';
 import { linkPointsToLibrary, parseSkillMdMeta } from '../lib/skills';
 import { scanAll, type SkillsSnapshot } from './agentSkills';
@@ -189,7 +190,12 @@ export async function collectMissingCommands(
     if (command.startsWith('~/')) p = await absPath(command.slice(2));
     else if (!command.startsWith('/')) continue; // ./ 相对路径无法可靠解析
     try {
-      if (!(await fs.exists(p))) out.push({ server: server.name, command });
+      // 绝对路径可能不在 fs scope 内（如 /usr/local/bin），用 Rust 命令检查；
+      // ~/ 路径已转成 home 下绝对路径，走普通 fs 即可。
+      const exists = p.startsWith('/') && !p.startsWith(await absPath(''))
+        ? await invoke<boolean>('path_exists', { path: p })
+        : await fs.exists(p);
+      if (!exists) out.push({ server: server.name, command });
     } catch {
       out.push({ server: server.name, command });
     }
