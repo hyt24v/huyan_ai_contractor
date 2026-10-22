@@ -58,19 +58,52 @@ export function linkPointsToLibrary(target: string, libraryAbs: string): boolean
   return target === libraryAbs || target.startsWith(`${libraryAbs}/`);
 }
 
-/** 从 SKILL.md 内容提取 name/description（YAML frontmatter，宽松解析） */
+const stripQuotes = (raw: string): string =>
+  raw.trim().replace(/^["']/, '').replace(/["']$/, '').trim();
+
+const unique = (list: string[]): string[] => [...new Set(list.filter(Boolean))];
+
+/** 解析 frontmatter 里的 tags：支持 [a, b] / a, b / 多行 - a 三种写法 */
+function parseFrontmatterTags(front: string): string[] | undefined {
+  // tags:\n  - a\n  - b
+  const block = front.match(/^tags:[ \t]*\n((?:[ \t]*-[^\n]*\n?)+)/m);
+  if (block) {
+    return unique(
+      block[1]
+        .split('\n')
+        .map((line) => line.match(/^[ \t]*-[ \t]*(.+)$/)?.[1] ?? '')
+        .map(stripQuotes),
+    );
+  }
+  const inline = front.match(/^tags:[ \t]*(.*)$/m);
+  if (inline) {
+    return unique(
+      inline[1]
+        .replace(/^\[/, '')
+        .replace(/\]$/, '')
+        .split(',')
+        .map(stripQuotes),
+    );
+  }
+  return undefined;
+}
+
+/** 从 SKILL.md 内容提取 name/description/tags（YAML frontmatter，宽松解析） */
 export function parseSkillMdMeta(content: string): {
   name?: string;
   description?: string;
+  tags?: string[];
 } {
   const m = content.match(/^---\n([\s\S]*?)\n---/);
   if (!m) return {};
   const front = m[1];
   const name = front.match(/^name:\s*(.+)$/m)?.[1]?.trim();
   const desc = front.match(/^description:\s*(.+)$/m)?.[1]?.trim();
+  const tags = parseFrontmatterTags(front);
   return {
     ...(name ? { name } : {}),
     ...(desc ? { description: desc.slice(0, 120) } : {}),
+    ...(tags ? { tags } : {}),
   };
 }
 
