@@ -600,7 +600,10 @@ export default function SkillsManagerPage() {
     marketTag === 'all' ? marketRepos : marketRepos.filter((r) => r.tags.includes(marketTag));
 
   const runAudit = useCallback(async () => {
-    if (!snap) return;
+    if (!snap) {
+      showToast('扫描尚未完成，请稍后再试', 'err');
+      return;
+    }
     setAuditOpen(true);
     setAuditLoading(true);
     try {
