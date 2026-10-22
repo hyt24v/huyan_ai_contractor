@@ -54,7 +54,8 @@ jobs:
             自动构建的 macOS Universal 安装包（Apple Silicon + Intel 通用）。
 
             下载 `.dmg` 后打开，把「AI包工头」拖入「应用程序」即可。
-            首次打开如提示未验证开发者，请右键点击 App → 打开。
+            首次打开如提示未验证开发者：macOS 15+ 请到「系统设置 → 隐私与安全性 → 仍要打开」；
+            或执行 `xattr -cr "/Applications/AI包工头.app"` 后重新打开。
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: false
