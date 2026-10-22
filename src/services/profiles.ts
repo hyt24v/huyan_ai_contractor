@@ -12,6 +12,7 @@ import {
 import { enableSkill, scanAll } from './agentSkills';
 import { distribute, loadManifest, saveManifest } from './agentMcp';
 import { applyPrompt, loadPromptLibrary } from './agentPrompts';
+import { applyProvider, loadStore as loadProviderStore, setActive } from './providers';
 
 const PROFILES_FILE = '.ai-baogongtou/profiles.json';
 const PROFILE_BACKUP_DIR = '.ai-baogongtou/profile-backups';
@@ -201,6 +202,36 @@ export async function applyProfile(
       }
     } catch (e) {
       errors.push(`提示词应用失败：${errMsg(e)}`);
+    }
+  }
+
+  // 4) 模型服务：按 agent 应用 provider（写入前 applyProvider 内部会备份）
+  const providerEntries = Object.entries(profile.providers ?? {}) as [AgentId, string][];
+  if (providerEntries.length > 0) {
+    try {
+      const providerStore = await loadProviderStore(fs);
+      for (const [agent, providerId] of providerEntries) {
+        const provider = providerStore.providers.find((p) => p.id === providerId);
+        if (!provider) {
+          errors.push(`模型服务 → ${agentLabel(agent)} 未找到（id: ${providerId}）`);
+          continue;
+        }
+        if (provider.agent !== agent) {
+          errors.push(
+            `模型服务「${provider.name}」属于 ${agentLabel(provider.agent)}，不能应用到 ${agentLabel(agent)}`,
+          );
+          continue;
+        }
+        const result = await applyProvider(provider, fs);
+        if (!result.ok) {
+          errors.push(`模型服务「${provider.name}」→ ${agentLabel(agent)} 写入失败：${result.message}`);
+          continue;
+        }
+        await setActive(agent, provider.id, fs);
+        applied.push(`模型服务「${provider.name}」→ ${agentLabel(agent)}`);
+      }
+    } catch (e) {
+      errors.push(`模型服务应用失败：${errMsg(e)}`);
     }
   }
 

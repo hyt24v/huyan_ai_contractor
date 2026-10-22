@@ -9,7 +9,7 @@ import {
   Sparkles,
   type LucideIcon,
 } from 'lucide-react';
-import { TOOLS } from './Layout';
+import { TOOLS } from '../lib/tools';
 
 interface PaletteItem {
   id: string;

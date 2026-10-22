@@ -11,6 +11,8 @@ export interface Profile {
   mcpServers: string[];
   /** 每个 agent 要写入的提示词 id */
   prompts: Partial<Record<AgentId, string>>;
+  /** 每个 agent 要应用的模型服务 id（providers.json） */
+  providers?: Partial<Record<AgentId, string>>;
   createdAt: string;
   updatedAt: string;
 }
@@ -25,6 +27,7 @@ export interface ProfileDraft {
   skills: string[];
   mcpServers: string[];
   prompts: Partial<Record<AgentId, string>>;
+  providers?: Partial<Record<AgentId, string>>;
 }
 
 export interface ProfileValidation {
@@ -41,6 +44,7 @@ export interface ProfileSummary {
   skills: number;
   mcpServers: number;
   prompts: number;
+  providers: number;
 }
 
 export const emptyProfileStore = (): ProfileStore => ({ profiles: [] });
@@ -134,6 +138,7 @@ function profileFromDraft(
     skills: sanitizeStringList(draft.skills),
     mcpServers: sanitizeStringList(draft.mcpServers),
     prompts: sanitizePrompts(draft.prompts),
+    providers: sanitizePrompts(draft.providers),
     createdAt,
     updatedAt,
   };
@@ -198,6 +203,7 @@ export function duplicateProfile(
       skills: source.skills,
       mcpServers: source.mcpServers,
       prompts: source.prompts,
+      providers: source.providers,
     },
     opts.id ?? newProfileId(),
     now.toISOString(),
@@ -211,13 +217,14 @@ export function profileSummary(profile: Profile): ProfileSummary {
     skills: profile.skills.length,
     mcpServers: profile.mcpServers.length,
     prompts: Object.keys(profile.prompts).length,
+    providers: Object.keys(profile.providers ?? {}).length,
   };
 }
 
 /** 卡片上的一行摘要 */
 export function summarizeProfile(profile: Profile): string {
   const s = profileSummary(profile);
-  return `${s.skills} 个 Skill · ${s.mcpServers} 个 MCP · ${s.prompts} 个提示词`;
+  return `${s.skills} 个 Skill · ${s.mcpServers} 个 MCP · ${s.prompts} 个提示词 · ${s.providers} 个模型服务`;
 }
 
 /** 宽松解析单条套餐；关键字段缺失返回 null */
@@ -243,6 +250,10 @@ export function normalizeProfile(raw: unknown): Profile | null {
     prompts:
       typeof r.prompts === 'object' && r.prompts !== null
         ? sanitizePrompts(r.prompts as Partial<Record<AgentId, string>>)
+        : {},
+    providers:
+      typeof r.providers === 'object' && r.providers !== null
+        ? sanitizePrompts(r.providers as Partial<Record<AgentId, string>>)
         : {},
     createdAt,
     updatedAt,
@@ -309,6 +320,7 @@ export function mergeProfileStores(
       skills: [...src.skills],
       mcpServers: [...src.mcpServers],
       prompts: { ...src.prompts },
+      providers: { ...(src.providers ?? {}) },
       updatedAt: now.toISOString(),
     };
     profiles.push(copy);

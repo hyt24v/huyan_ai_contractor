@@ -8,6 +8,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import CommandPalette from './CommandPalette';
+import { useAutoBackup } from '../hooks/useAutoBackup';
 import { TOOLS } from '../lib/tools';
 
 const THEME_KEY = 'huyan_tool:theme';
@@ -29,6 +30,9 @@ export default function Layout() {
   const [collapsed, setCollapsed] = useState(getInitialCollapsed);
   const location = useLocation();
   const currentTool = TOOLS.find((t) => location.pathname.startsWith(t.path));
+
+  // 桌面端每 6 小时自动快照一次 MCP 配置
+  useAutoBackup();
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark);
@@ -76,7 +80,7 @@ export default function Layout() {
         <nav className="flex-1 overflow-y-auto p-2">
           {!collapsed ? (
             <div className="px-2 pb-1.5 pt-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              数据工具
+              工作台
             </div>
           ) : (
             <div className="mx-2 mb-2 border-t" />

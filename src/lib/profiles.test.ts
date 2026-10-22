@@ -71,6 +71,7 @@ describe('addProfile', () => {
       skills: ['pdf'],
       mcpServers: ['filesystem'],
       prompts: { claude: 'p1', gemini: 'p2' },
+      providers: {},
       createdAt: NOW.toISOString(),
       updatedAt: NOW.toISOString(),
     });
@@ -131,8 +132,8 @@ describe('duplicateProfile', () => {
 describe('summary', () => {
   it('统计 skills / MCP / 提示词数量', () => {
     const p = storeWith().profiles[0];
-    expect(profileSummary(p)).toEqual({ skills: 2, mcpServers: 1, prompts: 1 });
-    expect(summarizeProfile(p)).toBe('2 个 Skill · 1 个 MCP · 1 个提示词');
+    expect(profileSummary(p)).toEqual({ skills: 2, mcpServers: 1, prompts: 1, providers: 0 });
+    expect(summarizeProfile(p)).toBe('2 个 Skill · 1 个 MCP · 1 个提示词 · 0 个模型服务');
   });
 });
 

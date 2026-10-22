@@ -249,11 +249,12 @@ export default function McpManagerPage() {
       }
       setHistoryBusy(true);
       try {
+        const safety = await createSnapshot(undefined, `回滚前自动快照（${snapshotDisplayTime(record)}）`);
         const result = await restoreSnapshot(undefined, record.id);
         showToast(
           result.missing.length > 0
-            ? `已回滚 ${result.restored.length} 个文件，${result.missing.length} 个缺失已跳过`
-            : `已回滚 ${result.restored.length} 个文件`,
+            ? `已回滚 ${result.restored.length} 个文件，${result.missing.length} 个缺失已跳过；回滚前状态已快照 ${safety}`
+            : `已回滚 ${result.restored.length} 个文件；回滚前状态已快照 ${safety}`,
         );
         setHistoryOpen(false);
         await refresh();

@@ -35,6 +35,8 @@ import type { PromptLibrary } from '../lib/prompts';
 import { scanAll } from '../services/agentSkills';
 import { scanMcp } from '../services/agentMcp';
 import { loadPromptLibrary } from '../services/agentPrompts';
+import { loadStore as loadProviderStore } from '../services/providers';
+import type { ProviderStore } from '../lib/providers';
 import { applyProfile, loadProfiles, saveProfiles } from '../services/profiles';
 import { isTauri } from '@tauri-apps/api/core';
 
@@ -52,6 +54,7 @@ interface DraftState {
   skills: string[];
   mcpServers: string[];
   prompts: Partial<Record<AgentId, string>>;
+  providers: Partial<Record<AgentId, string>>;
 }
 
 interface ModalState {
@@ -74,6 +77,7 @@ const emptyDraft = (): DraftState => ({
   skills: [],
   mcpServers: [],
   prompts: {},
+  providers: {},
 });
 
 function errorText(e: unknown): string {
@@ -87,6 +91,7 @@ function draftOf(profile: Profile): DraftState {
     skills: [...profile.skills],
     mcpServers: [...profile.mcpServers],
     prompts: { ...profile.prompts },
+    providers: { ...(profile.providers ?? {}) },
   };
 }
 
@@ -97,6 +102,7 @@ function toDraft(d: DraftState): ProfileDraft {
     skills: d.skills,
     mcpServers: d.mcpServers,
     prompts: d.prompts,
+    providers: d.providers,
   };
 }
 
@@ -110,6 +116,7 @@ export default function ProfilesPage() {
   const [skillNames, setSkillNames] = useState<string[]>([]);
   const [mcpNames, setMcpNames] = useState<string[]>([]);
   const [promptLib, setPromptLib] = useState<PromptLibrary | null>(null);
+  const [providerStore, setProviderStore] = useState<ProviderStore>({ providers: [], active: {} });
   const [modal, setModal] = useState<ModalState | null>(null);
   const [report, setReport] = useState<ApplyReport | null>(null);
   const [busy, setBusy] = useState(false);
@@ -126,11 +133,12 @@ export default function ProfilesPage() {
 
   const refresh = useCallback(async () => {
     setError('');
-    const [storeRes, skillsRes, mcpRes, libRes] = await Promise.allSettled([
+    const [storeRes, skillsRes, mcpRes, libRes, providerRes] = await Promise.allSettled([
       loadProfiles(),
       scanAll(),
       scanMcp(),
       loadPromptLibrary(),
+      loadProviderStore(),
     ]);
     if (storeRes.status === 'fulfilled') {
       setStore(storeRes.value);
@@ -149,6 +157,9 @@ export default function ProfilesPage() {
         : [],
     );
     setPromptLib(libRes.status === 'fulfilled' ? libRes.value : null);
+    setProviderStore(
+      providerRes.status === 'fulfilled' ? providerRes.value : { providers: [], active: {} },
+    );
     setLoaded(true);
   }, []);
 
@@ -228,11 +239,13 @@ export default function ProfilesPage() {
   const apply = useCallback(
     async (profile: Profile) => {
       const promptCount = Object.keys(profile.prompts).length;
+      const providerCount = Object.keys(profile.providers ?? {}).length;
       const ok = window.confirm(
         `应用套餐「${profile.name}」？\n\n` +
           `· 启用 ${profile.skills.length} 个 Skill（全部 agent）\n` +
           `· 写回 ${profile.mcpServers.length} 个 MCP server 配置\n` +
-          `· 写入 ${promptCount} 个提示词\n\n` +
+          `· 写入 ${promptCount} 个提示词\n` +
+          `· 应用 ${providerCount} 个模型服务\n\n` +
           '所有被覆盖的文件都会先备份。',
       );
       if (!ok) return;
@@ -291,6 +304,9 @@ export default function ProfilesPage() {
   const profiles = store.profiles;
   const promptName = (id: string): string =>
     promptLib?.prompts.find((p) => p.id === id)?.name ?? `未知(${id})`;
+
+  const providerName = (id: string): string =>
+    providerStore.providers.find((p) => p.id === id)?.name ?? `未知(${id})`;
 
   return (
     <div className="flex h-full flex-col">
@@ -395,6 +411,7 @@ export default function ProfilesPage() {
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
             {profiles.map((profile) => {
               const promptRows = Object.entries(profile.prompts) as [AgentId, string][];
+              const providerRows = Object.entries(profile.providers ?? {}) as [AgentId, string][];
               return (
                 <div
                   key={profile.id}
@@ -452,6 +469,18 @@ export default function ProfilesPage() {
                             {AGENT_SHORT[agent]}
                           </span>
                           <span className="truncate">{promptName(id)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {providerRows.length > 0 && (
+                    <div className="mt-2 space-y-0.5 text-[11px] text-muted-foreground">
+                      {providerRows.map(([agent, id]) => (
+                        <div key={`p-${agent}`} className="flex items-center gap-1 truncate">
+                          <span className="w-12 shrink-0 font-medium">
+                            {AGENT_SHORT[agent]}
+                          </span>
+                          <span className="truncate">{providerName(id)}</span>
                         </div>
                       ))}
                     </div>
@@ -655,6 +684,42 @@ export default function ProfilesPage() {
                         >
                           <option value="">不设置</option>
                           {unknown && <option value={value}>{promptName(value)}</option>}
+                          {options.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section>
+                <div className="mb-1.5 text-[11px] font-medium text-muted-foreground">
+                  模型服务（每 agent 一条，可不选）
+                </div>
+                <div className="space-y-1">
+                  {AGENTS.map((agent) => {
+                    const value = modal.draft.providers[agent.id] ?? '';
+                    const options = providerStore.providers.filter((p) => p.agent === agent.id);
+                    const unknown = value !== '' && !options.some((p) => p.id === value);
+                    return (
+                      <div key={`provider-${agent.id}`} className="flex items-center gap-2">
+                        <span className="w-24 shrink-0 text-xs">{agent.name}</span>
+                        <select
+                          value={value}
+                          onChange={(e) => {
+                            const providers = { ...modal.draft.providers };
+                            if (e.target.value) providers[agent.id] = e.target.value;
+                            else delete providers[agent.id];
+                            setModal({ ...modal, draft: { ...modal.draft, providers } });
+                          }}
+                          className="h-7 min-w-0 flex-1 rounded-md border border-input bg-transparent px-1.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        >
+                          <option value="">不设置</option>
+                          {unknown && <option value={value}>{providerName(value)}</option>}
                           {options.map((p) => (
                             <option key={p.id} value={p.id}>
                               {p.name}
