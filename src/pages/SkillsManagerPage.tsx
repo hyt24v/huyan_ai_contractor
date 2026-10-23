@@ -49,6 +49,7 @@ import type { SkillRepo } from '../lib/skillRegistry';
 import { skillNameFromGitUrl } from '../lib/skills';
 import {
   adoptSkill,
+  replaceLocalWithLibrary,
   disableSkill,
   enableSkill,
   installFromGit,
@@ -614,21 +615,21 @@ export default function SkillsManagerPage() {
     marketTag === 'all' ? marketRepos : marketRepos.filter((r) => r.tags.includes(marketTag));
 
   const runAudit = useCallback(async () => {
-    if (!snap) {
-      showToast('扫描尚未完成，请稍后再试', 'err');
-      return;
-    }
     setAuditOpen(true);
     setAuditLoading(true);
     try {
-      setAuditReport(await auditSnapshot(snap));
+      // 重扫文件系统再审计，避免用页面加载时的旧快照（重扫按钮才真的“重扫”）
+      const next = await scanSkillCatalog();
+      setSnap(next.snapshot);
+      setCatalog(next.catalog);
+      setAuditReport(await auditSnapshot(next.snapshot));
     } catch (e) {
       setAuditReport(null);
       showToast(`审计失败：${errMsg(e)}`, 'err');
     } finally {
       setAuditLoading(false);
     }
-  }, [snap, showToast]);
+  }, [showToast]);
 
   // ---- 统计 ----
   const libraryCount = stats?.inLibrary ?? 0;
@@ -1347,6 +1348,19 @@ export default function SkillsManagerPage() {
         }}
         onAdopt={(agent) => {
           if (detail) adoptOne(detail.name, agent);
+        }}
+        onReplaceWithLibrary={(agent) => {
+          if (!detail) return;
+          if (
+            !window.confirm(
+              `将删除 ${agentName(agent)} 中的本地副本「${detail.name}」，改用中央库版本（本地修改将丢失，不可恢复）。继续？`,
+            )
+          )
+            return;
+          void run(
+            () => replaceLocalWithLibrary(detail.name, agent),
+            `已将 ${agentName(agent)} 的 ${detail.name} 替换为中央库版本`,
+          );
         }}
         onSyncAll={() => {
           if (detail) syncAll(detail.name);

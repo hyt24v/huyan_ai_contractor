@@ -92,25 +92,39 @@ export async function checkManifest(fs: FsPort = tauriFs): Promise<string | unde
   }
 }
 
-/** 读取备份目录（如存在），返回数量与最近时间 */
+/** 读取备份目录（如存在），返回数量与最近时间。快照是 ISO 命名的目录，如 2026-10-22T10-47-05-123Z(-2) */
 export async function readBackups(fs: FsPort = tauriFs): Promise<BackupInfo> {
   try {
     const dir = await absPath(BACKUP_DIR);
     if (!(await fs.exists(dir))) return { enabled: false, count: 0 };
-    const files = (await fs.readDir(dir)).filter((e) => !e.isDirectory);
+    const entries = await fs.readDir(dir);
+    let count = 0;
     let latestRaw = '';
     let latest: string | undefined;
-    for (const f of files) {
+    for (const f of entries) {
+      // 目录型快照：ISO 时间戳命名（ID 本身按字典序可排序）
+      const iso = f.name.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})-\d{3}Z/);
+      if (f.isDirectory && iso) {
+        count++;
+        if (f.name > latestRaw) {
+          latestRaw = f.name;
+          latest = `${iso[1]}-${iso[2]}-${iso[3]} ${iso[4]}:${iso[5]}:${iso[6]}`;
+        }
+        continue;
+      }
+      // 文件型备份：名称中含 20261022-104705 样式的时间戳
       const m = f.name.match(/(\d{8})-(\d{6})/);
       if (!m) continue;
+      count++;
       const raw = `${m[1]}${m[2]}`;
-      if (raw <= latestRaw) continue;
-      latestRaw = raw;
-      const d = m[1];
-      const t = m[2];
-      latest = `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)} ${t.slice(0, 2)}:${t.slice(2, 4)}:${t.slice(4, 6)}`;
+      if (raw > latestRaw.replace(/\D/g, '')) {
+        latestRaw = raw;
+        const d = m[1];
+        const t = m[2];
+        latest = `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)} ${t.slice(0, 2)}:${t.slice(2, 4)}:${t.slice(4, 6)}`;
+      }
     }
-    return { enabled: true, count: files.length, ...(latest ? { latest } : {}) };
+    return { enabled: true, count, ...(latest ? { latest } : {}) };
   } catch {
     return { enabled: false, count: 0 };
   }

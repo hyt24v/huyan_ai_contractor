@@ -114,7 +114,23 @@ export async function adoptSkill(
   await fs.symlink(dest, src);
 }
 
-/** 从 GitHub 克隆到中央库 */
+/** 用中央库版本替换 agent 的本地副本：删除本地目录并建立软链（不可恢复，UI 需先确认） */
+export async function replaceLocalWithLibrary(
+  skillName: string,
+  agentId: AgentId,
+  fs: FsPort = tauriFs,
+): Promise<void> {
+  const agent = AGENTS.find((a) => a.id === agentId);
+  if (!agent) throw new Error(`未知 agent: ${agentId}`);
+  const dest = await absPath(`${SKILL_LIBRARY_DIR}/${skillName}`);
+  if (!(await fs.exists(dest))) throw new Error(`中央库不存在 ${skillName}`);
+  const src = await absPath(`${agent.skillsDir}/${skillName}`);
+  const isLink = fs.isSymlink ? await fs.isSymlink(src) : false;
+  if (isLink || (await fs.exists(src))) await fs.remove(src, true);
+  await fs.symlink(dest, src);
+}
+
+/** 从 GitHub 克隆到中央库。支持 /tree/<branch>/<subdir> 子目录链接（合集仓库） */
 export async function installFromGit(
   url: string,
   skillName: string,

@@ -222,13 +222,18 @@ export async function applyProfile(
           );
           continue;
         }
-        const result = await applyProvider(provider, fs);
-        if (!result.ok) {
-          errors.push(`模型服务「${provider.name}」→ ${agentLabel(agent)} 写入失败：${result.message}`);
-          continue;
+        try {
+          const result = await applyProvider(provider, fs);
+          if (!result.ok) {
+            errors.push(`模型服务「${provider.name}」→ ${agentLabel(agent)} 写入失败：${result.message}`);
+            continue;
+          }
+          await setActive(agent, provider.id, fs);
+          applied.push(`模型服务「${provider.name}」→ ${agentLabel(agent)}`);
+        } catch (e) {
+          // 单个 provider 失败不影响其余
+          errors.push(`模型服务「${provider.name}」→ ${agentLabel(agent)} 异常：${errMsg(e)}`);
         }
-        await setActive(agent, provider.id, fs);
-        applied.push(`模型服务「${provider.name}」→ ${agentLabel(agent)}`);
       }
     } catch (e) {
       errors.push(`模型服务应用失败：${errMsg(e)}`);

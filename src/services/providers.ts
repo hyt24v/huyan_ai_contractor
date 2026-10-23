@@ -12,6 +12,7 @@ import {
 } from '../lib/providerTargets';
 import {
   applyProviderText,
+  codexEnvKey,
   emptyCurrent,
   emptyStore,
   exportStoreJson,
@@ -151,11 +152,16 @@ export async function applyProvider(
     const original = (await fs.exists(file)) ? await fs.readText(file) : '';
     const next = applyProviderText(provider.agent, original, provider);
     const backup = await backupAndWrite(provider.agent, file, next, fs);
+    // Codex 的 config.toml 只记录 env_key，密钥需用户自己放进环境变量
+    const envHint =
+      provider.agent === 'codex' && provider.apiKey
+        ? `；请在环境变量 ${codexEnvKey(provider.id)} 中设置密钥后重启 Codex`
+        : '';
     return {
       ok: true,
-      message: backup
-        ? `已写入 ${target.file}，原文件已备份`
-        : `已创建 ${target.file}`,
+      message:
+        (backup ? `已写入 ${target.file}，原文件已备份` : `已创建 ${target.file}`) +
+        envHint,
       ...(backup ? { backup } : {}),
       file,
     };

@@ -76,7 +76,8 @@ export default function PromptsPage() {
   const loadAgentFiles = useCallback(async () => {
     const next: Partial<Record<AgentId, AgentFileState>> = {};
     for (const target of PROMPT_TARGETS) {
-      let path = target.file;
+      if (!target.writable || !target.file) continue;
+      let path: string = target.file;
       try {
         path = await promptFilePath(target.agent);
       } catch {
@@ -444,6 +445,8 @@ export default function PromptsPage() {
           </div>
           <div className="min-h-0 flex-1 overflow-auto px-3 pb-2">
             {AGENTS.map((agent) => {
+              const target = PROMPT_TARGETS.find((t) => t.agent === agent.id);
+              const writable = target?.writable ?? false;
               const file = agentFiles[agent.id];
               const activeId = activeFor(agent.id);
               const activeName = prompts.find((p) => p.id === activeId)?.name;
@@ -454,10 +457,14 @@ export default function PromptsPage() {
                 >
                   <div className="w-24 shrink-0 text-[13px] font-medium">{agent.name}</div>
                   <code className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
-                    {file?.path ?? PROMPT_TARGETS.find((t) => t.agent === agent.id)?.file}
+                    {writable
+                      ? (file?.path ?? target?.file)
+                      : (target?.hint ?? '不支持写入')}
                   </code>
                   <div className="w-40 shrink-0 truncate text-[11px] text-muted-foreground">
-                    {activeName ? (
+                    {!writable ? (
+                      '请在应用内设置'
+                    ) : activeName ? (
                       <span className="text-success">已启用：{activeName}</span>
                     ) : file?.exists ? (
                       `现有文件 ${file.chars} 字符`
@@ -466,7 +473,7 @@ export default function PromptsPage() {
                     )}
                   </div>
                   <button
-                    disabled={busy || !current || dirty}
+                    disabled={busy || !current || dirty || !writable}
                     onClick={() => void applyToAgent(agent.id)}
                     title={dirty ? '请先保存修改' : '备份后写入该 agent'}
                     className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[11px] transition-colors hover:bg-accent disabled:opacity-40"
@@ -474,7 +481,7 @@ export default function PromptsPage() {
                     启用
                   </button>
                   <button
-                    disabled={busy}
+                    disabled={busy || !writable}
                     onClick={() => void clearForAgent(agent.id)}
                     title="恢复最近备份；没有备份则清空（清空前会备份）"
                     className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"

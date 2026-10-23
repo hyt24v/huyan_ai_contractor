@@ -81,6 +81,8 @@ export interface SkillDetailDrawerProps {
   onClose: () => void;
   onToggleAgent: (agent: AgentId) => void;
   onAdopt: (agent: AgentId) => void;
+  /** 中央库已有同名 skill 时：删除本地副本，改用中央库软链 */
+  onReplaceWithLibrary: (agent: AgentId) => void;
   onSyncAll: () => void;
   onUpdate: () => void;
 }
@@ -92,6 +94,7 @@ export default function SkillDetailDrawer({
   onClose,
   onToggleAgent,
   onAdopt,
+  onReplaceWithLibrary,
   onSyncAll,
   onUpdate,
 }: SkillDetailDrawerProps) {
@@ -233,13 +236,23 @@ export default function SkillDetailDrawer({
                           启用
                         </ActionButton>
                       )}
-                      {state === 'local' && (
+                      {state === 'local' && !skill.inLibrary && (
                         <ActionButton
                           icon={FolderInput}
                           disabled={busy}
                           onClick={() => onAdopt(a.id)}
                         >
                           收编
+                        </ActionButton>
+                      )}
+                      {state === 'local' && skill.inLibrary && (
+                        <ActionButton
+                          danger
+                          icon={Cable}
+                          disabled={busy}
+                          onClick={() => onReplaceWithLibrary(a.id)}
+                        >
+                          改用中央库
                         </ActionButton>
                       )}
                       {state === 'linked' && (

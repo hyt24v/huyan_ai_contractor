@@ -22,6 +22,25 @@ export interface McpSnapshot {
   perAgent: Partial<Record<AgentId, string[]>>;
   /** 每个 agent 当前实际的 server 规格（用于分发预览 / 漂移检测） */
   current: Partial<Record<AgentId, Record<string, McpServerSpec>>>;
+  /** 已安装（配置目录或配置文件存在）的 agent；未安装的不参与漂移/分发 */
+  installed: AgentId[];
+}
+
+/** 判断 agent 是否已安装：配置文件存在，或其配置目录（skillsDir 的父级）存在 */
+async function isAgentInstalled(agent: (typeof AGENTS)[number], fs: FsPort): Promise<boolean> {
+  const cfg = await absPath(agent.mcpFile);
+  if (await fs.exists(cfg)) return true;
+  const dir = await absPath(agent.skillsDir.split('/').slice(0, -1).join('/'));
+  return fs.exists(dir);
+}
+
+/** 检测本机已安装的 agent */
+export async function detectInstalledAgents(fs: FsPort = tauriFs): Promise<AgentId[]> {
+  const out: AgentId[] = [];
+  for (const agent of AGENTS) {
+    if (await isAgentInstalled(agent, fs)) out.push(agent.id);
+  }
+  return out;
 }
 
 async function manifestPath(): Promise<string> {
@@ -87,7 +106,7 @@ export async function scanMcp(fs: FsPort = tauriFs): Promise<McpSnapshot> {
       ? { ...s, agents: { ...s.agents, ...existing.agents } }
       : s;
   });
-  return { manifest: { servers }, perAgent, current };
+  return { manifest: { servers }, perAgent, current, installed: await detectInstalledAgents(fs) };
 }
 
 /** 简单解析 codex config.toml 里的 mcp_servers（只读我们生成的标准形态 + 常见形态） */
@@ -151,11 +170,13 @@ export function parseTomlMcpServers(text: string): {
   return { servers, enabled };
 }
 
-/** 分发：把清单写回各 agent 配置（写前备份） */
+/** 分发：把清单写回各 agent 配置（写前备份）；未安装的 agent 跳过并计入 skipped */
 export async function distribute(
   manifest: CentralManifest,
   fs: FsPort = tauriFs,
-): Promise<{ written: AgentId[]; errors: Record<string, string> }> {
+): Promise<{ written: AgentId[]; skipped: AgentId[]; errors: Record<string, string> }> {
+  const installed = new Set(await detectInstalledAgents(fs));
+  const skipped = AGENTS.filter((a) => !installed.has(a.id)).map((a) => a.id);
   const scans: Partial<Record<AgentId, { servers: Record<string, McpServerSpec> }>> = {};
   const texts: Partial<Record<AgentId, string>> = {};
   for (const agent of AGENTS) {
@@ -171,6 +192,7 @@ export async function distribute(
   const written: AgentId[] = [];
   const errors: Record<string, string> = {};
   for (const agent of AGENTS) {
+    if (!installed.has(agent.id)) continue;
     const { updates, removals } = plan[agent.id];
     // 额外：清单里没勾选该 agent、但该 agent 配置里存在且属于清单管理的 server → 移除
     const managed = new Set(manifest.servers.map((s) => s.name));
@@ -209,5 +231,5 @@ export async function distribute(
       errors[agent.id] = e instanceof Error ? e.message : String(e);
     }
   }
-  return { written, errors };
+  return { written, skipped, errors };
 }

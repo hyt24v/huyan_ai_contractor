@@ -1,6 +1,6 @@
 /** 提示词管理服务：prompts.ts 纯逻辑 + 目标文件读写/备份 */
 import type { AgentId } from '../lib/agents';
-import { promptTarget } from '../lib/agentTargets';
+import { promptTargetFile } from '../lib/agentTargets';
 import { absPath, tauriFs, type FsPort } from '../lib/fsPort';
 import {
   activeForAgent,
@@ -33,7 +33,8 @@ export interface ClearPromptResult {
 }
 
 export async function promptFilePath(agent: AgentId): Promise<string> {
-  return absPath(promptTarget(agent).file);
+  // 不可写的 agent（如 Cursor）在这里抛错，阻断后续一切写操作
+  return absPath(promptTargetFile(agent));
 }
 
 export async function promptBackupDir(): Promise<string> {
@@ -141,6 +142,8 @@ export async function applyPrompt(
   fs: FsPort = tauriFs,
 ): Promise<ApplyPromptResult> {
   if (!prompt.content.trim()) throw new Error('提示词内容为空，拒绝写入');
+  // 先加载并校验库，库损坏时拒绝写文件（避免出现文件已写但库未更新的不一致）
+  const lib = await loadPromptLibrary(fs);
   const file = await promptFilePath(agent);
   const existing = (await fs.exists(file)) ? await fs.readText(file) : null;
   const backup =
@@ -152,7 +155,6 @@ export async function applyPrompt(
     file,
     prompt.content.endsWith('\n') ? prompt.content : `${prompt.content}\n`,
   );
-  const lib = await loadPromptLibrary(fs);
   await savePromptLibrary(setActivePrompt(lib, agent, prompt.id), fs);
   return { file, backup };
 }

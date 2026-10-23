@@ -607,6 +607,10 @@ const codexWireApi = (provider: Provider): 'responses' | 'completions' =>
 const codexKey = (id: string): string =>
   /^[A-Za-z0-9_-]+$/.test(id) ? id : tomlStr(id);
 
+/** Codex env_key 只能指向环境变量名：从 provider id 派生合法的环境变量名 */
+export const codexEnvKey = (id: string): string =>
+  `${id.replace(/[^A-Za-z0-9]/g, '_').toUpperCase()}_API_KEY`;
+
 /**
  * Codex：行级外科手术，保留注释与其它配置。
  * - 顶层 model_provider / model（model 仅在提供时覆盖）
@@ -661,7 +665,13 @@ export function applyCodexToml(originalText: string, provider: Provider): string
     `name = ${tomlStr(provider.name)}`,
     `base_url = ${tomlStr(provider.baseUrl)}`,
     `wire_api = ${tomlStr(codexWireApi(provider))}`,
-    ...(provider.apiKey ? ['requires_openai_auth = true'] : []),
+    // Codex 的 config.toml 不支持明文 apiKey，只能指向环境变量
+    ...(provider.apiKey
+      ? [
+          'requires_openai_auth = true',
+          `env_key = ${tomlStr(codexEnvKey(provider.id))}`,
+        ]
+      : []),
   ];
   const body = out.join('\n');
   return (body ? body + '\n\n' : '') + block.join('\n') + '\n';

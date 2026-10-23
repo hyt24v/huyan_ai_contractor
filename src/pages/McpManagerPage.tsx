@@ -107,6 +107,7 @@ export default function McpManagerPage() {
   const [draft, setDraft] = useState<EditDraft | null>(null);
   const [dirty, setDirty] = useState(false);
   const [current, setCurrent] = useState<PerAgentServers>({});
+  const [installed, setInstalled] = useState<AgentId[]>([]);
   const [diff, setDiff] = useState<McpDiff | null>(null);
   const [driftCount, setDriftCount] = useState(0);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -133,9 +134,11 @@ export default function McpManagerPage() {
       }
       setManifest({ servers: pageServers });
       setCurrent(snap.current ?? {});
+      setInstalled(snap.installed ?? []);
+      const installedDefs = AGENTS.filter((a) => snap.installed?.includes(a.id));
       setDriftCount(
         persisted.servers.length > 0
-          ? computeMcpDiff(persisted, snap.current ?? {}).summary.changedAgents
+          ? computeMcpDiff(persisted, snap.current ?? {}, installedDefs).summary.changedAgents
           : 0,
       );
       setDirty(false);
@@ -180,6 +183,14 @@ export default function McpManagerPage() {
       showToast(result.error);
       return;
     }
+    // 重命名查重：新名字不能撞上别的已有 server
+    if (
+      draft.originalName !== result.name &&
+      manifest?.servers.some((s) => s.name === result.name)
+    ) {
+      showToast(`已存在同名 server「${result.name}」，请换个名字`);
+      return;
+    }
     mutate((m) => {
       const servers = draft.originalName
         ? m.servers.map((s) => (s.name === draft.originalName ? result : s))
@@ -187,19 +198,20 @@ export default function McpManagerPage() {
       return { servers };
     });
     setDraft(null);
-  }, [draft, mutate, showToast]);
+  }, [draft, manifest, mutate, showToast]);
 
   /** 「保存并分发」第一步：先算差异，无变更直接提示，有变更打开预览 */
   const applyAll = useCallback(() => {
     if (!manifest) return;
-    const nextDiff = computeMcpDiff(manifest, current);
+    const installedDefs = AGENTS.filter((a) => installed.includes(a.id));
+    const nextDiff = computeMcpDiff(manifest, current, installedDefs);
     if (!nextDiff.summary.hasChanges) {
       showToast('无变更，无需分发');
       setDirty(false);
       return;
     }
     setDiff(nextDiff);
-  }, [manifest, current, showToast]);
+  }, [manifest, current, installed, showToast]);
 
   /** 预览确认后：快照 → 写中央清单 → 分发 → 刷新 */
   const confirmDistribute = useCallback(async () => {
@@ -209,16 +221,20 @@ export default function McpManagerPage() {
       const snapshot = await createSnapshot(undefined, '分发前自动快照');
       await pruneSnapshots();
       await saveManifest(manifest);
-      const { written, errors } = await distribute(manifest);
+      const { written, skipped, errors } = await distribute(manifest);
       const errList = Object.entries(errors)
         .map(([a, e]) => `${AGENT_SHORT[a as AgentId]}: ${e}`)
         .join('；');
+      const skipNote =
+        skipped.length > 0
+          ? `；跳过未安装：${skipped.map((a) => AGENT_SHORT[a]).join('、')}`
+          : '';
       showToast(
         errList
-          ? `已快照 ${snapshot}；写入 ${written.length} 个 agent；失败：${errList}`
+          ? `已快照 ${snapshot}；写入 ${written.length} 个 agent；失败：${errList}${skipNote}`
           : written.length > 0
-            ? `已快照 ${snapshot}，分发到 ${written.map((a) => AGENT_SHORT[a]).join('、')}`
-            : `已保存中央清单（快照 ${snapshot}），无文件需写入`,
+            ? `已快照 ${snapshot}，分发到 ${written.map((a) => AGENT_SHORT[a]).join('、')}${skipNote}`
+            : `已保存中央清单（快照 ${snapshot}），无文件需写入${skipNote}`,
       );
       setDiff(null);
       setDirty(false);
