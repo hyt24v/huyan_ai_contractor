@@ -53,6 +53,9 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 应用内更新的更新包签名密钥（内容与 ~/.tauri/ai-baogongtou-updater.key 相同）
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'AI包工头 ${{ github.ref_name }}'
@@ -65,7 +68,21 @@ jobs:
           releaseDraft: false
           # 带 prerelease 后缀的 tag（如 v0.6.0-beta.1）自动标记为 Pre-release，与 main 的正式版区分
           prerelease: ${{ contains(github.ref_name, '-') }}
-          includeUpdaterJson: false
+          # 生成 latest.json + .sig 更新包签名，供应用内更新使用
+          includeUpdaterJson: true
           # GitHub 会把非 ASCII 资产名改写成 "AI._..."，导致 tauri-action 无法识别已存在资产而重跑失败；用固定 ASCII 名保证幂等
           assetNamePattern: 'AI-Baogongtou_[version]_[platform]_[arch][ext]'
           args: --target universal-apple-darwin
+
+      # 把 latest.json 同步到固定 tag `updater` 的滚动 Release：
+      # beta 是 Pre-release 不会成为 Latest，应用统一从 updater release 取更新清单，beta/正式共用一条通道
+      - name: Publish updater manifest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "${{ github.ref_name }}" --repo "${{ github.repository }}" \
+            --pattern 'latest.json' --clobber --dir updater-manifest
+          gh release view updater --repo "${{ github.repository }}" >/dev/null 2>&1 || \
+            gh release create updater --repo "${{ github.repository }}" \
+              --title 'Updater' --notes '应用内更新清单（自动维护，勿删）' --prerelease
+          gh release upload updater updater-manifest/latest.json --clobber --repo "${{ github.repository }}"

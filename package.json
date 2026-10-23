@@ -1,7 +1,7 @@
 {
   "name": "ai-baogongtou",
   "private": true,
-  "version": "0.6.0-beta.1",
+  "version": "0.6.0-beta.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -20,6 +20,8 @@
     "@monaco-editor/react": "^4.6.0",
     "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/plugin-fs": "^2.7.1",
+    "@tauri-apps/plugin-process": "^2.4.0",
+    "@tauri-apps/plugin-updater": "^2.14.0",
     "jsonpath-plus": "^11.2.1",
     "jsonrepair": "^3.15.0",
     "lucide-react": "^1.59.0",

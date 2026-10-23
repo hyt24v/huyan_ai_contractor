@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import CommandPalette from './CommandPalette';
 import ThemeSwitcher from './ThemeSwitcher';
+import UpdateChecker from './UpdateChecker';
 import { useAutoBackup } from '../hooks/useAutoBackup';
 import { TOOLS } from '../lib/tools';
 import logo from '../../src-tauri/icons/icon.png';
@@ -104,8 +105,11 @@ export default function Layout() {
               </NavLink>
             ))}
           </nav>
-          <div className="shrink-0 border-t border-border/40 p-3 text-[11px] text-muted-foreground">
-            纯本地 · 数据不出本机
+          <div className="shrink-0 space-y-1 border-t border-border/40 p-2">
+            <UpdateChecker />
+            <div className="px-2 text-[11px] text-muted-foreground">
+              纯本地 · 数据不出本机
+            </div>
           </div>
         </aside>
       )}
