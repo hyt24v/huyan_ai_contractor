@@ -67,6 +67,29 @@ describe('formatJson / minifyJson', () => {
     if (m.ok) expect(m.text).toBe(original);
   });
 
+  it('keepEscape：非 ASCII 输出为 \\uXXXX 转义', () => {
+    const src = '{"name":"中文","emoji":"😀","plain":"abc"}';
+    const r = formatJson(src, 2, true);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.text).toContain('\\u4e2d\\u6587');
+    expect(r.text).toContain('\\ud83d\\ude00'); // emoji 代理对
+    expect(r.text).toContain('"plain"');
+    // 转义结果仍可被 JSON.parse 还原
+    expect(JSON.parse(r.text)).toEqual(JSON.parse(src));
+    // 压缩同样支持
+    const m = minifyJson(src, true);
+    expect(m.ok).toBe(true);
+    if (m.ok) {
+      expect(m.text).not.toContain('中');
+      expect(JSON.parse(m.text)).toEqual(JSON.parse(src));
+    }
+    // 默认（false）保留原始字符
+    const d = formatJson(src);
+    expect(d.ok).toBe(true);
+    if (d.ok) expect(d.text).toContain('中文');
+  });
+
   it('非法输入返回错误', () => {
     expect(formatJson('{bad').ok).toBe(false);
     expect(minifyJson('{bad').ok).toBe(false);

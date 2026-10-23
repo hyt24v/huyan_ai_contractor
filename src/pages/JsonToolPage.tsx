@@ -55,6 +55,7 @@ import {
 
 const STORAGE_KEY = 'huyan_tool:editor';
 const MODE_KEY = 'huyan_tool:editor-mode';
+const KEEP_ESCAPE_KEY = 'huyan_tool:editor-keep-escape';
 const HISTORY_DEBOUNCE_MS = 2000;
 
 const SAMPLE = `{
@@ -86,6 +87,13 @@ export default function JsonToolPage() {
   );
   const [panel, setPanel] = useState<Panel>('tree');
   const [keepEmptyLines, setKeepEmptyLines] = useState(false);
+  const [keepEscape, setKeepEscape] = useState(
+    () => localStorage.getItem(KEEP_ESCAPE_KEY) === '1',
+  );
+
+  useEffect(() => {
+    localStorage.setItem(KEEP_ESCAPE_KEY, keepEscape ? '1' : '0');
+  }, [keepEscape]);
   const [toast, setToast] = useState('');
   const [jumpInput, setJumpInput] = useState('');
 
@@ -497,7 +505,7 @@ export default function JsonToolPage() {
         <ToolbarButton
           onClick={() =>
             mode === 'json'
-              ? applyTransform((t) => formatJson(t), '已格式化')
+              ? applyTransform((t) => formatJson(t, 2, keepEscape), '已格式化')
               : doNormalize('已格式化')
           }
         >
@@ -506,12 +514,24 @@ export default function JsonToolPage() {
         <ToolbarButton
           onClick={() =>
             mode === 'json'
-              ? applyTransform((t) => minifyJson(t), '已压缩')
+              ? applyTransform((t) => minifyJson(t, keepEscape), '已压缩')
               : doNormalize('已压缩')
           }
         >
           压缩
         </ToolbarButton>
+        <label
+          className="inline-flex cursor-pointer select-none items-center gap-1 text-xs text-muted-foreground"
+          title="格式化/压缩时把中文等非 ASCII 字符输出为 \\uXXXX 转义（参考 json.cn）"
+        >
+          <input
+            type="checkbox"
+            checked={keepEscape}
+            onChange={(e) => setKeepEscape(e.target.checked)}
+            className="h-3 w-3 accent-primary"
+          />
+          保留转义
+        </label>
         <ToolbarButton onClick={doRepair} title="修复单引号/尾逗号/缺引号等">
           智能修复
         </ToolbarButton>

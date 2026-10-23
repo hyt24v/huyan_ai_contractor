@@ -59,18 +59,38 @@ export type TransformResult =
   | { ok: true; text: string }
   | { ok: false; error: JsonError };
 
-/** 格式化（默认 2 空格缩进） */
-export function formatJson(text: string, indent = 2): TransformResult {
-  const r = parseJson(text);
-  if (!r.ok) return r;
-  return { ok: true, text: JSON.stringify(r.value, null, indent) };
+/** 把字符串中的非 ASCII 字符转为 \uXXXX 转义（处理代理对） */
+export function escapeNonAscii(text: string): string {
+  let out = '';
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if (code < 0x80) {
+      out += text[i];
+    } else {
+      out += '\\u' + code.toString(16).padStart(4, '0');
+    }
+  }
+  return out;
 }
 
-/** 压缩为单行 */
-export function minifyJson(text: string): TransformResult {
+/** 格式化（默认 2 空格缩进）；keepEscape 时非 ASCII 字符输出为 \uXXXX（参考 json.cn 保留转义） */
+export function formatJson(
+  text: string,
+  indent = 2,
+  keepEscape = false,
+): TransformResult {
   const r = parseJson(text);
   if (!r.ok) return r;
-  return { ok: true, text: JSON.stringify(r.value) };
+  const out = JSON.stringify(r.value, null, indent);
+  return { ok: true, text: keepEscape ? escapeNonAscii(out) : out };
+}
+
+/** 压缩为单行；keepEscape 同上 */
+export function minifyJson(text: string, keepEscape = false): TransformResult {
+  const r = parseJson(text);
+  if (!r.ok) return r;
+  const out = JSON.stringify(r.value);
+  return { ok: true, text: keepEscape ? escapeNonAscii(out) : out };
 }
 
 /** 转义：把原始文本转为 JSON 字符串字面量内容（不带首尾引号） */
