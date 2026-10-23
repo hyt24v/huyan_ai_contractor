@@ -12,9 +12,9 @@ export const HISTORY_KEY = 'huyan_tool:editor-history';
 export const HISTORY_MAX_ENTRIES = 50;
 export const HISTORY_MAX_ENTRY_BYTES = 512 * 1024;
 
-function readAll(): EditorHistoryEntry[] {
+function readAll(key: string): EditorHistoryEntry[] {
   try {
-    const raw = localStorage.getItem(HISTORY_KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) return [];
     const arr: unknown = JSON.parse(raw);
     if (!Array.isArray(arr)) return [];
@@ -30,12 +30,12 @@ function readAll(): EditorHistoryEntry[] {
   }
 }
 
-function writeAll(entries: EditorHistoryEntry[]): boolean {
+function writeAll(entries: EditorHistoryEntry[], key: string): boolean {
   // localStorage 配额有限：写不下就逐步丢弃最旧的记录再试
   let list = entries;
   for (let i = 0; i < 8; i++) {
     try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+      localStorage.setItem(key, JSON.stringify(list));
       return true;
     } catch {
       if (list.length <= 1) return false;
@@ -46,16 +46,19 @@ function writeAll(entries: EditorHistoryEntry[]): boolean {
 }
 
 /** 读全部历史（新的在前） */
-export function listHistory(): EditorHistoryEntry[] {
-  return readAll();
+export function listHistory(key: string = HISTORY_KEY): EditorHistoryEntry[] {
+  return readAll(key);
 }
 
 /** 追加一条快照；与最新一条内容相同时忽略。返回是否实际新增。 */
-export function addHistory(text: string): boolean {
+export function addHistory(
+  text: string,
+  key: string = HISTORY_KEY,
+): boolean {
   if (!text.trim()) return false;
   // 单条上限：按 UTF-16 码元数近似（512K 字符 ≈ ≤1MB UTF-8）
   if (text.length > HISTORY_MAX_ENTRY_BYTES) return false;
-  const entries = readAll();
+  const entries = readAll(key);
   if (entries[0] && entries[0].text === text) return false;
   const entry: EditorHistoryEntry = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -64,18 +67,24 @@ export function addHistory(text: string): boolean {
     chars: text.length,
   };
   const next = [entry, ...entries].slice(0, HISTORY_MAX_ENTRIES);
-  return writeAll(next);
+  return writeAll(next, key);
 }
 
 /** 删除指定条目 */
-export function deleteHistoryEntry(id: string): void {
-  writeAll(readAll().filter((e) => e.id !== id));
+export function deleteHistoryEntry(
+  id: string,
+  key: string = HISTORY_KEY,
+): void {
+  writeAll(
+    readAll(key).filter((e) => e.id !== id),
+    key,
+  );
 }
 
 /** 清空全部历史 */
-export function clearHistory(): void {
+export function clearHistory(key: string = HISTORY_KEY): void {
   try {
-    localStorage.removeItem(HISTORY_KEY);
+    localStorage.removeItem(key);
   } catch {
     // ignore
   }

@@ -1,0 +1,110 @@
+/* Crepe 主题变量映射到应用主题系统（HSL CSS 变量） */
+.milkdown-wrapper {
+  --crepe-font-default:
+    -apple-system, 'PingFang SC', 'Segoe UI', 'Helvetica Neue', sans-serif;
+  --crepe-font-title:
+    -apple-system, 'PingFang SC', 'Segoe UI', 'Helvetica Neue', sans-serif;
+  --crepe-font-code: 'SF Mono', Menlo, Consolas, monospace;
+  --crepe-base-font-size: 15px;
+
+  --crepe-color-background: hsl(var(--card));
+  --crepe-color-on-background: hsl(var(--foreground));
+  --crepe-color-surface: hsl(var(--muted) / 0.5);
+  --crepe-color-surface-low: hsl(var(--muted) / 0.3);
+  --crepe-color-on-surface: hsl(var(--foreground));
+  --crepe-color-on-surface-variant: hsl(var(--muted-foreground));
+  --crepe-color-outline: hsl(var(--border));
+  --crepe-color-primary: hsl(var(--primary));
+  --crepe-color-secondary: hsl(var(--accent));
+  --crepe-color-on-secondary: hsl(var(--accent-foreground));
+  --crepe-color-inverse: hsl(var(--foreground));
+  --crepe-color-on-inverse: hsl(var(--background));
+  --crepe-color-inline-code: hsl(var(--destructive));
+  --crepe-color-inline-area: hsl(var(--muted));
+  --crepe-color-hover: hsl(var(--accent));
+  --crepe-color-selected: hsl(var(--accent));
+  --crepe-color-error: hsl(var(--destructive));
+
+  --crepe-shadow-1:
+    0 1px 2px hsl(var(--foreground) / 0.08), 0 1px 3px hsl(var(--foreground) / 0.06);
+  --crepe-shadow-2:
+    0 4px 8px hsl(var(--foreground) / 0.1), 0 2px 4px hsl(var(--foreground) / 0.08);
+
+  height: 100%;
+  overflow-y: auto;
+}
+
+.milkdown-wrapper .milkdown {
+  height: 100%;
+}
+
+/* Typora 式阅读宽度与留白 */
+.milkdown-wrapper .milkdown .ProseMirror {
+  padding: 28px 40px 60vh;
+  max-width: 860px;
+  margin: 0 auto;
+  outline: none;
+  line-height: 1.75;
+}
+
+.milkdown-wrapper .milkdown .ProseMirror h1 {
+  font-size: 1.8em;
+  border-bottom: 1px solid hsl(var(--border));
+  padding-bottom: 0.25em;
+}
+.milkdown-wrapper .milkdown .ProseMirror h2 {
+  font-size: 1.5em;
+  border-bottom: 1px solid hsl(var(--border) / 0.6);
+  padding-bottom: 0.2em;
+}
+.milkdown-wrapper .milkdown .ProseMirror h3 {
+  font-size: 1.25em;
+}
+.milkdown-wrapper .milkdown .ProseMirror h1,
+.milkdown-wrapper .milkdown .ProseMirror h2,
+.milkdown-wrapper .milkdown .ProseMirror h3,
+.milkdown-wrapper .milkdown .ProseMirror h4 {
+  margin: 1.1em 0 0.45em;
+  font-weight: 600;
+}
+.milkdown-wrapper .milkdown .ProseMirror p {
+  margin: 0.5em 0;
+}
+.milkdown-wrapper .milkdown .ProseMirror blockquote {
+  border-left: 3px solid hsl(var(--border));
+  padding-left: 1em;
+  margin-left: 0;
+  color: hsl(var(--muted-foreground));
+}
+.milkdown-wrapper .milkdown .ProseMirror pre {
+  border-radius: var(--radius-inner);
+  border: 1px solid hsl(var(--border) / 0.6);
+}
+.milkdown-wrapper .milkdown .ProseMirror img {
+  max-width: 100%;
+  border-radius: var(--radius-inner);
+}
+.milkdown-wrapper .milkdown .ProseMirror table {
+  border-collapse: collapse;
+}
+.milkdown-wrapper .milkdown .ProseMirror th,
+.milkdown-wrapper .milkdown .ProseMirror td {
+  border: 1px solid hsl(var(--border));
+  padding: 4px 12px;
+}
+.milkdown-wrapper .milkdown .ProseMirror a {
+  color: hsl(var(--primary));
+}
+
+/* 大纲跳转高亮闪烁 */
+.milkdown-wrapper .md-heading-flash {
+  animation: md-heading-flash 1.2s ease-out;
+}
+@keyframes md-heading-flash {
+  0% {
+    background: hsl(var(--primary) / 0.18);
+  }
+  100% {
+    background: transparent;
+  }
+}

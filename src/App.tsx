@@ -1,6 +1,7 @@
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
 import JsonToolPage from './pages/JsonToolPage';
+import MarkdownPage from './pages/MarkdownPage';
 import McpManagerPage from './pages/McpManagerPage';
 import SkillsManagerPage from './pages/SkillsManagerPage';
 import HealthPage from './pages/HealthPage';
@@ -15,6 +16,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<Navigate to="/json" replace />} />
           <Route path="/json" element={<JsonToolPage />} />
+          <Route path="/markdown" element={<MarkdownPage />} />
           <Route path="/skills" element={<SkillsManagerPage />} />
           <Route path="/mcp" element={<McpManagerPage />} />
           <Route path="/health" element={<HealthPage />} />
