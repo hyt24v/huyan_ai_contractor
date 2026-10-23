@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   CornerDownLeft,
   MoonStar,
+  Palette,
   PanelLeft,
   RefreshCw,
   Search,
@@ -10,6 +11,12 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { TOOLS } from '../lib/tools';
+import { THEMES } from '../lib/themes';
+import {
+  previewTheme,
+  setThemeForAppearance,
+  setThemeMode,
+} from '../hooks/useThemeSettings';
 
 interface PaletteItem {
   id: string;
@@ -18,6 +25,8 @@ interface PaletteItem {
   keywords?: string;
   icon: LucideIcon;
   run: () => void;
+  /** 高亮（方向键/悬停）时触发，用于主题实时预览 */
+  onHighlight?: () => void;
 }
 
 /** 子序列模糊匹配：返回分数，-1 表示不匹配 */
@@ -60,7 +69,10 @@ export default function CommandPalette() {
   const [active, setActive] = useState(0);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const close = useCallback(() => setOpen(false), []);
+  const close = useCallback(() => {
+    setOpen(false);
+    previewTheme(null);
+  }, []);
 
   const items = useMemo<PaletteItem[]>(() => {
     const toolItems: PaletteItem[] = TOOLS.map((tool) => ({
@@ -74,28 +86,42 @@ export default function CommandPalette() {
         navigate(tool.path);
       },
     }));
+    const themeItems: PaletteItem[] = THEMES.map((theme) => ({
+      id: `theme:${theme.id}`,
+      title: `主题：${theme.name}`,
+      subtitle: theme.appearance === 'dark' ? '切换为深色主题' : '切换为浅色主题',
+      keywords: `theme 主题 外观 ${theme.name} ${theme.id}`,
+      icon: Palette,
+      onHighlight: () => previewTheme(theme.id),
+      run: () => {
+        setThemeForAppearance(theme.appearance, theme.id);
+        setThemeMode(theme.appearance);
+        close();
+      },
+    }));
     return [
       ...toolItems,
+      ...themeItems,
       {
         id: 'action:theme',
-        title: '切换主题',
-        subtitle: '浅色 / 深色外观',
-        keywords: 'theme dark light 深色 浅色 外观',
+        title: '外观设置',
+        subtitle: '主题与明暗模式',
+        keywords: 'theme dark light 深色 浅色 外观 设置',
         icon: MoonStar,
         run: () => {
           close();
-          document.querySelector<HTMLElement>('[title="切换主题"]')?.click();
+          document.querySelector<HTMLElement>('[aria-label="切换主题"]')?.click();
         },
       },
       {
         id: 'action:sidebar',
-        title: '收起/展开侧栏',
-        subtitle: '切换左侧导航栏（⌘B）',
+        title: '收起/展开导航面板',
+        subtitle: '切换左侧导航（⌘B）',
         keywords: 'sidebar 侧栏 导航 收起 展开',
         icon: PanelLeft,
         run: () => {
           close();
-          document.querySelector<HTMLElement>('[title*="侧栏"]')?.click();
+          document.querySelector<HTMLElement>('[title*="导航面板"]')?.click();
         },
       },
       {
@@ -146,6 +172,12 @@ export default function CommandPalette() {
       setActive(0);
     }
   }, [open]);
+
+  // 高亮项变化时触发实时预览（主题命令）
+  useEffect(() => {
+    if (!open) return;
+    results[active]?.onHighlight?.();
+  }, [active, open, results]);
 
   // 选中项滚动到可视区
   useEffect(() => {

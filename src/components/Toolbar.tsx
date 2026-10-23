@@ -60,7 +60,7 @@ export function SegmentedControl<T extends string>({
         <button
           key={opt.value}
           onClick={() => onChange(opt.value)}
-          className={`h-7 rounded-[calc(var(--radius)-4px)] px-3 text-xs font-medium transition-all ${
+          className={`h-7 rounded-sm px-3 text-xs font-medium transition-all ${
             value === opt.value
               ? 'bg-background text-foreground shadow-sm'
               : 'text-muted-foreground hover:text-foreground'

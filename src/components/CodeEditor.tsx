@@ -3,23 +3,24 @@ import Editor, { type OnMount } from '@monaco-editor/react';
 import { monaco } from '../monacoSetup';
 
 export type EditorInstance = Parameters<OnMount>[0];
+// Monaco 主题（app-<themeId>）在 monacoSetup.ts 中随应用主题统一注册
 
-/** 监听 <html> 上的 dark class，跟随全局主题 */
-function useDarkClass(): boolean {
-  const [dark, setDark] = useState(() =>
-    document.documentElement.classList.contains('dark'),
+/** 监听 <html> 上的 data-theme，跟随全局主题系统 */
+function useAppThemeId(): string {
+  const [id, setId] = useState(
+    () => document.documentElement.dataset.theme ?? 'minimal-light',
   );
   useEffect(() => {
     const observer = new MutationObserver(() => {
-      setDark(document.documentElement.classList.contains('dark'));
+      setId(document.documentElement.dataset.theme ?? 'minimal-light');
     });
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['class'],
+      attributeFilter: ['data-theme'],
     });
     return () => observer.disconnect();
   }, []);
-  return dark;
+  return id;
 }
 
 export default function CodeEditor({
@@ -35,7 +36,7 @@ export default function CodeEditor({
   onMount?: OnMount;
   readOnly?: boolean;
 }) {
-  const dark = useDarkClass();
+  const themeId = useAppThemeId();
   const editorRef = useRef<EditorInstance | null>(null);
 
   return (
@@ -43,7 +44,7 @@ export default function CodeEditor({
       value={value}
       onChange={(v) => onChange(v ?? '')}
       language={language}
-      theme={dark ? 'vs-dark' : 'vs'}
+      theme={`app-${themeId}`}
       onMount={(editor, m) => {
         editorRef.current = editor;
         onMount?.(editor, m);
