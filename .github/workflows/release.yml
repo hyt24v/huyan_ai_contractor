@@ -36,6 +36,12 @@ jobs:
       # lockfile 已指向公共 registry.npmjs.org；网络抖动时重试一次
       - name: Install frontend dependencies
         run: |
+          # npm 自带的 fetch 重试默认太保守，runner 网络抖动会触发
+          # "Exit handler never called"（npm 自身 bug），先升级到最新 npm 并加大重试
+          npm install -g npm@latest
+          npm config set fetch-retries 5
+          npm config set fetch-retry-mintimeout 20000
+          npm config set fetch-retry-maxtimeout 120000
           npm ci --no-audit --no-fund || npm ci --no-audit --no-fund
           test -x node_modules/.bin/tsc
           test -x node_modules/.bin/tauri
