@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { History } from 'lucide-react';
 import CodeEditor, { type EditorInstance } from '../components/CodeEditor';
 import ErrorPanel from '../components/ErrorPanel';
 import JsonTreeView from '../components/JsonTreeView';
@@ -42,9 +43,19 @@ import {
   type EditorMode,
   type QueryResult,
 } from '../lib/toolkit';
+import {
+  addHistory,
+  clearHistory,
+  deleteHistoryEntry,
+  formatEntrySize,
+  historyPreview,
+  listHistory,
+  type EditorHistoryEntry,
+} from '../lib/editorHistory';
 
 const STORAGE_KEY = 'huyan_tool:editor';
 const MODE_KEY = 'huyan_tool:editor-mode';
+const HISTORY_DEBOUNCE_MS = 2000;
 
 const SAMPLE = `{
   "name": "AI包工头",
@@ -100,6 +111,15 @@ export default function JsonToolPage() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [leftPct, setLeftPct] = useState(55);
 
+  // ---------- 历史记录（自动快照） ----------
+  const [history, setHistory] = useState<EditorHistoryEntry[]>(() =>
+    listHistory(),
+  );
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const historyRef = useRef<HTMLDivElement | null>(null);
+  const historyTimerRef = useRef<number | null>(null);
+  const lastSavedRef = useRef<string>(text);
+
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(''), 1800);
@@ -115,6 +135,71 @@ export default function JsonToolPage() {
   useEffect(() => {
     localStorage.setItem(MODE_KEY, modeSetting);
   }, [modeSetting]);
+
+  // 编辑停顿 2s 自动快照（与最新一条相同则由 addHistory 去重）
+  useEffect(() => {
+    if (historyTimerRef.current !== null) {
+      window.clearTimeout(historyTimerRef.current);
+    }
+    historyTimerRef.current = window.setTimeout(() => {
+      if (text !== lastSavedRef.current && addHistory(text)) {
+        lastSavedRef.current = text;
+        setHistory(listHistory());
+      }
+    }, HISTORY_DEBOUNCE_MS);
+    return () => {
+      if (historyTimerRef.current !== null) {
+        window.clearTimeout(historyTimerRef.current);
+      }
+    };
+  }, [text]);
+
+  // 点击历史面板外部关闭
+  useEffect(() => {
+    if (!historyOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (
+        historyRef.current &&
+        !historyRef.current.contains(e.target as Node)
+      ) {
+        setHistoryOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', onDown);
+    return () => window.removeEventListener('mousedown', onDown);
+  }, [historyOpen]);
+
+  // 立即快照当前内容（破坏性操作前调用，防误操作丢失）
+  const snapshotNow = useCallback(() => {
+    setText((current) => {
+      if (addHistory(current)) {
+        lastSavedRef.current = current;
+        setHistory(listHistory());
+      }
+      return current;
+    });
+  }, []);
+
+  const restoreHistoryEntry = useCallback(
+    (entry: EditorHistoryEntry) => {
+      snapshotNow(); // 恢复前先保住当前内容
+      setText(entry.text);
+      setHistoryOpen(false);
+      showToast('已恢复历史版本');
+    },
+    [snapshotNow, showToast],
+  );
+
+  const removeHistoryEntry = useCallback((id: string) => {
+    deleteHistoryEntry(id);
+    setHistory(listHistory());
+  }, []);
+
+  const clearAllHistory = useCallback(() => {
+    clearHistory();
+    setHistory([]);
+    showToast('历史已清空');
+  }, [showToast]);
 
   // ---------- 校验（随模式分派，防抖 300ms） ----------
   const validate = useCallback(
@@ -223,6 +308,7 @@ export default function JsonToolPage() {
       },
       okMsg: string,
     ) => {
+      snapshotNow();
       const r = fn(text);
       if (r.ok && r.text !== undefined) {
         setText(r.text);
@@ -231,11 +317,12 @@ export default function JsonToolPage() {
         showToast(`失败：${r.error?.message ?? '未知错误'}`);
       }
     },
-    [text, showToast],
+    [text, showToast, snapshotNow],
   );
 
   const doNormalize = useCallback(
     (okMsg: string) => {
+      snapshotNow();
       const r = normalizeJsonl(text, { keepEmptyLines });
       setText(r.text);
       showToast(
@@ -244,16 +331,18 @@ export default function JsonToolPage() {
           : okMsg,
       );
     },
-    [text, keepEmptyLines, showToast],
+    [text, keepEmptyLines, showToast, snapshotNow],
   );
 
   const doRepair = useCallback(() => {
+    snapshotNow();
     const r = repairText(text, mode);
     setText(r.text);
     showToast(r.ok ? '已修复' : `部分修复：${r.error ?? '仍有无法修复的内容'}`);
-  }, [text, mode, showToast]);
+  }, [text, mode, showToast, snapshotNow]);
 
   const doSort = useCallback(() => {
+    snapshotNow();
     const r = sortJsonKeys(text, mode);
     if (r.ok) {
       setText(r.text);
@@ -261,7 +350,7 @@ export default function JsonToolPage() {
     } else {
       showToast(`排序失败：${r.error ?? '未知错误'}`);
     }
-  }, [text, mode, showToast]);
+  }, [text, mode, showToast, snapshotNow]);
 
   const runQuery = useCallback(() => {
     const r = queryJsonPath(text, mode, query);
@@ -290,11 +379,12 @@ export default function JsonToolPage() {
   const openFile = useCallback(
     (file: File) => {
       file.text().then((content) => {
+        snapshotNow();
         setText(content);
         showToast(`已载入 ${file.name}`);
       });
     },
-    [showToast],
+    [showToast, snapshotNow],
   );
 
   // 分隔条拖拽
@@ -344,6 +434,7 @@ export default function JsonToolPage() {
 
   const handleTableDelete = useCallback(
     (line: number) => {
+      snapshotNow();
       if (mode === 'jsonl') {
         setText(deleteLine(text, line));
         showToast(`已删除第 ${line} 行`);
@@ -355,7 +446,7 @@ export default function JsonToolPage() {
         showToast(`已删除第 ${line} 项`);
       }
     },
-    [mode, text, jsonValue, showToast],
+    [mode, text, jsonValue, showToast, snapshotNow],
   );
 
   const sizeWarning = text.length > 10 * 1024 * 1024;
@@ -436,6 +527,7 @@ export default function JsonToolPage() {
         </ToolbarButton>
         <ToolbarButton
           onClick={() => {
+            snapshotNow();
             setText(unicodeToChinese(text));
             showToast('已转换 Unicode');
           }}
@@ -462,6 +554,7 @@ export default function JsonToolPage() {
             </ToolbarButton>
             <ToolbarButton
               onClick={() => {
+                snapshotNow();
                 setText(deleteLine(text, currentLine()));
                 showToast('已删除当前行');
               }}
@@ -470,6 +563,7 @@ export default function JsonToolPage() {
             </ToolbarButton>
             <ToolbarButton
               onClick={() => {
+                snapshotNow();
                 setText(duplicateLine(text, currentLine()));
                 showToast('已复制当前行');
               }}
@@ -502,7 +596,84 @@ export default function JsonToolPage() {
         <ToolbarButton onClick={() => fileInputRef.current?.click()}>
           打开文件
         </ToolbarButton>
-        <ToolbarButton onClick={() => setText('')}>清空</ToolbarButton>
+        <div ref={historyRef} className="relative">
+          <ToolbarButton
+            onClick={() => {
+              setHistory(listHistory());
+              setHistoryOpen((o) => !o);
+            }}
+            title="编辑历史（停顿 2s 自动快照，最多 50 条）"
+          >
+            <span className="inline-flex items-center gap-1">
+              <History className="h-3.5 w-3.5" />
+              历史{history.length > 0 ? `(${history.length})` : ''}
+            </span>
+          </ToolbarButton>
+          {historyOpen && (
+            <div className="absolute right-0 top-9 z-50 w-80 rounded-md border bg-card p-2 shadow-lg">
+              <div className="mb-2 flex items-center justify-between px-1">
+                <span className="text-xs font-medium text-foreground">
+                  历史记录（自动快照）
+                </span>
+                <button
+                  onClick={clearAllHistory}
+                  disabled={history.length === 0}
+                  className="text-xs text-muted-foreground transition-colors hover:text-destructive disabled:opacity-40"
+                >
+                  清空
+                </button>
+              </div>
+              {history.length === 0 ? (
+                <div className="px-1 py-6 text-center text-xs text-muted-foreground">
+                  暂无历史记录
+                </div>
+              ) : (
+                <div className="max-h-72 space-y-1 overflow-y-auto">
+                  {history.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="group rounded-sm border border-transparent px-2 py-1.5 transition-colors hover:border-border hover:bg-accent/40"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-foreground">
+                          {new Date(entry.time).toLocaleString()}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">
+                          {formatEntrySize(entry.chars)}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
+                        {historyPreview(entry.text)}
+                      </div>
+                      <div className="mt-1 flex gap-3">
+                        <button
+                          onClick={() => restoreHistoryEntry(entry)}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          恢复
+                        </button>
+                        <button
+                          onClick={() => removeHistoryEntry(entry.id)}
+                          className="text-xs text-muted-foreground hover:text-destructive"
+                        >
+                          删除
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <ToolbarButton
+          onClick={() => {
+            snapshotNow();
+            setText('');
+          }}
+        >
+          清空
+        </ToolbarButton>
         <input
           ref={fileInputRef}
           type="file"
