@@ -68,6 +68,26 @@
 - **不会自动升到 `1.0`**
 - 只有明确说“可以发正式版本”时，才允许使用 `1.0` 及以上版本号
 
+## 分支与发布规则
+
+GitHub Release 绑定的是 **tag**（commit）而不是分支，靠「tag 命名 + Pre-release 标记」区分两条发布线：
+
+| | test 分支 | main 分支 |
+|---|---|---|
+| 用途 | 新功能开发、验证 | 稳定版本 |
+| tag 格式 | `vX.Y.Z-beta.N`（如 `v0.6.0-beta.1`） | `vX.Y.Z`（如 `v0.6.0`） |
+| Releases 页标记 | 🟠 Pre-release | 🟢 Latest |
+| 是否占用首页 Latest | ❌ 否 | ✅ 是 |
+
+发布流程：
+
+1. 在对应分支上把版本号写入 `package.json`、`package-lock.json`（2 处）、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`（仅 `name = "app"` 条目）
+2. commit 后 push 分支
+3. 打 tag 并 push：`git tag v0.6.0-beta.1 && git push origin v0.6.0-beta.1`
+4. `.github/workflows/release.yml` 被 tag 触发，自动构建 macOS Universal dmg 并创建 Release；tag 带 `-` 后缀（如 `-beta.1`）时 workflow 自动标记为 Pre-release，无需手工勾选
+
+test 分支验证稳定后：合回 main → 在 main 上发 `vX.Y.Z` 正式版 tag。
+
 ## 下载安装
 
 前往 [Releases](https://github.com/hyt24v/huyan_ai_contractor/releases/latest) 下载 macOS Universal 安装包：
