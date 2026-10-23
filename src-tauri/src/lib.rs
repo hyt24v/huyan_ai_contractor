@@ -2,7 +2,16 @@ use std::path::Path;
 
 #[tauri::command]
 fn create_symlink(target: String, link: String) -> Result<(), String> {
-    std::os::unix::fs::symlink(&target, &link).map_err(|e| e.to_string())
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(&target, &link).map_err(|e| e.to_string())
+    }
+    #[cfg(windows)]
+    {
+        // 目录软链（skills 都是目录）；需要开启开发者模式或管理员权限
+        std::os::windows::fs::symlink_dir(&target, &link)
+            .map_err(|e| format!("创建软链失败：{e}（Windows 需开启开发者模式或以管理员运行）"))
+    }
 }
 
 #[tauri::command]
@@ -27,12 +36,15 @@ fn is_symlink(path: String) -> bool {
 #[tauri::command]
 fn git_clone(url: String, dest: String) -> Result<(), String> {
     let status = std::process::Command::new("git")
-        .args(["clone", "--depth", "1", &url, &dest])
+        // `--` 分隔：防止以 `-` 开头的 url/dest 被当作 git 参数
+        .args(["clone", "--depth", "1", "--", &url, &dest])
         .status()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("无法执行 git（请确认已安装并在 PATH 中）：{e}"))?;
     if status.success() {
         Ok(())
     } else {
+        // 清理失败克隆的残留目录，否则再次安装会报「中央库已存在」
+        let _ = std::fs::remove_dir_all(&dest);
         Err(format!("git clone 失败，退出码 {:?}", status.code()))
     }
 }

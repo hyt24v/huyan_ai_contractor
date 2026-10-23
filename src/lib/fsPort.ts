@@ -29,6 +29,8 @@ export interface FsPort {
   remove(path: string, recursive?: boolean): Promise<void>;
   rename(from: string, to: string): Promise<void>;
   copyDir(src: string, dst: string): Promise<void>;
+  /** 不跟随软链判断路径是否为软链（坏软链也返回 true）。可选：mock 可不实现 */
+  isSymlink?(path: string): Promise<boolean>;
   readLink(path: string): Promise<string>;
   symlink(target: string, link: string): Promise<void>;
   gitClone(url: string, dest: string): Promise<void>;
@@ -73,6 +75,7 @@ export const tauriFs: FsPort = {
     invoke<void>('remove_path', { path: p, recursive: recursive ?? false }),
   rename: (from, to) => rename(from, to),
   copyDir: (src, dst) => copyDirRecursive(src, dst),
+  isSymlink: (p) => invoke<boolean>('is_symlink', { path: p }),
   readLink: (p) => invoke<string>('read_symlink', { path: p }),
   symlink: (target, link) =>
     invoke<void>('create_symlink', { target, link }),

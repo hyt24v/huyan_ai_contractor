@@ -313,11 +313,11 @@ export default function SkillsManagerPage() {
   }, []);
 
   const run = useCallback(
-    async (fn: () => Promise<void>, okMsg: string) => {
+    async (fn: () => Promise<string | void>, okMsg: string) => {
       setBusy(true);
       try {
-        await fn();
-        showToast(okMsg);
+        const msg = await fn();
+        showToast(typeof msg === 'string' && msg ? msg : okMsg);
         await refresh();
       } catch (e) {
         showToast(`操作失败：${errMsg(e)}`, 'err');
@@ -487,13 +487,27 @@ export default function SkillsManagerPage() {
 
   const deployFromPicker = (names: string[], agents: AgentId[]) => {
     void run(async () => {
+      let ok = 0;
+      let skipped = 0;
+      const failed: string[] = [];
       for (const name of names) {
         const skill = findSkill(name);
-        if (!skill?.inLibrary) continue;
+        if (!skill?.inLibrary) { skipped++; continue; }
         for (const agent of agents) {
-          if (skill.agents[agent] !== 'linked') await enableSkill(name, agent);
+          // 只部署到尚未启用的 agent；本地副本（local）跳过，绝不覆盖用户数据
+          if (skill.agents[agent] !== 'none') { skipped++; continue; }
+          try {
+            await enableSkill(name, agent);
+            ok++;
+          } catch (e) {
+            failed.push(`${name}→${agent}: ${errMsg(e)}`);
+          }
         }
       }
+      if (failed.length > 0) {
+        throw new Error(`成功 ${ok} 项；失败 ${failed.length} 项：${failed.slice(0, 3).join('；')}`);
+      }
+      return `已部署 ${ok} 项${skipped > 0 ? `，跳过 ${skipped} 项（已在库外/已启用）` : ''}`;
     }, `已部署 ${names.length} 个 skill 到 ${agents.length} 个 Agent`);
     setPickerOpen(false);
   };

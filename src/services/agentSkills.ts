@@ -5,6 +5,7 @@ import { absPath, tauriFs, type FsPort } from '../lib/fsPort';
 import {
   computeSkillMatrix,
   linkPointsToLibrary,
+  parseGitTreeUrl,
   parseSkillMdMeta,
   type AgentSkillsScan,
   type SkillRow,
@@ -67,7 +68,16 @@ export async function enableSkill(
   const linkDir = await absPath(agent.skillsDir);
   await fs.mkdir(linkDir);
   const link = `${linkDir}/${skillName}`;
-  if (await fs.exists(link)) await fs.remove(link, true);
+  if (fs.isSymlink) {
+    // 软链（含失效软链，exists 对坏软链返回 false）只删链接本身
+    if (await fs.isSymlink(link)) await fs.remove(link, true);
+    else if (await fs.exists(link)) {
+      // 真实目录/文件：绝不静默删除用户本地数据
+      throw new Error(`${agent.id} 中已存在同名本地 skill（${skillName}），请先在详情中处理`);
+    }
+  } else if (await fs.exists(link)) {
+    await fs.remove(link, true);
+  }
   await fs.symlink(target, link);
 }
 
@@ -80,7 +90,12 @@ export async function disableSkill(
   const agent = AGENTS.find((a) => a.id === agentId);
   if (!agent) throw new Error(`未知 agent: ${agentId}`);
   const link = await absPath(`${agent.skillsDir}/${skillName}`);
-  if (await fs.exists(link)) await fs.remove(link, true);
+  if (fs.isSymlink) {
+    // 只移除软链（含失效软链）；真实目录是用户本地数据，不动
+    if (await fs.isSymlink(link)) await fs.remove(link, true);
+  } else if (await fs.exists(link)) {
+    await fs.remove(link, true);
+  }
 }
 
 /** 收编：把 agent 本地 skill 拷入中央库并替换为软链 */
@@ -107,12 +122,43 @@ export async function installFromGit(
 ): Promise<void> {
   const dest = await absPath(`${SKILL_LIBRARY_DIR}/${skillName}`);
   if (await fs.exists(dest)) throw new Error(`中央库已存在 ${skillName}`);
+
+  const tree = parseGitTreeUrl(url);
+  if (tree) {
+    // 合集仓库的子目录：克隆整个仓库到临时目录，再把子目录拷入中央库
+    const tmp = await absPath(`${SKILL_LIBRARY_DIR}/.tmp-clone-${skillName}`);
+    await fs.remove(tmp, true).catch(() => {});
+    try {
+      await fs.gitClone(tree.repoUrl, tmp);
+      const src = `${tmp}/${tree.subdir}`;
+      if (!(await fs.exists(`${src}/SKILL.md`))) {
+        throw new Error(`子目录 ${tree.subdir} 下没有 SKILL.md，不是合法 skill`);
+      }
+      await fs.copyDir(src, dest);
+    } finally {
+      await fs.remove(tmp, true).catch(() => {});
+    }
+    return;
+  }
+
   await fs.gitClone(url, dest);
   // 校验必须有 SKILL.md
-  if (!(await fs.exists(`${dest}/SKILL.md`))) {
-    await fs.remove(dest, true);
-    throw new Error('克隆成功但目录下没有 SKILL.md，不是合法 skill');
+  if (await fs.exists(`${dest}/SKILL.md`)) return;
+  // 根目录没有：看看是不是合集仓库（skill 在一层子目录里）
+  const subdirs = (await fs.readDir(dest)).filter((e) => e.isDirectory);
+  const withSkill: string[] = [];
+  for (const d of subdirs) {
+    if (await fs.exists(`${dest}/${d.name}/SKILL.md`)) withSkill.push(d.name);
   }
+  await fs.remove(dest, true);
+  if (withSkill.length > 0) {
+    const base = url.trim().replace(/\.git$/, '').replace(/\/$/, '');
+    const more = withSkill.length > 1 ? `（还有 ${withSkill.slice(1, 5).join('、')} 等 ${withSkill.length} 个）` : '';
+    throw new Error(
+      `该仓库是 skill 合集，根目录没有 SKILL.md。请改用子目录链接安装，如：${base}/tree/main/${withSkill[0]}${more}`,
+    );
+  }
+  throw new Error('克隆成功但目录下没有 SKILL.md，不是合法 skill');
 }
 
 /** 中央库 skill 目录（不存在则报错） */

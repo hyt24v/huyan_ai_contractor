@@ -15,7 +15,16 @@
           "path": "$HOME/.claude.json"
         },
         {
+          "path": "$HOME/.claude.json.*"
+        },
+        {
           "path": "$HOME/.claude/**"
+        },
+        {
+          "path": "$HOME/.ai-baogongtou"
+        },
+        {
+          "path": "$HOME/.ai-baogongtou/**"
         },
         {
           "path": "$HOME/.codex/**"
@@ -44,7 +53,16 @@
           "path": "$HOME/.claude.json"
         },
         {
+          "path": "$HOME/.claude.json.*"
+        },
+        {
           "path": "$HOME/.claude/**"
+        },
+        {
+          "path": "$HOME/.ai-baogongtou"
+        },
+        {
+          "path": "$HOME/.ai-baogongtou/**"
         },
         {
           "path": "$HOME/.codex/**"
@@ -73,6 +91,9 @@
           "path": "$HOME/.claude/**"
         },
         {
+          "path": "$HOME/.ai-baogongtou/**"
+        },
+        {
           "path": "$HOME/.codex/**"
         },
         {
@@ -96,7 +117,16 @@
           "path": "$HOME/.claude.json"
         },
         {
+          "path": "$HOME/.claude.json.*"
+        },
+        {
           "path": "$HOME/.claude/**"
+        },
+        {
+          "path": "$HOME/.ai-baogongtou"
+        },
+        {
+          "path": "$HOME/.ai-baogongtou/**"
         },
         {
           "path": "$HOME/.codex/**"
@@ -125,6 +155,9 @@
           "path": "$HOME/.claude/**"
         },
         {
+          "path": "$HOME/.ai-baogongtou/**"
+        },
+        {
           "path": "$HOME/.codex/**"
         },
         {
@@ -151,6 +184,9 @@
           "path": "$HOME/.claude/**"
         },
         {
+          "path": "$HOME/.ai-baogongtou/**"
+        },
+        {
           "path": "$HOME/.codex/**"
         },
         {
@@ -174,6 +210,9 @@
           "path": "$HOME/.claude/**"
         },
         {
+          "path": "$HOME/.ai-baogongtou/**"
+        },
+        {
           "path": "$HOME/.codex/**"
         },
         {
@@ -195,6 +234,9 @@
       "allow": [
         {
           "path": "$HOME/.claude/**"
+        },
+        {
+          "path": "$HOME/.ai-baogongtou/**"
         },
         {
           "path": "$HOME/.codex/**"
@@ -227,9 +269,6 @@
         },
         {
           "path": "$HOME/.ai-baogongtou/**"
-        },
-        {
-          "path": "$HOME/**"
         }
       ]
     }

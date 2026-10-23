@@ -118,3 +118,12 @@ export function skillNameFromGitUrl(url: string): string | null {
   const last = cleaned.split('/').pop();
   return last && last.length > 0 ? last : null;
 }
+
+/** 解析 /tree/<branch>/<subdir> 形式的 GitHub URL，返回仓库地址与子目录；非 tree 链接返回 null */
+export function parseGitTreeUrl(url: string): { repoUrl: string; subdir: string } | null {
+  const cleaned = url.trim().replace(/\.git$/, '').replace(/\/$/, '');
+  const m = cleaned.match(/^(.+?)\/tree\/[^/]+\/(.+)$/);
+  if (!m) return null;
+  const subdir = m[2].replace(/\/+$/, '');
+  return subdir ? { repoUrl: m[1], subdir } : null;
+}

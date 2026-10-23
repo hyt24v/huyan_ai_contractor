@@ -107,6 +107,8 @@ export interface RestoreResult {
   record: SnapshotRecord;
   /** 成功写回的文件（相对 $HOME） */
   restored: string[];
+  /** 快照时不存在、本次回滚删除的文件 */
+  removed: string[];
   /** 快照中缺失或写回失败的文件 */
   missing: string[];
 }
@@ -125,10 +127,20 @@ export async function restoreSnapshot(
   if (!record) throw new Error(`快照清单损坏：${id}`);
 
   const restored: string[] = [];
+  const removed: string[] = [];
   const missing: string[] = [];
   for (const f of record.files) {
     if (!f.exists) {
-      missing.push(f.file);
+      // 快照时不存在：真正的回滚需要删掉快照之后新增的文件
+      try {
+        const target = await absPath(f.file);
+        if (await fs.exists(target)) {
+          await fs.remove(target);
+          removed.push(f.file);
+        }
+      } catch (e) {
+        missing.push(`${f.file}（删除失败：${errMsg(e)}）`);
+      }
       continue;
     }
     try {
@@ -147,7 +159,7 @@ export async function restoreSnapshot(
       missing.push(`${f.file}（${errMsg(e)}）`);
     }
   }
-  return { record, restored, missing };
+  return { record, restored, removed, missing };
 }
 
 /** 只保留最新 keep 个快照，返回被删除的 ID */
