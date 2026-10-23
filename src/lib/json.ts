@@ -55,6 +55,42 @@ export function parseJson(text: string): ParseJsonResult {
   }
 }
 
+/** 把字符串字面量中的原始控制字符（真实换行/制表/回车）转义回 \\n \\t \\r，使「不保留转义」显示后的文本仍可解析 */
+export function escapeRawControlChars(text: string): string {
+  let out = '';
+  let inString = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (!inString) {
+      if (ch === '"') inString = true;
+      out += ch;
+      continue;
+    }
+    if (ch === '\\') {
+      out += ch + (text[i + 1] ?? '');
+      i++;
+      continue;
+    }
+    if (ch === '"') {
+      inString = false;
+      out += ch;
+      continue;
+    }
+    if (ch === '\n') out += '\\n';
+    else if (ch === '\t') out += '\\t';
+    else if (ch === '\r') out += '\\r';
+    else out += ch;
+  }
+  return out;
+}
+
+/** 宽容解析：直接 parse 失败时，先把字符串里的原始控制字符转义再试一次（兼容「不保留转义」显示态） */
+export function parseJsonTolerant(text: string): ParseJsonResult {
+  const r = parseJson(text);
+  if (r.ok) return r;
+  return parseJson(escapeRawControlChars(text));
+}
+
 export type TransformResult =
   | { ok: true; text: string }
   | { ok: false; error: JsonError };
@@ -132,7 +168,7 @@ export function formatJson(
   indent = 2,
   keepEscape = false,
 ): TransformResult {
-  const r = parseJson(text);
+  const r = parseJsonTolerant(text);
   if (!r.ok) return r;
   const out = JSON.stringify(r.value, null, indent);
   return {
@@ -143,7 +179,7 @@ export function formatJson(
 
 /** 压缩为单行；keepEscape 同上 */
 export function minifyJson(text: string, keepEscape = false): TransformResult {
-  const r = parseJson(text);
+  const r = parseJsonTolerant(text);
   if (!r.ok) return r;
   const out = JSON.stringify(r.value);
   return {

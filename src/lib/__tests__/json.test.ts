@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   buildJsonTree,
   escapeJson,
+  escapeRawControlChars,
   formatJson,
   minifyJson,
   parseJson,
+  parseJsonTolerant,
   positionToLineCol,
   unicodeToChinese,
   unescapeJson,
@@ -108,6 +110,40 @@ describe('formatJson / minifyJson', () => {
   it('非法输入返回错误', () => {
     expect(formatJson('{bad').ok).toBe(false);
     expect(minifyJson('{bad').ok).toBe(false);
+  });
+});
+
+describe('parseJsonTolerant / escapeRawControlChars', () => {
+  it('字符串内含真实换行的「原文显示态」也能解析', () => {
+    const decoded = '{\n  "a": "line1\nline2"\n}';
+    expect(parseJson(decoded).ok).toBe(false); // 严格模式报错
+    const r = parseJsonTolerant(decoded);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value).toEqual({ a: 'line1\nline2' });
+  });
+
+  it('转义/解码显示可自由互切且无损', () => {
+    const src = '{"msg":"你好\\n世界","q":"他说\\"嗨\\""}';
+    const esc = formatJson(src, 2, true);
+    expect(esc.ok).toBe(true);
+    if (!esc.ok) return;
+    expect(esc.text).toContain('\\u4f60\\u597d');
+    const dec = formatJson(esc.text, 2, false);
+    expect(dec.ok).toBe(true);
+    if (!dec.ok) return;
+    expect(dec.text).toContain('你好\n世界'); // 解码后是真换行
+    // 再切回转义显示，值不变
+    const back = formatJson(dec.text, 2, true);
+    expect(back.ok).toBe(true);
+    if (back.ok) {
+      expect(JSON.parse(back.text)).toEqual(JSON.parse(src));
+    }
+  });
+
+  it('escapeRawControlChars 不动字符串外的换行', () => {
+    const text = '{\n  "a": "x\ny"\n}';
+    const out = escapeRawControlChars(text);
+    expect(out).toBe('{\n  "a": "x\\ny"\n}');
   });
 });
 

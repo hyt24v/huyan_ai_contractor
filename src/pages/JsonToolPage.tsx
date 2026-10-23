@@ -20,7 +20,7 @@ import {
   escapeJson,
   formatJson,
   minifyJson,
-  parseJson,
+  parseJsonTolerant,
   unicodeToChinese,
   unescapeJson,
   valueType,
@@ -214,7 +214,8 @@ export default function JsonToolPage() {
     (value: string, m: EditorMode) => {
       const model = editorRef.current?.getModel();
       if (m === 'json') {
-        const r = parseJson(value);
+        // 宽容解析：「不保留转义」显示态（字符串含真实换行）不算错误
+        const r = parseJsonTolerant(value);
         if (r.ok) {
           setJsonError(null);
           const v = r.value as JsonValue;
@@ -489,7 +490,7 @@ export default function JsonToolPage() {
             validate(text, mode);
             // 重新解析一次取结果，避免读到 setState 前的旧状态
             if (mode === 'json') {
-              showToast(parseJson(text).ok ? '✓ JSON 合法' : 'JSON 有错误');
+              showToast(parseJsonTolerant(text).ok ? '✓ JSON 合法' : 'JSON 有错误');
             } else {
               const s = jsonlStats(parseJsonl(text));
               showToast(
@@ -522,12 +523,22 @@ export default function JsonToolPage() {
         </ToolbarButton>
         <label
           className="inline-flex cursor-pointer select-none items-center gap-1 text-xs text-muted-foreground"
-          title="勾选：中文等非 ASCII 输出为 \\uXXXX 转义；不勾选：\\n、\\t、\\uXXXX 解码为真实字符（参考 json.cn）"
+          title="切换转义显示：勾选=非 ASCII 输出为 \\uXXXX；不勾选=\\n、\\t、\\uXXXX 解码为真实字符（参考 json.cn），可自由来回切换"
         >
           <input
             type="checkbox"
             checked={keepEscape}
-            onChange={(e) => setKeepEscape(e.target.checked)}
+            onChange={(e) => {
+              const next = e.target.checked;
+              setKeepEscape(next);
+              // 立即按新显示模式重新渲染当前内容（formatJson 宽容解析，两种显示态可自由互切）
+              if (mode === 'json') {
+                applyTransform(
+                  (t) => formatJson(t, 2, next),
+                  next ? '已切换为转义显示' : '已切换为原文显示',
+                );
+              }
+            }}
             className="h-3 w-3 accent-primary"
           />
           保留转义
