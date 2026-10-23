@@ -522,7 +522,7 @@ export default function JsonToolPage() {
         </ToolbarButton>
         <label
           className="inline-flex cursor-pointer select-none items-center gap-1 text-xs text-muted-foreground"
-          title="格式化/压缩时把中文等非 ASCII 字符输出为 \\uXXXX 转义（参考 json.cn）"
+          title="勾选：中文等非 ASCII 输出为 \\uXXXX 转义；不勾选：\\n、\\t、\\uXXXX 解码为真实字符（参考 json.cn）"
         >
           <input
             type="checkbox"

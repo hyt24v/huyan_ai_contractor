@@ -84,10 +84,25 @@ describe('formatJson / minifyJson', () => {
       expect(m.text).not.toContain('中');
       expect(JSON.parse(m.text)).toEqual(JSON.parse(src));
     }
-    // 默认（false）保留原始字符
-    const d = formatJson(src);
-    expect(d.ok).toBe(true);
-    if (d.ok) expect(d.text).toContain('中文');
+  });
+
+  it('不保留转义（默认）：\\n/\\t/\\uXXXX 解码为真实字符', () => {
+    const src = '{"a":"line1\\nline2\\t制表","b":"\\u4e2d\\u6587","c":"保持\\\\n和\\\"引号\\\""}';
+    const r = formatJson(src, 2, false);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // \n 变成真实换行
+    expect(r.text).toContain('line1\nline2');
+    // \t 变成真实制表符
+    expect(r.text).toContain('\t制表');
+    // \uXXXX 解码为中文
+    expect(r.text).toContain('"b": "中文"');
+    // \\ 和 \" 保持转义，结构不破坏
+    expect(r.text).toContain('保持\\\\n和\\\"引号\\\"');
+    // 压缩同样解码
+    const m = minifyJson(src, false);
+    expect(m.ok).toBe(true);
+    if (m.ok) expect(m.text).toContain('line1\nline2');
   });
 
   it('非法输入返回错误', () => {

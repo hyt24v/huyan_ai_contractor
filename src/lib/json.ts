@@ -73,7 +73,60 @@ export function escapeNonAscii(text: string): string {
   return out;
 }
 
-/** 格式化（默认 2 空格缩进）；keepEscape 时非 ASCII 字符输出为 \uXXXX（参考 json.cn 保留转义） */
+/**
+ * 解码字符串字面量中的转义序列为真实字符（参考 json.cn「不保留转义」）：
+ * \n → 换行、\t → 制表符、\r → 回车、\uXXXX → 对应字符。
+ * \\ 和 \" 保持转义（否则破坏 JSON 结构）。
+ * 注意：解码后含真实换行的字符串不再是严格合法 JSON，仅用于展示/阅读。
+ */
+export function decodeStringEscapes(text: string): string {
+  let out = '';
+  let inString = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (!inString) {
+      if (ch === '"') inString = true;
+      out += ch;
+      continue;
+    }
+    // inString
+    if (ch === '"') {
+      inString = false;
+      out += ch;
+      continue;
+    }
+    if (ch !== '\\' || i + 1 >= text.length) {
+      out += ch;
+      continue;
+    }
+    const next = text[i + 1];
+    if (next === 'n') {
+      out += '\n';
+      i++;
+    } else if (next === 't') {
+      out += '\t';
+      i++;
+    } else if (next === 'r') {
+      out += '\r';
+      i++;
+    } else if (next === 'u' && i + 5 < text.length) {
+      const hex = text.slice(i + 2, i + 6);
+      if (/^[0-9a-fA-F]{4}$/.test(hex)) {
+        out += String.fromCharCode(parseInt(hex, 16));
+        i += 5;
+      } else {
+        out += ch;
+      }
+    } else {
+      // \\ 、\" 、\/ 、\b 、\f 等保持原样
+      out += ch + next;
+      i++;
+    }
+  }
+  return out;
+}
+
+/** 格式化（默认 2 空格缩进）；keepEscape 时非 ASCII 字符输出为 \uXXXX（参考 json.cn 保留转义），否则解码 \n/\t/\uXXXX 为真实字符 */
 export function formatJson(
   text: string,
   indent = 2,
@@ -82,7 +135,10 @@ export function formatJson(
   const r = parseJson(text);
   if (!r.ok) return r;
   const out = JSON.stringify(r.value, null, indent);
-  return { ok: true, text: keepEscape ? escapeNonAscii(out) : out };
+  return {
+    ok: true,
+    text: keepEscape ? escapeNonAscii(out) : decodeStringEscapes(out),
+  };
 }
 
 /** 压缩为单行；keepEscape 同上 */
@@ -90,7 +146,10 @@ export function minifyJson(text: string, keepEscape = false): TransformResult {
   const r = parseJson(text);
   if (!r.ok) return r;
   const out = JSON.stringify(r.value);
-  return { ok: true, text: keepEscape ? escapeNonAscii(out) : out };
+  return {
+    ok: true,
+    text: keepEscape ? escapeNonAscii(out) : decodeStringEscapes(out),
+  };
 }
 
 /** 转义：把原始文本转为 JSON 字符串字面量内容（不带首尾引号） */
