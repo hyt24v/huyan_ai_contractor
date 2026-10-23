@@ -16,14 +16,13 @@ const MODES: { id: ThemeMode; name: string; icon: typeof Monitor }[] = [
   { id: 'dark', name: '深色', icon: Moon },
 ];
 
-const APPEARANCE_TABS: { id: ThemeAppearance; name: string }[] = [
+const APPEARANCE_GROUPS: { id: ThemeAppearance; name: string }[] = [
   { id: 'light', name: '浅色主题' },
   { id: 'dark', name: '深色主题' },
 ];
 
 export default function ThemeSwitcher() {
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<ThemeAppearance>('dark');
   const settings = useThemeSettings();
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -51,7 +50,8 @@ export default function ThemeSwitcher() {
   }, [open]);
 
   const activeTheme = getActiveTheme();
-  const selectedForTab = tab === 'dark' ? settings.darkThemeId : settings.lightThemeId;
+  const selectedId = (appearance: ThemeAppearance) =>
+    appearance === 'dark' ? settings.darkThemeId : settings.lightThemeId;
 
   return (
     <div ref={rootRef} className="relative">
@@ -88,59 +88,51 @@ export default function ThemeSwitcher() {
             ))}
           </div>
 
-          {/* 浅色/深色主题页签 */}
-          <div className="mb-2 flex gap-3 border-b border-border/40 px-1">
-            {APPEARANCE_TABS.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`-mb-px border-b-2 pb-1.5 text-xs transition-colors ${
-                  tab === t.id
-                    ? 'border-primary font-medium text-foreground'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {t.name}
-              </button>
+          {/* 主题卡片：浅色/深色分组平铺 */}
+          <div className="max-h-80 space-y-3 overflow-y-auto">
+            {APPEARANCE_GROUPS.map((g) => (
+              <div key={g.id}>
+                <div className="mb-1.5 px-0.5 text-[11px] font-medium text-muted-foreground">
+                  {g.name}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {THEMES.filter((t) => t.appearance === g.id).map((t) => {
+                    const selected = selectedId(g.id) === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => setThemeForAppearance(t.appearance, t.id)}
+                        onMouseEnter={() => previewTheme(t.id)}
+                        onMouseLeave={() => previewTheme(null)}
+                        className={`group rounded-md border p-2 text-left transition-colors ${
+                          selected
+                            ? 'border-primary'
+                            : 'border-border/60 hover:border-foreground/30'
+                        }`}
+                      >
+                        <div className="mb-1.5 flex h-8 overflow-hidden rounded-sm">
+                          {t.swatch.map((c, i) => (
+                            <span
+                              key={i}
+                              className={i === 0 ? 'flex-[1.4]' : 'flex-1'}
+                              style={{ background: c }}
+                            />
+                          ))}
+                        </div>
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="truncate text-xs text-foreground">
+                            {t.name}
+                          </span>
+                          {selected && (
+                            <Check className="h-3 w-3 shrink-0 text-primary" />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             ))}
-          </div>
-
-          {/* 主题卡片 */}
-          <div className="grid grid-cols-2 gap-2">
-            {THEMES.filter((t) => t.appearance === tab).map((t) => {
-              const selected = selectedForTab === t.id;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => setThemeForAppearance(tab, t.id)}
-                  onMouseEnter={() => previewTheme(t.id)}
-                  onMouseLeave={() => previewTheme(null)}
-                  className={`group rounded-md border p-2 text-left transition-colors ${
-                    selected
-                      ? 'border-primary'
-                      : 'border-border/60 hover:border-foreground/30'
-                  }`}
-                >
-                  <div className="mb-1.5 flex h-8 overflow-hidden rounded-sm">
-                    {t.swatch.map((c, i) => (
-                      <span
-                        key={i}
-                        className={i === 0 ? 'flex-[1.4]' : 'flex-1'}
-                        style={{ background: c }}
-                      />
-                    ))}
-                  </div>
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="truncate text-xs text-foreground">
-                      {t.name}
-                    </span>
-                    {selected && (
-                      <Check className="h-3 w-3 shrink-0 text-primary" />
-                    )}
-                  </div>
-                </button>
-              );
-            })}
           </div>
         </div>
       )}

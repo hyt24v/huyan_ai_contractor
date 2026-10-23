@@ -31,6 +31,17 @@
 
 ![命令面板](docs/images/command-palette.png)
 
+### 主题系统
+
+![主题切换](docs/images/themes.png)
+
+内置 6 套主题：暗色 Midnight / One Dark Pro / Catppuccin Mocha / Everforest，浅色 Sakura Macaron / Minimal Light。
+支持「跟随系统 / 固定浅色 / 固定深色」三种模式，悬停实时预览，编辑器配色同步切换。
+
+### 浅色主题（Sakura Macaron）
+
+![浅色主题](docs/images/theme-sakura.png)
+
 ## 功能
 
 - **JSON 编辑器**（对标 json.cn）：校验、格式化、压缩、转义/去转义、Unicode 转中文、复制、下载、打开本地文件/拖拽载入；右侧树形视图（展开/收起、复制值/路径）；错误行列定位跳转
@@ -46,7 +57,7 @@
 - **配置套餐**：把 Skills + MCP + 提示词 + 模型服务打包成套餐，一键应用
 - **模型服务**：Provider 预设与切换，支持 Claude Code / Codex / Pi，写入前自动备份
 - **提示词**：维护 `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` 等提示词库，按 Agent 写入并保留备份
-- **界面**：⌘K 命令面板、左侧栏收起/展开（⌘B / Ctrl+B）、主题切换
+- **界面**：Otty 式布局（activity bar + 主角卡片）、⌘K 命令面板、导航面板收起/展开（⌘B / Ctrl+B）、6 套主题 + 跟随系统自动明暗
 - **安全**：所有配置写入前自动备份；MCP 每 6 小时自动快照（应用打开期间）
 
 ## 版本策略
