@@ -123,7 +123,7 @@ export default function MarkdownPage() {
     historyOpen,
     setHistoryOpen,
     historyRef,
-    snapshotNow,
+    saveCurrent,
     refreshHistory,
     restoreEntry,
     removeEntry,
@@ -181,12 +181,11 @@ export default function MarkdownPage() {
   const openFile = useCallback(
     (file: File) => {
       file.text().then((content) => {
-        snapshotNow();
         applyText(content);
         showToast(`已载入 ${file.name}`);
       });
     },
-    [snapshotNow, applyText, showToast],
+    [applyText, showToast],
   );
 
   // 导出 HTML
@@ -308,6 +307,7 @@ export default function MarkdownPage() {
             refreshHistory();
             setHistoryOpen((o) => !o);
           }}
+          onSave={saveCurrent}
           onRestore={restoreEntry}
           onRemove={removeEntry}
           onClear={clearAll}
@@ -322,14 +322,7 @@ export default function MarkdownPage() {
         >
           复制
         </ToolbarButton>
-        <ToolbarButton
-          onClick={() => {
-            snapshotNow();
-            applyText('');
-          }}
-        >
-          清空
-        </ToolbarButton>
+        <ToolbarButton onClick={() => applyText('')}>清空</ToolbarButton>
         <input
           ref={fileInputRef}
           type="file"
