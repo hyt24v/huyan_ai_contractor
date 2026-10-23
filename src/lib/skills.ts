@@ -94,7 +94,9 @@ export function parseSkillMdMeta(content: string): {
   description?: string;
   tags?: string[];
 } {
-  const m = content.match(/^---\n([\s\S]*?)\n---/);
+  // 兼容 CRLF/CR 换行，否则 Windows 编辑过的 SKILL.md 解析不出 frontmatter
+  const text = content.replace(/\r\n?/g, '\n');
+  const m = text.match(/^---\n([\s\S]*?)\n---/);
   if (!m) return {};
   const front = m[1];
   const name = front.match(/^name:\s*(.+)$/m)?.[1]?.trim();

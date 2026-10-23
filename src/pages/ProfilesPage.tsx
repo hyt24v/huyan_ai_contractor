@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useToast } from '../hooks/useToast';
 import {
   AlertTriangle,
   CircleAlert,
@@ -121,15 +122,13 @@ export default function ProfilesPage() {
   const [report, setReport] = useState<ApplyReport | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [toast, setToast] = useState('');
-  const [toastOk, setToastOk] = useState(true);
+  const { toast, showToast } = useToast(2800);
   const fileInput = useRef<HTMLInputElement | null>(null);
 
-  const notify = useCallback((msg: string, ok = true) => {
-    setToast(msg);
-    setToastOk(ok);
-    window.setTimeout(() => setToast(''), 2800);
-  }, []);
+  const notify = useCallback(
+    (msg: string, ok = true) => showToast(msg, ok ? 'ok' : 'err'),
+    [showToast],
+  );
 
   const refresh = useCallback(async () => {
     setError('');
@@ -340,13 +339,15 @@ export default function ProfilesPage() {
             e.target.value = '';
           }}
         />
-        <span
-          className={`ml-auto text-xs font-medium ${
-            toastOk ? 'text-success' : 'text-destructive'
-          }`}
-        >
-          {toast}
-        </span>
+        {toast && (
+          <span
+            className={`ml-auto text-xs font-medium ${
+              toast.tone === 'err' ? 'text-destructive' : 'text-success'
+            }`}
+          >
+            {toast.msg}
+          </span>
+        )}
       </Toolbar>
 
       {error && (

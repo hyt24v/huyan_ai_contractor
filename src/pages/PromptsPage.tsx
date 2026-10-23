@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useToast } from '../hooks/useToast';
 import {
   BookOpen,
   CircleCheck,
@@ -55,15 +56,13 @@ export default function PromptsPage() {
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [toast, setToast] = useState('');
-  const [toastOk, setToastOk] = useState(true);
   const [agentFiles, setAgentFiles] = useState<Partial<Record<AgentId, AgentFileState>>>({});
+  const { toast, showToast } = useToast(2600);
 
-  const notify = useCallback((msg: string, ok = true) => {
-    setToast(msg);
-    setToastOk(ok);
-    window.setTimeout(() => setToast(''), 2600);
-  }, []);
+  const notify = useCallback(
+    (msg: string, ok = true) => showToast(msg, ok ? 'ok' : 'err'),
+    [showToast],
+  );
 
   const populate = useCallback((prompt: PromptEntry | null) => {
     setSelectedId(prompt?.id ?? null);
@@ -389,13 +388,15 @@ export default function PromptsPage() {
             <RefreshCw className="mr-1 inline h-3.5 w-3.5" />
             刷新
           </ToolbarButton>
-          <span
-            className={`ml-auto text-xs font-medium ${
-              toastOk ? 'text-success' : 'text-destructive'
-            }`}
-          >
-            {toast}
-          </span>
+          {toast && (
+            <span
+              className={`ml-auto text-xs font-medium ${
+                toast.tone === 'err' ? 'text-destructive' : 'text-success'
+              }`}
+            >
+              {toast.msg}
+            </span>
+          )}
         </Toolbar>
 
         {error && (

@@ -10,6 +10,8 @@ import {
   ToolbarDivider,
 } from '../components/Toolbar';
 import { monaco } from '../monacoSetup';
+import { isTauri } from '@tauri-apps/api/core';
+import { absPath, tauriFs } from '../lib/fsPort';
 import {
   buildJsonTree,
   copyToClipboard,
@@ -266,6 +268,25 @@ export default function JsonToolPage() {
     setQueryResult(r);
   }, [text, mode, query]);
 
+  // 下载：Tauri webview 里 a[download] 静默失败，改写文件到 exports 目录
+  const doDownload = useCallback(async () => {
+    const filename = mode === 'json' ? 'data.json' : 'data.jsonl';
+    if (isTauri()) {
+      try {
+        const dir = await absPath('.ai-baogongtou/exports');
+        if (!(await tauriFs.exists(dir))) await tauriFs.mkdir(dir);
+        const path = `${dir}/${filename}`;
+        await tauriFs.writeText(path, text);
+        showToast(`已保存到 ${path}`);
+      } catch (e) {
+        showToast(`保存失败：${e instanceof Error ? e.message : String(e)}`);
+      }
+    } else {
+      downloadText(filename, text);
+      showToast('已开始下载');
+    }
+  }, [mode, text, showToast]);
+
   const openFile = useCallback(
     (file: File) => {
       file.text().then((content) => {
@@ -367,11 +388,17 @@ export default function JsonToolPage() {
           primary
           onClick={() => {
             validate(text, mode);
-            showToast(mode === 'json'
-              ? jsonError === null ? '✓ JSON 合法' : 'JSON 有错误'
-              : jsonlStatsMemo.errors === 0
-                ? `✓ ${jsonlStatsMemo.valid} 行全部合法`
-                : `${jsonlStatsMemo.errors} 行有错误`);
+            // 重新解析一次取结果，避免读到 setState 前的旧状态
+            if (mode === 'json') {
+              showToast(parseJson(text).ok ? '✓ JSON 合法' : 'JSON 有错误');
+            } else {
+              const s = jsonlStats(parseJsonl(text));
+              showToast(
+                s.errors === 0
+                  ? `✓ ${s.valid} 行全部合法`
+                  : `${s.errors} 行有错误`,
+              );
+            }
           }}
         >
           校验
@@ -469,11 +496,7 @@ export default function JsonToolPage() {
         >
           复制
         </ToolbarButton>
-        <ToolbarButton
-          onClick={() =>
-            downloadText(mode === 'json' ? 'data.json' : 'data.jsonl', text)
-          }
-        >
+        <ToolbarButton onClick={doDownload}>
           下载
         </ToolbarButton>
         <ToolbarButton onClick={() => fileInputRef.current?.click()}>

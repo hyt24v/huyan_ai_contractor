@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useToast } from '../hooks/useToast';
 import { isTauri } from '@tauri-apps/api/core';
 import {
   Check,
@@ -192,18 +193,13 @@ export default function ProvidersPage() {
   const [store, setStore] = useState<ProviderStore | null>(null);
   const [current, setCurrent] = useState<Partial<Record<AgentId, ReadResult>>>({});
   const [error, setError] = useState('');
-  const [toast, setToast] = useState('');
+  const { toast, showToast } = useToast(3000);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<ProviderInput | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState('');
   const [showKey, setShowKey] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(''), 3000);
-  }, []);
 
   const refresh = useCallback(async () => {
     setError('');
@@ -272,14 +268,14 @@ export default function ProvidersPage() {
   const applyOne = useCallback(
     async (p: Provider) => {
       if (!PROVIDER_TARGETS[p.agent].writable) {
-        showToast(`${agentById(p.agent).name}：${UNSUPPORTED_NOTE}`);
+        showToast(`${agentById(p.agent).name}：${UNSUPPORTED_NOTE}`, 'err');
         return;
       }
       setBusy(true);
       try {
         const result = await applyProvider(p);
         if (!result.ok) {
-          showToast(`应用失败：${result.message}`);
+          showToast(`应用失败：${result.message}`, 'err');
           return;
         }
         const next = await setActive(p.agent, p.id);
@@ -288,7 +284,7 @@ export default function ProvidersPage() {
         setCurrent(reads);
         showToast(result.message);
       } catch (e) {
-        showToast(`应用失败：${e instanceof Error ? e.message : String(e)}`);
+        showToast(`应用失败：${e instanceof Error ? e.message : String(e)}`, 'err');
       } finally {
         setBusy(false);
       }
@@ -306,7 +302,7 @@ export default function ProvidersPage() {
         setStore(next);
         showToast('已删除');
       } catch (e) {
-        showToast(`删除失败：${e instanceof Error ? e.message : String(e)}`);
+        showToast(`删除失败：${e instanceof Error ? e.message : String(e)}`, 'err');
       } finally {
         setBusy(false);
       }
@@ -316,7 +312,7 @@ export default function ProvidersPage() {
 
   const exportAll = useCallback(() => {
     if (currentStore.providers.length === 0) {
-      showToast('清单为空，无可导出内容');
+      showToast('清单为空，无可导出内容', 'err');
       return;
     }
     if (
@@ -336,7 +332,7 @@ export default function ProvidersPage() {
         const text = await file.text();
         const result = importStoreJson(text, currentStore, new Date());
         if (!result.ok) {
-          showToast(`导入失败：${result.error}`);
+          showToast(`导入失败：${result.error}`, 'err');
           return;
         }
         await saveStore(result.store);
@@ -344,7 +340,7 @@ export default function ProvidersPage() {
         showToast(`已导入 ${result.imported} 个模型服务（同 ID 已覆盖）`);
         void refresh();
       } catch (e) {
-        showToast(`导入失败：${e instanceof Error ? e.message : String(e)}`);
+        showToast(`导入失败：${e instanceof Error ? e.message : String(e)}`, 'err');
       } finally {
         setBusy(false);
       }
@@ -386,7 +382,15 @@ export default function ProvidersPage() {
           }}
         />
         <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-          {toast && <span className="font-medium text-success">{toast}</span>}
+          {toast && (
+            <span
+              className={`font-medium ${
+                toast.tone === 'err' ? 'text-destructive' : 'text-success'
+              }`}
+            >
+              {toast.msg}
+            </span>
+          )}
           <span>{total} 个模型服务</span>
         </div>
       </Toolbar>
@@ -499,7 +503,10 @@ export default function ProvidersPage() {
       {draft && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setDraft(null)}
+          onClick={() => {
+            // 防止误点遮罩丢失表单
+            if (window.confirm('放弃当前编辑内容？')) setDraft(null);
+          }}
         >
           <div
             className="w-full max-w-lg space-y-3 rounded-lg border bg-card p-4 shadow-xl"

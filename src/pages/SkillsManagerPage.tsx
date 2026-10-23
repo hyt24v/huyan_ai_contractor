@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useToast } from '../hooks/useToast';
 import {
   ArrowUpCircle,
   Check,
@@ -246,7 +247,7 @@ export default function SkillsManagerPage() {
   const [catalog, setCatalog] = useState<SkillCatalog | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [toast, setToast] = useState<{ msg: string; tone: 'ok' | 'err' } | null>(null);
+  const { toast, showToast } = useToast(3200);
   const [busy, setBusy] = useState(false);
   const [updating, setUpdating] = useState(false);
 
@@ -276,11 +277,6 @@ export default function SkillsManagerPage() {
   const [marketError, setMarketError] = useState('');
   const [marketLoading, setMarketLoading] = useState(false);
   const [marketTag, setMarketTag] = useState('all');
-
-  const showToast = useCallback((msg: string, tone: 'ok' | 'err' = 'ok') => {
-    setToast({ msg, tone });
-    window.setTimeout(() => setToast(null), 3200);
-  }, []);
 
   const refresh = useCallback(async () => {
     setError('');
@@ -435,14 +431,22 @@ export default function SkillsManagerPage() {
         return;
       }
       void run(async () => {
-        if (enabled) {
-          for (const agent of AGENTS) {
-            if (skill.agents[agent.id] === 'linked') await disableSkill(name, agent.id);
+        const targets = AGENTS.filter((a) =>
+          enabled ? skill.agents[a.id] === 'linked' : skill.agents[a.id] === 'none',
+        );
+        let ok = 0;
+        const failed: string[] = [];
+        for (const agent of targets) {
+          try {
+            if (enabled) await disableSkill(name, agent.id);
+            else await enableSkill(name, agent.id);
+            ok++;
+          } catch (e) {
+            failed.push(`${agent.name}: ${errMsg(e)}`);
           }
-        } else {
-          for (const agent of AGENTS) {
-            if (skill.agents[agent.id] === 'none') await enableSkill(name, agent.id);
-          }
+        }
+        if (failed.length > 0) {
+          throw new Error(`成功 ${ok}/${targets.length}；${failed.join('；')}`);
         }
       }, enabled ? `已禁用 ${name} 的全部链接` : `已将 ${name} 启用到全部 Agent`);
     },
@@ -457,8 +461,19 @@ export default function SkillsManagerPage() {
         return;
       }
       void run(async () => {
-        for (const agent of AGENTS) {
-          if (skill.agents[agent.id] === 'none') await enableSkill(name, agent.id);
+        const targets = AGENTS.filter((a) => skill.agents[a.id] === 'none');
+        let ok = 0;
+        const failed: string[] = [];
+        for (const agent of targets) {
+          try {
+            await enableSkill(name, agent.id);
+            ok++;
+          } catch (e) {
+            failed.push(`${agent.name}: ${errMsg(e)}`);
+          }
+        }
+        if (failed.length > 0) {
+          throw new Error(`成功 ${ok}/${targets.length}；${failed.join('；')}`);
         }
       }, `已将 ${name} 同步到全部 Agent`);
     },
@@ -469,19 +484,29 @@ export default function SkillsManagerPage() {
     if (selected.size === 0) return;
     const targets: AgentId[] = batchAgent === 'all' ? AGENT_IDS : [batchAgent];
     void run(async () => {
+      let ok = 0;
+      const failed: string[] = [];
       for (const name of selected) {
         const skill = findSkill(name);
         if (!skill) continue;
         if (mode === 'enable' && !skill.inLibrary) continue;
         for (const agent of targets) {
           const state = skill.agents[agent];
-          if (mode === 'enable') {
-            if (state === 'none') await enableSkill(name, agent);
-          } else if (state === 'linked') {
-            await disableSkill(name, agent);
+          try {
+            if (mode === 'enable') {
+              if (state === 'none') { await enableSkill(name, agent); ok++; }
+            } else if (state === 'linked') {
+              await disableSkill(name, agent); ok++;
+            }
+          } catch (e) {
+            failed.push(`${name}→${agent}: ${errMsg(e)}`);
           }
         }
       }
+      if (failed.length > 0) {
+        throw new Error(`成功 ${ok} 项；失败 ${failed.length} 项：${failed.slice(0, 3).join('；')}`);
+      }
+      return `已${mode === 'enable' ? '启用' : '禁用'} ${ok} 项${ok === 0 ? '（状态已符合，无需变更）' : ''}`;
     }, `已批量${mode === 'enable' ? '启用' : '禁用'} ${selected.size} 个 skill`);
     setSelected(new Set());
   };

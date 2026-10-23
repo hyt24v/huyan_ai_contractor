@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useToast } from '../hooks/useToast';
 import { AlertTriangle, History, Pencil, Plus, RefreshCw, Send, Trash2 } from 'lucide-react';
 import { SegmentedControl, Toolbar, ToolbarButton, ToolbarDivider } from '../components/Toolbar';
 import DiffView from '../components/DiffView';
@@ -102,7 +103,7 @@ function serverToDraft(s: CentralServer): EditDraft {
 export default function McpManagerPage() {
   const [manifest, setManifest] = useState<CentralManifest | null>(null);
   const [error, setError] = useState('');
-  const [toast, setToast] = useState('');
+  const { toast, showToast } = useToast(2500);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<EditDraft | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -114,10 +115,6 @@ export default function McpManagerPage() {
   const [history, setHistory] = useState<SnapshotRecord[]>([]);
   const [historyBusy, setHistoryBusy] = useState(false);
 
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(''), 2500);
-  }, []);
 
   const refresh = useCallback(async () => {
     setError('');
@@ -180,7 +177,7 @@ export default function McpManagerPage() {
     if (!draft) return;
     const result = draftToServer(draft);
     if ('error' in result) {
-      showToast(result.error);
+      showToast(result.error, 'err');
       return;
     }
     // 重命名查重：新名字不能撞上别的已有 server
@@ -188,7 +185,7 @@ export default function McpManagerPage() {
       draft.originalName !== result.name &&
       manifest?.servers.some((s) => s.name === result.name)
     ) {
-      showToast(`已存在同名 server「${result.name}」，请换个名字`);
+      showToast(`已存在同名 server「${result.name}」，请换个名字`, 'err');
       return;
     }
     mutate((m) => {
@@ -240,7 +237,7 @@ export default function McpManagerPage() {
       setDirty(false);
       await refresh();
     } catch (e) {
-      showToast(`分发失败：${e instanceof Error ? e.message : String(e)}`);
+      showToast(`分发失败：${e instanceof Error ? e.message : String(e)}`, 'err');
     } finally {
       setBusy(false);
     }
@@ -252,7 +249,7 @@ export default function McpManagerPage() {
     try {
       setHistory(await listSnapshots());
     } catch (e) {
-      showToast(`读取快照失败：${e instanceof Error ? e.message : String(e)}`);
+      showToast(`读取快照失败：${e instanceof Error ? e.message : String(e)}`, 'err');
     } finally {
       setHistoryBusy(false);
     }
@@ -274,7 +271,7 @@ export default function McpManagerPage() {
         setHistoryOpen(false);
         await refresh();
       } catch (e) {
-        showToast(`回滚失败：${e instanceof Error ? e.message : String(e)}`);
+        showToast(`回滚失败：${e instanceof Error ? e.message : String(e)}`, 'err');
       } finally {
         setHistoryBusy(false);
       }
@@ -310,7 +307,13 @@ export default function McpManagerPage() {
         </ToolbarButton>
         {dirty && <span className="text-xs text-warning">有未分发变更</span>}
         {toast && (
-          <span className="ml-auto text-xs font-medium text-success">{toast}</span>
+          <span
+            className={`ml-auto text-xs font-medium ${
+              toast.tone === 'err' ? 'text-destructive' : 'text-success'
+            }`}
+          >
+            {toast.msg}
+          </span>
         )}
       </Toolbar>
 
