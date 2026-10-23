@@ -20,4 +20,36 @@ monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
 
 loader.config({ monaco });
 
+// 为每套应用主题注册对应 Monaco 主题（app-<themeId>），编辑器跟随主题系统切换
+import { THEMES, type ThemeDefinition } from './lib/themes';
+
+function registerMonacoTheme(theme: ThemeDefinition): void {
+  const t = theme.tokens;
+  monaco.editor.defineTheme(`app-${theme.id}`, {
+    base: theme.appearance === 'dark' ? 'vs-dark' : 'vs',
+    inherit: true,
+    rules: [
+      { token: '', foreground: t.foreground.slice(1) },
+      { token: 'keyword', foreground: t.primary.slice(1) },
+      { token: 'string', foreground: t.success.slice(1) },
+      { token: 'string.key.json', foreground: t.primary.slice(1) },
+      { token: 'number', foreground: t.warning.slice(1) },
+      { token: 'keyword.json', foreground: t.destructive.slice(1) },
+    ],
+    colors: {
+      'editor.background': t.card,
+      'editor.foreground': t.foreground,
+      'editorLineNumber.foreground': t.mutedForeground,
+      'editorLineNumber.activeForeground': t.foreground,
+      'editorCursor.foreground': t.primary,
+      'editor.selectionBackground': `${t.primary}40`,
+      'editor.lineHighlightBackground': `${t.muted}80`,
+      'editorWidget.background': t.card,
+      'editorWidget.border': t.border,
+    },
+  });
+}
+
+for (const theme of THEMES) registerMonacoTheme(theme);
+
 export { monaco };
