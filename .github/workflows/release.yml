@@ -57,7 +57,8 @@ jobs:
             首次打开如提示未验证开发者：macOS 15+ 请到「系统设置 → 隐私与安全性 → 仍要打开」；
             或执行 `xattr -cr "/Applications/AI包工头.app"` 后重新打开。
           releaseDraft: false
-          prerelease: false
+          # 带 prerelease 后缀的 tag（如 v0.6.0-beta.1）自动标记为 Pre-release，与 main 的正式版区分
+          prerelease: ${{ contains(github.ref_name, '-') }}
           includeUpdaterJson: false
           # GitHub 会把非 ASCII 资产名改写成 "AI._..."，导致 tauri-action 无法识别已存在资产而重跑失败；用固定 ASCII 名保证幂等
           assetNamePattern: 'AI-Baogongtou_[version]_[platform]_[arch][ext]'
