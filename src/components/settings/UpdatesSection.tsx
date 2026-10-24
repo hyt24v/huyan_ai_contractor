@@ -50,7 +50,7 @@ export default function UpdatesSection() {
     <div className="space-y-4">
       <SettingGroup>
         <SettingRow
-          label={`当前版本 v${version}`}
+          label={version ? `当前版本 v${version}` : '当前版本 未知'}
           description={
             status.kind === 'available'
               ? `发现新版本 v${status.update.version},点击右侧按钮下载更新`
