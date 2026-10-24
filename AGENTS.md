@@ -10,6 +10,8 @@
 
 ## 分支与发布规则（重要）
 
+**发版时机（最高优先级规则）**：不要把每个任务/修复都发成一个版本。只有用户**明确说「发版」并给出版本号**时才允许打 tag 发布；平时只 commit + push 分支，不打 tag。版本号由用户指定，agent 不自作主张递升。
+
 两条发布线，靠 **tag 命名 + Pre-release 标记** 区分（GitHub Release 绑定 tag，不绑定分支）：
 
 | | test 分支 | main 分支 |
@@ -25,7 +27,7 @@
 3. `git tag vX.Y.Z[-beta.N] && git push origin <tag>` 触发 `.github/workflows/release.yml`
 4. tag 带 `-` 后缀时 workflow 自动标记 Pre-release（`contains(github.ref_name, '-')`），勿手工改
 
-版本号约定：正式版之前一直保持 `0.x`；不自动升 `1.0`，必须用户明确说发正式版。
+版本号约定：正式版之前一直保持 `0.x`；不自动升 `1.0`，必须用户明确说发正式版。版本号本身也由用户在发版时给出，agent 不主动升号。
 
 **合并规则**：test 验证稳定后合回 main 发正式版；用户未明确要求时不要主动合 main。
 
