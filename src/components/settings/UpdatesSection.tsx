@@ -10,11 +10,13 @@ import {
 } from '../../lib/settings';
 import { GITHUB_LINKS } from '../../lib/links';
 import { LinkButton, SettingGroup, SettingRow, Toggle } from './ui';
+import UpdateDialog from '../UpdateDialog';
 import { useEffect } from 'react';
 
 export default function UpdatesSection() {
-  const { version, status, toast, check, download, relaunch } = useUpdater();
+  const { version, status, toast, check } = useUpdater();
   const [autoCheck, setAutoCheck] = useState(getAutoCheckUpdate);
+  const [dialogOpen, setDialogOpen] = useState(false);
   useEffect(() => onSettingsChanged(() => setAutoCheck(getAutoCheckUpdate())), []);
 
   const busy = status.kind === 'checking' || status.kind === 'downloading';
@@ -23,9 +25,7 @@ export default function UpdatesSection() {
     if (status.kind === 'idle' || status.kind === 'latest') {
       check(false).catch(() => undefined);
     } else if (status.kind === 'available') {
-      download(status.update).catch(() => undefined);
-    } else if (status.kind === 'ready') {
-      relaunch();
+      setDialogOpen(true);
     }
   };
 
@@ -36,7 +36,7 @@ export default function UpdatesSection() {
       case 'downloading':
         return status.percent !== null ? `下载中 ${status.percent}%` : '下载中…';
       case 'available':
-        return `下载 v${status.update.version}`;
+        return `查看 v${status.update.version}`;
       case 'ready':
         return '重启完成更新';
       case 'latest':
@@ -53,12 +53,10 @@ export default function UpdatesSection() {
           label={version ? `当前版本 v${version}` : '当前版本 未知'}
           description={
             status.kind === 'available'
-              ? `发现新版本 v${status.update.version},点击右侧按钮下载更新`
-              : status.kind === 'ready'
-                ? '更新已下载,重启应用后生效'
-                : status.kind === 'latest'
-                  ? '已是最新版本'
-                  : 'beta 与正式版共用同一更新通道,谁新更谁'
+              ? `发现新版本 v${status.update.version},点击查看更新内容`
+              : status.kind === 'latest'
+                ? '已是最新版本'
+                : 'beta 与正式版共用同一更新通道,谁新更谁'
           }
         >
           <LinkButton primary onClick={primaryAction}>
@@ -98,6 +96,14 @@ export default function UpdatesSection() {
           ))}
         </SettingGroup>
       </div>
+
+      {dialogOpen && status.kind === 'available' && (
+        <UpdateDialog
+          update={status.update}
+          currentVersion={version}
+          onClose={() => setDialogOpen(false)}
+        />
+      )}
 
       {toast && (
         <div

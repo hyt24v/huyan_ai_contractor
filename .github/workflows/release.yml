@@ -13,7 +13,10 @@ jobs:
     runs-on: macos-14
     timeout-minutes: 60
     steps:
+      # fetch-depth: 0 拉全量 tag/历史,供生成 release notes
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -49,6 +52,35 @@ jobs:
       - name: Check frontend build
         run: npm run build
 
+      # 从上一个 tag 到当前 tag 的 commit 列表生成更新说明,
+      # 写进 Release body 和 latest.json 的 notes(应用内更新弹窗展示)
+      - name: Generate release notes
+        id: notes
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          PREV=$(git tag --sort=-v:refname | grep -vx "$TAG_NAME" | head -1 || true)
+          echo "previous tag: ${PREV:-none}"
+          {
+            echo 'body<<EOF'
+            echo '## 本次更新'
+            echo
+            if [ -n "$PREV" ]; then
+              git log --pretty=format:'- %s' "$PREV..HEAD"
+            else
+              git log --pretty=format:'- %s' -10
+            fi
+            echo
+            echo
+            echo '---'
+            echo
+            echo '自动构建的 macOS Universal 安装包(Apple Silicon + Intel 通用)。'
+            echo '下载 `.dmg` 后打开,把「AI包工头」拖入「应用程序」即可。'
+            echo '首次打开如提示未验证开发者:macOS 15+ 请到「系统设置 → 隐私与安全性 → 仍要打开」;'
+            echo '或执行 `xattr -cr "/Applications/AI包工头.app"` 后重新打开。'
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Build and publish GitHub Release
         uses: tauri-apps/tauri-action@v0
         env:
@@ -59,12 +91,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'AI包工头 ${{ github.ref_name }}'
-          releaseBody: |
-            自动构建的 macOS Universal 安装包（Apple Silicon + Intel 通用）。
-
-            下载 `.dmg` 后打开，把「AI包工头」拖入「应用程序」即可。
-            首次打开如提示未验证开发者：macOS 15+ 请到「系统设置 → 隐私与安全性 → 仍要打开」；
-            或执行 `xattr -cr "/Applications/AI包工头.app"` 后重新打开。
+          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: false
           # 带 prerelease 后缀的 tag（如 v0.6.0-beta.1）自动标记为 Pre-release，与 main 的正式版区分
           prerelease: ${{ contains(github.ref_name, '-') }}

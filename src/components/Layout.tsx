@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { PanelLeftClose, PanelLeftOpen, Settings } from 'lucide-react';
+import type { Update } from '@tauri-apps/plugin-updater';
 import CommandPalette from './CommandPalette';
+import UpdateDialog from './UpdateDialog';
 import { useAutoBackup } from '../hooks/useAutoBackup';
 import { TOOLS } from '../lib/tools';
-import { checkForUpdate } from '../lib/updater';
+import { checkForUpdate, currentVersion } from '../lib/updater';
 import {
+  dismissUpdate,
   getAutoBackupEnabled,
   getAutoCheckUpdate,
+  isUpdateDismissed,
   onSettingsChanged,
 } from '../lib/settings';
 import logo from '../../src-tauri/icons/icon.png';
@@ -21,6 +25,8 @@ function getInitialCollapsed(): boolean {
 export default function Layout() {
   const [collapsed, setCollapsed] = useState(getInitialCollapsed);
   const [hasUpdate, setHasUpdate] = useState(false);
+  const [pendingUpdate, setPendingUpdate] = useState<Update | null>(null);
+  const [appVersion, setAppVersion] = useState('');
   const [autoBackup, setAutoBackup] = useState(getAutoBackupEnabled);
   const location = useLocation();
   const navigate = useNavigate();
@@ -36,12 +42,20 @@ export default function Layout() {
     [],
   );
 
-  // 启动后静默检查更新,发现新版本在设置齿轮上显示红点
+  // 启动后静默检查更新:发现新版本弹窗展示更新内容(按版本记忆「稍后提醒」),设置齿轮显示红点
   useEffect(() => {
+    currentVersion()
+      .then(setAppVersion)
+      .catch(() => setAppVersion(''));
     if (!getAutoCheckUpdate()) return;
     const t = window.setTimeout(() => {
       checkForUpdate()
-        .then((update) => setHasUpdate(!!update))
+        .then((update) => {
+          setHasUpdate(!!update);
+          if (update && !isUpdateDismissed(update.version)) {
+            setPendingUpdate(update);
+          }
+        })
         .catch(() => undefined);
     }, 3000);
     return () => window.clearTimeout(t);
@@ -185,6 +199,16 @@ export default function Layout() {
         </div>
       </div>
       <CommandPalette />
+      {pendingUpdate && (
+        <UpdateDialog
+          update={pendingUpdate}
+          currentVersion={appVersion}
+          onClose={() => {
+            dismissUpdate(pendingUpdate.version);
+            setPendingUpdate(null);
+          }}
+        />
+      )}
     </div>
   );
 }
