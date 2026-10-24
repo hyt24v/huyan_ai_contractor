@@ -25,10 +25,10 @@
     --ring: 221 83% 53%;
     --activitybar: 240 5% 95%;
     --sidebar: 0 0% 98%;
-    /* 分级圆角（Otty/VS Code 范式：control/inner/outer） */
-    --radius-control: 4px;
-    --radius-inner: 6px;
-    --radius-outer: 8px;
+    /* 分级圆角（Otty/VS Code 范式：control/inner/outer）；加大后更贴近 macOS 原生质感 */
+    --radius-control: 6px;
+    --radius-inner: 10px;
+    --radius-outer: 14px;
   }
 }
 
