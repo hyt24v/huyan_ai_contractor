@@ -3,7 +3,6 @@ import { Check, Monitor, Moon, Sun } from 'lucide-react';
 import { THEMES, type ThemeAppearance } from '../../lib/themes';
 import {
   getActiveTheme,
-  previewTheme,
   setThemeForAppearance,
   setThemeMode,
   useThemeSettings,
@@ -61,9 +60,11 @@ export default function AppearanceSection() {
               return (
                 <button
                   key={t.id}
-                  onClick={() => setThemeForAppearance(t.appearance, t.id)}
-                  onMouseEnter={() => previewTheme(t.id)}
-                  onMouseLeave={() => previewTheme(null)}
+                  onClick={() => {
+                    // 选中该外观的主题,并把明暗模式切到该外观(浅色模式下点深色卡片即切深色)
+                    setThemeForAppearance(t.appearance, t.id);
+                    setThemeMode(t.appearance);
+                  }}
                   className={`group rounded-md border p-2 text-left transition-colors ${
                     selected
                       ? 'border-primary'
