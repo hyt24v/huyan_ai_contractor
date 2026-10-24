@@ -48,16 +48,15 @@ def star(draw: ImageDraw.ImageDraw, cx: int, cy: int, R: int, r: int, fill) -> N
 def build_master() -> Image.Image:
     # ---------- background ----------
     bg = Image.new("RGB", (S, S), "#2a4a3a")
-    px = bg.load()
     c0, c1 = (29, 56, 44), (61, 95, 75)
+    bgd = ImageDraw.Draw(bg)
     for y in range(S):
         t = y / (S - 1)
         t = t * t * (3 - 2 * t)
         r = int(c0[0] + (c1[0] - c0[0]) * t)
         g = int(c0[1] + (c1[1] - c0[1]) * t)
         b = int(c0[2] + (c1[2] - c0[2]) * t)
-        for x in range(S):
-            px[x, y] = (r, g, b)
+        bgd.line([(0, y), (S, y)], fill=(r, g, b))
 
     glow = Image.new("L", (S, S), 0)
     gd = ImageDraw.Draw(glow)
@@ -143,11 +142,25 @@ def build_master() -> Image.Image:
     )
     img = Image.alpha_composite(img, accent.filter(ImageFilter.GaussianBlur(sc(3))))
 
-    return img.resize((F, F), Image.LANCZOS)
+    return img.resize((F, F), Image.Resampling.LANCZOS)
+
+
+def macos_dock_icon(master: Image.Image) -> Image.Image:
+    """macOS 程序坞图标:按官方图标网格,内容区 824/1024 居中、圆角 ~185px、四周透明留白。
+    顶满画布的图标在程序坞里会显得比别的 App 大一圈。"""
+    inner = master.resize((824, 824), Image.Resampling.LANCZOS)
+    # 原始 mask 半径(1024 画布下 110)缩放后仅 ~88,偏方;重刷为 macOS 标准圆角
+    mask = Image.new("L", (824, 824), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, 823, 823], radius=185, fill=255)
+    inner.putalpha(mask)
+    canvas = Image.new("RGBA", (1024, 1024), (0, 0, 0, 0))
+    canvas.alpha_composite(inner, (100, 100))
+    return canvas
 
 
 def main() -> None:
     master = build_master()
+    dock = macos_dock_icon(master)
     OUT.mkdir(parents=True, exist_ok=True)
 
     master.save(OUT / "icon.png")
@@ -168,13 +181,13 @@ def main() -> None:
         "StoreLogo.png": 50,
     }
     for name, size in sizes.items():
-        master.resize((size, size), Image.LANCZOS).save(OUT / name)
+        master.resize((size, size), Image.Resampling.LANCZOS).save(OUT / name)
 
     # Windows ICO (multi-resolution)
     ico_sizes = [16, 24, 32, 48, 64, 128, 256]
     master.save(OUT / "icon.ico", sizes=[(s, s) for s in ico_sizes])
 
-    # macOS ICNS
+    # macOS ICNS:用留白版(程序坞大小与其他 App 一致)
     iconset = OUT / "icon.iconset"
     if iconset.exists():
         try:
@@ -183,8 +196,8 @@ def main() -> None:
             raise RuntimeError(f"cannot remove stale iconset {iconset}: {exc}") from exc
     iconset.mkdir()
     for size in [16, 32, 128, 256, 512]:
-        master.resize((size, size), Image.LANCZOS).save(iconset / f"icon_{size}x{size}.png")
-        master.resize((size * 2, size * 2), Image.LANCZOS).save(
+        dock.resize((size, size), Image.Resampling.LANCZOS).save(iconset / f"icon_{size}x{size}.png")
+        dock.resize((size * 2, size * 2), Image.Resampling.LANCZOS).save(
             iconset / f"icon_{size}x{size}@2x.png"
         )
     try:
