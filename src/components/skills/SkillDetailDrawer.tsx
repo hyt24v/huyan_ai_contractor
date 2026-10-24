@@ -1,12 +1,13 @@
-/** Skill 详情抽屉：预览 SKILL.md、查看路径 / 来源 / 标签、逐 agent 启用禁用 */
+/** Skill 详情抽屉：文件树浏览(SKILL.md 等 md 渲染预览)、查看路径 / 来源 / 标签、逐 agent 启用禁用 */
 import { useEffect, useState } from 'react';
 import {
   ArrowUpCircle,
   Cable,
+  FileText,
   FolderInput,
+  Folder,
   GitBranch,
   Globe2,
-  Folder,
   Loader2,
   Trash2,
   X,
@@ -19,7 +20,13 @@ import {
   type SkillSource,
 } from '../../lib/skillCatalog';
 import type { SkillAgentState } from '../../lib/skills';
-import { readSkillMd } from '../../services/skillCatalog';
+import {
+  isTextFileName,
+  listSkillFiles,
+  readSkillFileText,
+  type SkillFileEntry,
+} from '../../services/skillCatalog';
+import MarkdownPreview from '../MarkdownPreview';
 import AgentBadge from './AgentBadge';
 import { TagPill } from './SkillCard';
 
@@ -98,30 +105,59 @@ export default function SkillDetailDrawer({
   onSyncAll,
   onUpdate,
 }: SkillDetailDrawerProps) {
-  const [content, setContent] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [files, setFiles] = useState<SkillFileEntry[] | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [fileContent, setFileContent] = useState('');
+  const [fileLoading, setFileLoading] = useState(false);
+  const [fileError, setFileError] = useState('');
 
+  // 打开时加载文件树,默认选中 SKILL.md(没有则第一个 md)
   useEffect(() => {
     if (!open || !skill) return;
     let alive = true;
-    setLoading(true);
-    setContent('');
-    setError('');
-    readSkillMd(skill)
-      .then((text) => {
-        if (alive) setContent(text);
+    setFiles(null);
+    setSelected(null);
+    setFileContent('');
+    setFileError('');
+    listSkillFiles(skill)
+      .then((list) => {
+        if (!alive) return;
+        setFiles(list);
+        const flat = list.filter((f) => !f.isDirectory);
+        const def =
+          flat.find((f) => f.path === 'SKILL.md') ??
+          flat.find((f) => f.path.toLowerCase().endsWith('.md'));
+        if (def) setSelected(def.path);
       })
       .catch((e: unknown) => {
-        if (alive) setError(errMsg(e));
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
+        if (alive) setFileError(errMsg(e));
       });
     return () => {
       alive = false;
     };
   }, [open, skill]);
+
+  // 选中文件后加载内容
+  useEffect(() => {
+    if (!open || !skill || !selected) return;
+    let alive = true;
+    setFileLoading(true);
+    setFileContent('');
+    setFileError('');
+    readSkillFileText(skill, selected)
+      .then((text) => {
+        if (alive) setFileContent(text);
+      })
+      .catch((e: unknown) => {
+        if (alive) setFileError(errMsg(e));
+      })
+      .finally(() => {
+        if (alive) setFileLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [open, skill, selected]);
 
   if (!open || !skill) return null;
 
@@ -136,7 +172,7 @@ export default function SkillDetailDrawer({
       <aside
         role="dialog"
         aria-label={`${skill.name} 详情`}
-        className="absolute right-0 top-0 flex h-full w-full max-w-[520px] flex-col border-l bg-card shadow-2xl"
+        className="absolute right-0 top-0 flex h-full w-full max-w-[680px] flex-col border-l bg-card shadow-2xl"
       >
         <div className="flex shrink-0 items-start gap-2 border-b px-4 py-3">
           <span
@@ -274,24 +310,78 @@ export default function SkillDetailDrawer({
 
           <div className="mt-3 border-t pt-3">
             <div className="mb-1.5 flex items-center justify-between">
-              <span className="text-[11px] font-medium text-muted-foreground">SKILL.md</span>
-              {loading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+              <span className="text-[11px] font-medium text-muted-foreground">
+                文件{files ? `(${files.filter((f) => !f.isDirectory).length})` : ''}
+              </span>
+              {fileLoading && (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+              )}
             </div>
-            {error ? (
-              <div className="rounded-md bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive">
-                读取失败：{error}
-              </div>
-            ) : loading ? (
+            {!files ? (
               <div className="rounded-md border border-dashed px-3 py-6 text-center text-[11px] text-muted-foreground">
                 读取中…
               </div>
-            ) : content ? (
-              <pre className="max-h-[45vh] overflow-auto whitespace-pre-wrap break-words rounded-md border bg-muted/30 p-2.5 font-mono text-[10.5px] leading-5">
-                {content}
-              </pre>
-            ) : (
+            ) : files.length === 0 ? (
               <div className="rounded-md border border-dashed px-3 py-6 text-center text-[11px] text-muted-foreground">
-                没有找到 SKILL.md
+                该 skill 不在本机或目录为空
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-md border">
+                {/* 文件树 */}
+                <div className="max-h-56 overflow-auto border-b bg-muted/20 py-1">
+                  {files.map((f) => {
+                    const name = f.path.replace(/\/$/, '').split('/').pop() ?? f.path;
+                    return (
+                      <button
+                        key={f.path}
+                        type="button"
+                        disabled={f.isDirectory}
+                        onClick={() => setSelected(f.path)}
+                        className={`flex w-full items-center gap-1.5 px-2 py-1 text-left text-[11px] transition-colors ${
+                          f.isDirectory
+                            ? 'cursor-default font-medium text-muted-foreground'
+                            : selected === f.path
+                              ? 'bg-accent text-accent-foreground'
+                              : 'text-foreground hover:bg-accent/60'
+                        }`}
+                        style={{ paddingLeft: `${8 + f.depth * 14}px` }}
+                      >
+                        {f.isDirectory ? (
+                          <Folder className="h-3 w-3 shrink-0 text-muted-foreground" />
+                        ) : (
+                          <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
+                        )}
+                        <span className="truncate font-mono">{name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* 预览区 */}
+                <div className="max-h-[45vh] overflow-auto p-3">
+                  {fileError ? (
+                    <div className="rounded-md bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive">
+                      {fileError}
+                    </div>
+                  ) : !selected ? (
+                    <div className="py-6 text-center text-[11px] text-muted-foreground">
+                      选择左侧文件查看内容
+                    </div>
+                  ) : fileLoading ? (
+                    <div className="py-6 text-center text-[11px] text-muted-foreground">
+                      读取中…
+                    </div>
+                  ) : selected.toLowerCase().endsWith('.md') ? (
+                    <MarkdownPreview content={fileContent} />
+                  ) : isTextFileName(selected) ? (
+                    <pre className="whitespace-pre-wrap break-words font-mono text-[10.5px] leading-5">
+                      {fileContent}
+                    </pre>
+                  ) : (
+                    <div className="py-6 text-center text-[11px] text-muted-foreground">
+                      该文件类型不支持预览
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

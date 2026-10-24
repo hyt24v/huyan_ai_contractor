@@ -3,7 +3,7 @@
  * 读不到 SKILL.md / git 信息时降级为空值，绝不因单个 skill 抛错拖垮整个目录。
  */
 import { AGENTS, type AgentId } from '../lib/agents';
-import { absPath, tauriFs, type FsPort } from '../lib/fsPort';
+import { absPath, tauriFs, type FsPort, type DirItem } from '../lib/fsPort';
 import type {
   CatalogSkill,
   SkillCatalog,
@@ -132,4 +132,87 @@ export async function readSkillMd(skill: CatalogSkill, fs: FsPort = tauriFs): Pr
   }
   const meta = await readMeta(fs, paths);
   return meta.content;
+}
+
+/** 该 skill 的实际目录：优先中央库,否则任一 agent 下的本地副本 */
+export function skillDirOf(skill: CatalogSkill): string | null {
+  return (
+    skill.libraryPath ??
+    Object.values(skill.agentPaths).find((p): p is string => !!p) ??
+    null
+  );
+}
+
+export interface SkillFileEntry {
+  /** 相对 skill 根目录的路径(目录以 / 结尾) */
+  path: string;
+  isDirectory: boolean;
+  depth: number;
+}
+
+const SKILL_TREE_MAX_DEPTH = 6;
+const SKILL_TREE_MAX_ENTRIES = 500;
+
+/**
+ * 列出 skill 目录下全部文件(深度优先,目录在前)。
+ * 超限截断并跳过 .git;单目录读取失败降级为空,不拖垮整个列表。
+ */
+export async function listSkillFiles(
+  skill: CatalogSkill,
+  fs: FsPort = tauriFs,
+): Promise<SkillFileEntry[]> {
+  const root = skillDirOf(skill);
+  if (!root) return [];
+  const out: SkillFileEntry[] = [];
+  const walk = async (dir: string, prefix: string, depth: number): Promise<void> => {
+    if (depth > SKILL_TREE_MAX_DEPTH || out.length >= SKILL_TREE_MAX_ENTRIES) return;
+    let entries: DirItem[];
+    try {
+      entries = await fs.readDir(dir);
+    } catch {
+      return;
+    }
+    const dirs = entries.filter((e) => e.isDirectory && e.name !== '.git');
+    const files = entries.filter((e) => !e.isDirectory);
+    for (const d of dirs) {
+      if (out.length >= SKILL_TREE_MAX_ENTRIES) return;
+      const rel = `${prefix}${d.name}/`;
+      out.push({ path: rel, isDirectory: true, depth });
+      await walk(`${dir}/${d.name}`, rel, depth + 1);
+    }
+    for (const f of files) {
+      if (out.length >= SKILL_TREE_MAX_ENTRIES) return;
+      out.push({ path: `${prefix}${f.name}`, isDirectory: false, depth });
+    }
+  };
+  await walk(root, '', 0);
+  return out;
+}
+
+const TEXT_FILE_MAX_BYTES = 512 * 1024;
+const TEXT_EXTENSIONS = new Set([
+  'md', 'txt', 'json', 'jsonl', 'yaml', 'yml', 'toml', 'xml', 'csv',
+  'ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'py', 'sh', 'bash', 'zsh',
+  'css', 'html', 'sql', 'rs', 'go', 'java', 'c', 'h', 'cpp', 'rb',
+]);
+
+/** 判断文件名是否按文本预览(看扩展名;无扩展名视为文本,如 LICENSE) */
+export function isTextFileName(name: string): boolean {
+  const ext = name.includes('.') ? name.split('.').pop()!.toLowerCase() : '';
+  return ext === '' || TEXT_EXTENSIONS.has(ext);
+}
+
+/** 读取 skill 内文件文本;非文本/超限抛错(调用方提示不支持预览) */
+export async function readSkillFileText(
+  skill: CatalogSkill,
+  relPath: string,
+  fs: FsPort = tauriFs,
+): Promise<string> {
+  const root = skillDirOf(skill);
+  if (!root) throw new Error('该 skill 不在本机');
+  const name = relPath.split('/').pop() ?? relPath;
+  if (!isTextFileName(name)) throw new Error('该文件类型不支持预览');
+  const text = await fs.readText(`${root}/${relPath}`);
+  if (text.length > TEXT_FILE_MAX_BYTES) throw new Error('文件过大,不支持预览(>512KB)');
+  return text;
 }
