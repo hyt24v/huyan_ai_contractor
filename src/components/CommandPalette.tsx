@@ -7,6 +7,7 @@ import {
   PanelLeft,
   RefreshCw,
   Search,
+  Settings,
   Sparkles,
   type LucideIcon,
 } from 'lucide-react';
@@ -103,6 +104,17 @@ export default function CommandPalette() {
       ...toolItems,
       ...themeItems,
       {
+        id: 'action:settings',
+        title: '打开设置',
+        subtitle: '外观/更新/Agent/备份(⌘,)',
+        keywords: 'settings 设置 preferences 偏好',
+        icon: Settings,
+        run: () => {
+          close();
+          navigate('/settings');
+        },
+      },
+      {
         id: 'action:theme',
         title: '外观设置',
         subtitle: '主题与明暗模式',
@@ -110,7 +122,7 @@ export default function CommandPalette() {
         icon: MoonStar,
         run: () => {
           close();
-          document.querySelector<HTMLElement>('[aria-label="切换主题"]')?.click();
+          navigate('/settings/appearance');
         },
       },
       {

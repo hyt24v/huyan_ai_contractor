@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { PanelLeftClose, PanelLeftOpen, Settings } from 'lucide-react';
 import CommandPalette from './CommandPalette';
-import ThemeSwitcher from './ThemeSwitcher';
-import UpdateChecker from './UpdateChecker';
 import { useAutoBackup } from '../hooks/useAutoBackup';
 import { TOOLS } from '../lib/tools';
+import { checkForUpdate } from '../lib/updater';
+import {
+  getAutoBackupEnabled,
+  getAutoCheckUpdate,
+  onSettingsChanged,
+} from '../lib/settings';
 import logo from '../../src-tauri/icons/icon.png';
 
 const SIDEBAR_KEY = 'huyan_tool:sidebar_collapsed';
@@ -16,27 +20,52 @@ function getInitialCollapsed(): boolean {
 
 export default function Layout() {
   const [collapsed, setCollapsed] = useState(getInitialCollapsed);
+  const [hasUpdate, setHasUpdate] = useState(false);
+  const [autoBackup, setAutoBackup] = useState(getAutoBackupEnabled);
   const location = useLocation();
+  const navigate = useNavigate();
   const currentTool = TOOLS.find((t) => location.pathname.startsWith(t.path));
+  const isSettings = location.pathname.startsWith('/settings');
 
-  // 桌面端每 6 小时自动快照一次 MCP 配置
-  useAutoBackup();
+  // 桌面端每 6 小时自动快照一次 MCP 配置(可在设置-数据与备份中关闭)
+  useAutoBackup(autoBackup);
+
+  // 设置项变更即时生效(自动备份开关等)
+  useEffect(
+    () => onSettingsChanged(() => setAutoBackup(getAutoBackupEnabled())),
+    [],
+  );
+
+  // 启动后静默检查更新,发现新版本在设置齿轮上显示红点
+  useEffect(() => {
+    if (!getAutoCheckUpdate()) return;
+    const t = window.setTimeout(() => {
+      checkForUpdate()
+        .then((update) => setHasUpdate(!!update))
+        .catch(() => undefined);
+    }, 3000);
+    return () => window.clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0');
   }, [collapsed]);
 
-  // ⌘B / Ctrl+B 快速收起/展开导航面板
+  // ⌘B / Ctrl+B 快速收起/展开导航面板;⌘, 打开设置
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key.toLowerCase() === 'b') {
         e.preventDefault();
         setCollapsed((c) => !c);
+      } else if (e.key === ',') {
+        e.preventDefault();
+        navigate('/settings');
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [navigate]);
 
   return (
     <div className="flex h-full bg-background">
@@ -73,7 +102,23 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
-        <ThemeSwitcher />
+        <NavLink
+          to="/settings"
+          title="设置 (⌘,)"
+          aria-label="设置"
+          className={({ isActive }) =>
+            `relative flex h-9 w-9 items-center justify-center rounded-md transition-colors ${
+              isActive
+                ? 'bg-accent text-foreground'
+                : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+            }`
+          }
+        >
+          <Settings className="h-4 w-4" />
+          {hasUpdate && (
+            <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-destructive" />
+          )}
+        </NavLink>
       </div>
 
       {/* 导航面板（可收起） */}
@@ -105,11 +150,8 @@ export default function Layout() {
               </NavLink>
             ))}
           </nav>
-          <div className="shrink-0 space-y-1 border-t border-border/40 p-2">
-            <UpdateChecker />
-            <div className="px-2 text-[11px] text-muted-foreground">
-              纯本地 · 数据不出本机
-            </div>
+          <div className="shrink-0 border-t border-border/40 p-3 text-[11px] text-muted-foreground">
+            纯本地 · 数据不出本机
           </div>
         </aside>
       )}
@@ -132,7 +174,7 @@ export default function Layout() {
                 )}
               </button>
               <span className="truncate text-sm font-medium tracking-tight">
-                {currentTool?.name ?? '工具'}
+                {isSettings ? '设置' : (currentTool?.name ?? '工具')}
               </span>
             </div>
             <span className="text-[11px] text-muted-foreground">⌘K 命令面板</span>
