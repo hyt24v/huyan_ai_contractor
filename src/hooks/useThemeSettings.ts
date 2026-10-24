@@ -72,6 +72,20 @@ function persist(): void {
 
 function apply(): void {
   applyThemeToDocument(resolveTheme(settings));
+  syncWindowTheme();
+}
+
+/**
+ * 把原生窗口外观(macOS 标题栏)同步为应用内主题;
+ * 跟随系统时传 system,让窗口恢复跟随系统外观。
+ */
+function syncWindowTheme(): void {
+  if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return;
+  const theme =
+    settings.mode === 'auto' ? 'system' : settings.mode;
+  import('@tauri-apps/api/core')
+    .then(({ invoke }) => invoke('set_window_theme', { theme }))
+    .catch(() => undefined);
 }
 
 export function setThemeMode(mode: ThemeMode): void {

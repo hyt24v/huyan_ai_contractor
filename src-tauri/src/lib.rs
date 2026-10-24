@@ -26,6 +26,17 @@ fn path_exists(path: String) -> bool {
     std::path::Path::new(&path).exists()
 }
 
+/// 同步原生窗口外观(macOS 标题栏)为应用内主题;"system" 恢复跟随系统
+#[tauri::command]
+fn set_window_theme(window: tauri::WebviewWindow, theme: String) {
+    let t = match theme.as_str() {
+        "light" => Some(tauri::Theme::Light),
+        "dark" => Some(tauri::Theme::Dark),
+        _ => None,
+    };
+    let _ = window.set_theme(t);
+}
+
 #[tauri::command]
 fn is_symlink(path: String) -> bool {
     std::fs::symlink_metadata(&path)
@@ -138,6 +149,7 @@ pub fn run() {
             read_symlink,
             is_symlink,
             path_exists,
+            set_window_theme,
             git_clone,
             copy_dir,
             remove_path,
