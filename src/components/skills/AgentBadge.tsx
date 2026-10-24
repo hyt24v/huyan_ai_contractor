@@ -2,7 +2,8 @@
 import { AGENTS, type AgentId } from '../../lib/agents';
 import type { SkillAgentState } from '../../lib/skills';
 
-const AGENT_TONE: Record<AgentId, string> = {
+/** 已知 agent 的品牌色调;未收录的走中性色 */
+const AGENT_TONE: Record<string, string> = {
   claude: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
   codex: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
   pi: 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
@@ -10,7 +11,7 @@ const AGENT_TONE: Record<AgentId, string> = {
   gemini: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
 };
 
-const AGENT_LETTER: Record<AgentId, string> = {
+const AGENT_LETTER: Record<string, string> = {
   claude: 'C',
   codex: 'X',
   pi: 'P',
@@ -29,7 +30,8 @@ export function agentName(id: AgentId): string {
 }
 
 export function agentLetter(id: AgentId): string {
-  return AGENT_LETTER[id];
+  // 未收录的 agent 用名称首字母(大写)
+  return AGENT_LETTER[id] ?? (agentName(id).charAt(0).toUpperCase() || '?');
 }
 
 const SIZE_CLASS: Record<'sm' | 'md', string> = {
@@ -57,7 +59,7 @@ export default function AgentBadge({
   const tone =
     state === 'none'
       ? 'border-border bg-muted/50 text-muted-foreground/60'
-      : `${AGENT_TONE[agent]} border-transparent`;
+      : `${AGENT_TONE[agent] ?? 'bg-primary/15 text-primary'} border-transparent`;
   const base = `inline-flex shrink-0 items-center justify-center border font-semibold leading-none ${SIZE_CLASS[size]} ${tone} ${className}`;
   const shape = size === 'sm' ? 'rounded-full' : 'rounded-xl';
 
@@ -74,14 +76,14 @@ export default function AgentBadge({
         }}
         className={`${base} ${shape} transition hover:ring-2 hover:ring-ring/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
       >
-        {AGENT_LETTER[agent]}
+        {agentLetter(agent)}
       </button>
     );
   }
 
   return (
     <span title={label} aria-label={label} className={`${base} ${shape}`}>
-      {AGENT_LETTER[agent]}
+      {agentLetter(agent)}
     </span>
   );
 }

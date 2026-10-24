@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { AGENTS } from './agents';
 import type { CentralManifest, McpServerSpec } from './mcp';
 import {
   canonicalSpec,
@@ -145,7 +146,12 @@ describe('computeMcpDiff', () => {
   });
 
   it('包含 agent 各 tab 的数据与 server 行', () => {
-    const diff = computeMcpDiff(manifest, current);
+    // 注册表扩到 56 个后默认参数是全量;本测试聚焦 5 个内置 agent,显式传入
+    const diff = computeMcpDiff(
+      manifest,
+      current,
+      AGENTS.filter((a) => ['claude', 'codex', 'pi', 'cursor', 'gemini'].includes(a.id)),
+    );
     expect(diff.perAgent).toHaveLength(5);
     const codex = diff.perAgent.find((a) => a.agent === 'codex')!;
     const tweaked = codex.servers.find((s) => s.name === 'tweaked')!;

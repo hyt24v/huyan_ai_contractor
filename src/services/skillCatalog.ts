@@ -2,7 +2,8 @@
  * Skills 目录服务：在 scanAll 快照之上补齐描述、标签、来源，供卡片网格使用。
  * 读不到 SKILL.md / git 信息时降级为空值，绝不因单个 skill 抛错拖垮整个目录。
  */
-import { AGENTS, type AgentId } from '../lib/agents';
+import type { AgentId } from '../lib/agents';
+import { effectiveAgents } from '../lib/agentVisibility';
 import { absPath, tauriFs, type FsPort, type DirItem } from '../lib/fsPort';
 import type {
   CatalogSkill,
@@ -67,8 +68,9 @@ export async function buildSkillCatalog(
   snapshot: SkillsSnapshot,
   fs: FsPort = tauriFs,
 ): Promise<SkillCatalog> {
+  const visible = effectiveAgents();
   const agentDirs = {} as Record<AgentId, string>;
-  for (const agent of AGENTS) {
+  for (const agent of visible) {
     agentDirs[agent.id] = await absPath(agent.skillsDir);
   }
 
@@ -91,7 +93,7 @@ export async function buildSkillCatalog(
       const meta = await readMeta(fs, metaPaths);
       const gitRemote = row.inLibrary ? await gitRemoteOf(row.name, fs) : undefined;
       const agents = {} as Record<AgentId, SkillAgentState>;
-      for (const agent of AGENTS) {
+      for (const agent of visible) {
         agents[agent.id] = row.agents[agent.id] ?? 'none';
       }
 
@@ -126,7 +128,7 @@ export async function scanSkillCatalog(fs: FsPort = tauriFs): Promise<SkillCatal
 export async function readSkillMd(skill: CatalogSkill, fs: FsPort = tauriFs): Promise<string> {
   const paths: string[] = [];
   if (skill.libraryPath) paths.push(`${skill.libraryPath}/SKILL.md`);
-  for (const agent of AGENTS) {
+  for (const agent of effectiveAgents()) {
     const dir = skill.agentPaths[agent.id];
     if (dir) paths.push(`${dir}/SKILL.md`);
   }

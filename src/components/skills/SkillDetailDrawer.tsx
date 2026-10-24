@@ -12,7 +12,8 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { AGENTS, type AgentId } from '../../lib/agents';
+import type { AgentId } from '../../lib/agents';
+import { useAgents } from '../../hooks/useAgents';
 import {
   skillEnabledAnywhere,
   sourceLabel,
@@ -105,6 +106,7 @@ export default function SkillDetailDrawer({
   onSyncAll,
   onUpdate,
 }: SkillDetailDrawerProps) {
+  const visibleAgents = useAgents();
   const [files, setFiles] = useState<SkillFileEntry[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState('');
@@ -226,9 +228,9 @@ export default function SkillDetailDrawer({
             <div className="flex gap-2">
               <dt className="w-16 shrink-0 text-muted-foreground">Agent</dt>
               <dd className="min-w-0 flex-1">
-                {AGENTS.filter((a) => skill.agents[a.id] !== 'none').length === 0
+                {visibleAgents.filter((a) => (skill.agents[a.id] ?? 'none') !== 'none').length === 0
                   ? '尚未部署到任何 Agent'
-                  : AGENTS.filter((a) => skill.agents[a.id] !== 'none')
+                  : visibleAgents.filter((a) => (skill.agents[a.id] ?? 'none') !== 'none')
                       .map((a) => a.name)
                       .join('、')}
               </dd>
@@ -249,7 +251,7 @@ export default function SkillDetailDrawer({
               )}
             </div>
             <div className="space-y-1">
-              {AGENTS.map((a) => {
+              {visibleAgents.map((a) => {
                 const state = skill.agents[a.id];
                 return (
                   <div

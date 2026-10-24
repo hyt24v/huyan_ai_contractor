@@ -3,7 +3,8 @@ import { useToast } from '../hooks/useToast';
 import { AlertTriangle, History, Pencil, Plus, RefreshCw, Send, Trash2 } from 'lucide-react';
 import { SegmentedControl, Toolbar, ToolbarButton, ToolbarDivider } from '../components/Toolbar';
 import DiffView from '../components/DiffView';
-import { AGENTS, type AgentId } from '../lib/agents';
+import { hasMcpSupport, type AgentId } from '../lib/agents';
+import { useAgents } from '../hooks/useAgents';
 import { snapshotDisplayTime, type SnapshotRecord } from '../lib/backups';
 import type { CentralManifest, CentralServer } from '../lib/mcp';
 import { computeMcpDiff, type McpDiff, type PerAgentServers } from '../lib/mcpDiff';
@@ -16,7 +17,8 @@ import {
 } from '../services/backups';
 import { isTauri } from '@tauri-apps/api/core';
 
-const AGENT_SHORT: Record<AgentId, string> = {
+/** 已知的短名;未收录的 agent 回退到注册表名称 */
+const AGENT_SHORT: Record<string, string> = {
   claude: 'Claude',
   codex: 'Codex',
   pi: 'Pi',
@@ -101,6 +103,7 @@ function serverToDraft(s: CentralServer): EditDraft {
 }
 
 export default function McpManagerPage() {
+  const mcpAgents = useAgents().filter(hasMcpSupport);
   const [manifest, setManifest] = useState<CentralManifest | null>(null);
   const [error, setError] = useState('');
   const { toast, showToast } = useToast(2500);
@@ -132,7 +135,7 @@ export default function McpManagerPage() {
       setManifest({ servers: pageServers });
       setCurrent(snap.current ?? {});
       setInstalled(snap.installed ?? []);
-      const installedDefs = AGENTS.filter((a) => snap.installed?.includes(a.id));
+      const installedDefs = mcpAgents.filter((a) => snap.installed?.includes(a.id));
       setDriftCount(
         persisted.servers.length > 0
           ? computeMcpDiff(persisted, snap.current ?? {}, installedDefs).summary.changedAgents
@@ -200,7 +203,7 @@ export default function McpManagerPage() {
   /** 「保存并分发」第一步：先算差异，无变更直接提示，有变更打开预览 */
   const applyAll = useCallback(() => {
     if (!manifest) return;
-    const installedDefs = AGENTS.filter((a) => installed.includes(a.id));
+    const installedDefs = mcpAgents.filter((a) => installed.includes(a.id));
     const nextDiff = computeMcpDiff(manifest, current, installedDefs);
     if (!nextDiff.summary.hasChanges) {
       showToast('无变更，无需分发');
@@ -400,7 +403,7 @@ export default function McpManagerPage() {
           )}
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span>启用到：</span>
-            {AGENTS.map((a) => (
+            {mcpAgents.map((a) => (
               <label key={a.id} className="flex items-center gap-1.5">
                 <input
                   type="checkbox"
@@ -427,9 +430,9 @@ export default function McpManagerPage() {
               <th className="px-4 py-2 font-medium">Server</th>
               <th className="w-16 px-2 py-2 font-medium">类型</th>
               <th className="px-2 py-2 font-medium">命令 / URL</th>
-              {AGENTS.map((a) => (
+              {mcpAgents.map((a) => (
                 <th key={a.id} className="w-16 px-1 py-2 text-center font-medium">
-                  {AGENT_SHORT[a.id]}
+                  {AGENT_SHORT[a.id] ?? a.name}
                 </th>
               ))}
               <th className="w-20 px-2 py-2 text-center font-medium">操作</th>
@@ -455,7 +458,7 @@ export default function McpManagerPage() {
                     ? s.url
                     : `${s.command ?? ''} ${(s.args ?? []).join(' ')}`.trim()}
                 </td>
-                {AGENTS.map((a) => (
+                {mcpAgents.map((a) => (
                   <td key={a.id} className="px-1 py-1.5 text-center">
                     <input
                       type="checkbox"

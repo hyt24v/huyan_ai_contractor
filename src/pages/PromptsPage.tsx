@@ -12,8 +12,9 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Toolbar, ToolbarButton, ToolbarDivider } from '../components/Toolbar';
-import { AGENTS, type AgentId } from '../lib/agents';
+import type { AgentId } from '../lib/agents';
 import { PROMPT_TARGETS } from '../lib/agentTargets';
+import { useAgents } from '../hooks/useAgents';
 import {
   addPrompt,
   duplicatePrompt,
@@ -48,6 +49,10 @@ function errorText(e: unknown): string {
 }
 
 export default function PromptsPage() {
+  // 提示词只支持有落盘文件的 agent(PROMPT_TARGETS),且在可见列表内
+  const visibleAgents = useAgents().filter((a) =>
+    PROMPT_TARGETS.some((t) => t.agent === a.id),
+  );
   const [lib, setLib] = useState<PromptLibrary | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -445,7 +450,7 @@ export default function PromptsPage() {
             应用到 Agent（写入前自动备份到 ~/.ai-baogongtou/prompt-backups/）
           </div>
           <div className="min-h-0 flex-1 overflow-auto px-3 pb-2">
-            {AGENTS.map((agent) => {
+            {visibleAgents.map((agent) => {
               const target = PROMPT_TARGETS.find((t) => t.agent === agent.id);
               const writable = target?.writable ?? false;
               const file = agentFiles[agent.id];

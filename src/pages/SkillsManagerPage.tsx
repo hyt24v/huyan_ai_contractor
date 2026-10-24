@@ -29,6 +29,8 @@ import SkillCard, { TagPill } from '../components/skills/SkillCard';
 import SkillDetailDrawer from '../components/skills/SkillDetailDrawer';
 import SkillGrid from '../components/skills/SkillGrid';
 import { AGENTS, type AgentId } from '../lib/agents';
+import { useAgents } from '../hooks/useAgents';
+import { onSettingsChanged } from '../lib/settings';
 import type {
   CatalogFilter,
   CatalogSkill,
@@ -67,8 +69,6 @@ import { isTauri } from '@tauri-apps/api/core';
 type NavKey = 'library' | 'agents' | 'install' | AgentId;
 type LayoutMode = 'grid' | 'list';
 type MarketSource = 'curated' | 'github' | 'fallback';
-
-const AGENT_IDS = AGENTS.map((a) => a.id);
 
 const SOURCE_FILTERS: { value: CatalogFilter; label: string }[] = [
   { value: 'all', label: '全部来源' },
@@ -243,6 +243,8 @@ function GhostButton({
 }
 
 export default function SkillsManagerPage() {
+  const agents = useAgents();
+  const agentIds = agents.map((a) => a.id);
   const [snap, setSnap] = useState<SkillsSnapshot | null>(null);
   const [catalog, setCatalog] = useState<SkillCatalog | null>(null);
   const [loading, setLoading] = useState(true);
@@ -295,6 +297,12 @@ export default function SkillsManagerPage() {
     void refresh();
   }, [refresh]);
 
+  // 设置里切换 agent 显示后重扫(可见 agent 列表变了)
+  useEffect(
+    () => onSettingsChanged(() => void refresh()),
+    [refresh],
+  );
+
   useEffect(() => {
     let alive = true;
     loadProfiles()
@@ -334,7 +342,7 @@ export default function SkillsManagerPage() {
 
   const tagSource = useMemo(() => {
     const all = catalog?.skills ?? [];
-    return activeAgent ? all.filter((s) => s.agents[activeAgent] !== 'none') : all;
+    return activeAgent ? all.filter((s) => (s.agents[activeAgent] ?? 'none') !== 'none') : all;
   }, [catalog, activeAgent]);
   const allTags = useMemo(() => collectTags(tagSource), [tagSource]);
 
@@ -431,7 +439,7 @@ export default function SkillsManagerPage() {
         return;
       }
       void run(async () => {
-        const targets = AGENTS.filter((a) =>
+        const targets = agents.filter((a) =>
           enabled ? skill.agents[a.id] === 'linked' : skill.agents[a.id] === 'none',
         );
         let ok = 0;
@@ -461,7 +469,7 @@ export default function SkillsManagerPage() {
         return;
       }
       void run(async () => {
-        const targets = AGENTS.filter((a) => skill.agents[a.id] === 'none');
+        const targets = agents.filter((a) => skill.agents[a.id] === 'none');
         let ok = 0;
         const failed: string[] = [];
         for (const agent of targets) {
@@ -482,7 +490,7 @@ export default function SkillsManagerPage() {
 
   const batchApply = (mode: 'enable' | 'disable') => {
     if (selected.size === 0) return;
-    const targets: AgentId[] = batchAgent === 'all' ? AGENT_IDS : [batchAgent];
+    const targets: AgentId[] = batchAgent === 'all' ? agentIds : [batchAgent];
     void run(async () => {
       let ok = 0;
       const failed: string[] = [];
@@ -521,7 +529,7 @@ export default function SkillsManagerPage() {
         if (!skill?.inLibrary) { skipped++; continue; }
         for (const agent of agents) {
           // 只部署到尚未启用的 agent；本地副本（local）跳过，绝不覆盖用户数据
-          if (skill.agents[agent] !== 'none') { skipped++; continue; }
+          if ((skill.agents[agent] ?? 'none') !== 'none') { skipped++; continue; }
           try {
             await enableSkill(name, agent);
             ok++;
@@ -746,7 +754,7 @@ export default function SkillsManagerPage() {
             <Globe2 className="h-4 w-4 text-muted-foreground" />
             <h1 className="text-lg font-semibold tracking-tight">全部 Agent</h1>
             <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-              {AGENTS.length}
+              {agents.length}
             </span>
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -809,7 +817,7 @@ export default function SkillsManagerPage() {
     if (nav === 'agents') {
       return (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {AGENTS.map((agent) => {
+          {agents.map((agent) => {
             const st = stats?.byAgent[agent.id];
             const total = st?.total ?? 0;
             const pct = ratioPercent(st?.inSync ?? 0, total);
@@ -1101,7 +1109,7 @@ export default function SkillsManagerPage() {
           <NavItem
             icon={<Globe2 />}
             label="全部 Agent"
-            count={AGENTS.length}
+            count={agents.length}
             active={nav === 'agents'}
             onClick={() => selectNav('agents')}
           />
@@ -1109,7 +1117,7 @@ export default function SkillsManagerPage() {
 
         <div className="border-t px-2 pb-1">
           <SectionLabel>Agent 工作区</SectionLabel>
-          {AGENTS.map((agent) => (
+          {agents.map((agent) => (
             <NavItem
               key={agent.id}
               icon={<AgentBadge agent={agent.id} state="linked" />}
@@ -1162,7 +1170,7 @@ export default function SkillsManagerPage() {
             active={nav === 'agents'}
             onClick={() => selectNav('agents')}
           />
-          {AGENTS.map((agent) => (
+          {agents.map((agent) => (
             <Chip
               key={agent.id}
               label={agent.name}
@@ -1308,7 +1316,7 @@ export default function SkillsManagerPage() {
             title="批量操作目标 Agent"
           >
             <option value="all">全部 Agent</option>
-            {AGENTS.map((a) => (
+            {agents.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
               </option>

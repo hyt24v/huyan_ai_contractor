@@ -2,7 +2,8 @@
  * 健康检查服务：fsPort + diagnostics.ts 纯逻辑的粘合层。
  * 只读：不会写配置、不会改动 skill 目录（scanAll 会在中央库缺失时创建空目录，与 Skills 页一致）。
  */
-import { AGENTS } from '../lib/agents';
+import { AGENTS, hasMcpSupport } from '../lib/agents';
+import { effectiveAgents } from '../lib/agentVisibility';
 import {
   analyzeHealth,
   commandIsPathLike,
@@ -40,10 +41,11 @@ export async function collectAgentHealth(
   fs: FsPort = tauriFs,
 ): Promise<AgentHealthInput[]> {
   const out: AgentHealthInput[] = [];
-  for (const agent of AGENTS) {
+  // 只检查可见且支持 MCP 管理的 agent(没有配置路径的 agent 无从检查)
+  for (const agent of effectiveAgents().filter(hasMcpSupport)) {
     let configExists = false;
     try {
-      configExists = await fs.exists(await absPath(agent.mcpFile));
+      configExists = await fs.exists(await absPath(agent.mcpFile!));
     } catch {
       // 读不到就当不存在，下面会以 info 呈现
     }
@@ -51,7 +53,7 @@ export async function collectAgentHealth(
     let configError: string | undefined;
     if (configExists) {
       try {
-        const text = await fs.readText(await absPath(agent.mcpFile));
+        const text = await fs.readText(await absPath(agent.mcpFile!));
         if (text.trim()) {
           if (agent.mcpFormat === 'json') JSON.parse(text);
           else parseTomlMcpServers(text);

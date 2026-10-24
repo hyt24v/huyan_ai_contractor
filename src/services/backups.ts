@@ -32,7 +32,11 @@ async function backupRoot(): Promise<string> {
 
 /** 快照里要记录的文件：中央清单 + 每个 agent 的 MCP 配置 */
 function snapshotTargets(): string[] {
-  return [CENTRAL_MANIFEST, ...AGENTS.map((a) => a.mcpFile)];
+  // 只快照支持 MCP 管理的 agent(未知配置路径的 agent 没有可快照的文件)
+  return [
+    CENTRAL_MANIFEST,
+    ...AGENTS.filter((a) => a.mcpFile).map((a) => a.mcpFile!),
+  ];
 }
 
 /**

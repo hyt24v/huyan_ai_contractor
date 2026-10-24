@@ -100,7 +100,8 @@ export function linkedAgentIds(skill: CatalogSkill): AgentId[] {
 
 /** 该 skill 出现在多少个 agent 目录中 */
 export function skillAgentCount(skill: CatalogSkill): number {
-  return AGENTS.filter((a) => skill.agents[a.id] !== 'none').length;
+  // 注册表扩到 56 个后,agents 记录只含可见 agent;缺失的 key 视为 'none'
+  return AGENTS.filter((a) => (skill.agents[a.id] ?? 'none') !== 'none').length;
 }
 
 const matchesQuery = (skill: CatalogSkill, query: string): boolean => {
@@ -166,7 +167,7 @@ export function catalogAgentStats(catalog: SkillCatalog, agent: AgentId): AgentC
   let inSync = 0;
   for (const skill of catalog.skills) {
     const state = skill.agents[agent];
-    if (state === 'none') continue;
+    if (!state || state === 'none') continue;
     total += 1;
     if (state === 'linked') {
       linked += 1;

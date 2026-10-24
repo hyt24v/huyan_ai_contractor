@@ -198,7 +198,7 @@ export function computeMcpDiff(
     perAgent.push({
       agent: agent.id,
       name: agent.name,
-      file: agent.mcpFile,
+      file: agent.mcpFile ?? '',
       added,
       removed,
       changed,

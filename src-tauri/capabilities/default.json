@@ -46,6 +46,300 @@
         },
         {
           "path": "$APPCONFIG/**"
+        },
+        {
+          "path": "$HOME/.grok"
+        },
+        {
+          "path": "$HOME/.grok/**"
+        },
+        {
+          "path": "$HOME/.config/opencode"
+        },
+        {
+          "path": "$HOME/.config/opencode/**"
+        },
+        {
+          "path": "$HOME/.gemini/antigravity"
+        },
+        {
+          "path": "$HOME/.gemini/antigravity/**"
+        },
+        {
+          "path": "$HOME/.config/agents"
+        },
+        {
+          "path": "$HOME/.config/agents/**"
+        },
+        {
+          "path": "$HOME/.kilocode"
+        },
+        {
+          "path": "$HOME/.kilocode/**"
+        },
+        {
+          "path": "$HOME/.roo"
+        },
+        {
+          "path": "$HOME/.roo/**"
+        },
+        {
+          "path": "$HOME/.config/goose"
+        },
+        {
+          "path": "$HOME/.config/goose/**"
+        },
+        {
+          "path": "$HOME/.copilot"
+        },
+        {
+          "path": "$HOME/.copilot/**"
+        },
+        {
+          "path": "$HOME/.openclaw"
+        },
+        {
+          "path": "$HOME/.openclaw/**"
+        },
+        {
+          "path": "$HOME/.factory"
+        },
+        {
+          "path": "$HOME/.factory/**"
+        },
+        {
+          "path": "$HOME/.codeium/windsurf"
+        },
+        {
+          "path": "$HOME/.codeium/windsurf/**"
+        },
+        {
+          "path": "$HOME/.trae"
+        },
+        {
+          "path": "$HOME/.trae/**"
+        },
+        {
+          "path": "$HOME/.agents"
+        },
+        {
+          "path": "$HOME/.agents/**"
+        },
+        {
+          "path": "$HOME/.deepagents/agent"
+        },
+        {
+          "path": "$HOME/.deepagents/agent/**"
+        },
+        {
+          "path": "$HOME/.firebender"
+        },
+        {
+          "path": "$HOME/.firebender/**"
+        },
+        {
+          "path": "$HOME/.kimi-code"
+        },
+        {
+          "path": "$HOME/.kimi-code/**"
+        },
+        {
+          "path": "$HOME/.augment"
+        },
+        {
+          "path": "$HOME/.augment/**"
+        },
+        {
+          "path": "$HOME/.bob"
+        },
+        {
+          "path": "$HOME/.bob/**"
+        },
+        {
+          "path": "$HOME/.codebuddy"
+        },
+        {
+          "path": "$HOME/.codebuddy/**"
+        },
+        {
+          "path": "$HOME/.commandcode"
+        },
+        {
+          "path": "$HOME/.commandcode/**"
+        },
+        {
+          "path": "$HOME/.continue"
+        },
+        {
+          "path": "$HOME/.continue/**"
+        },
+        {
+          "path": "$HOME/.snowflake/cortex"
+        },
+        {
+          "path": "$HOME/.snowflake/cortex/**"
+        },
+        {
+          "path": "$HOME/.config/crush"
+        },
+        {
+          "path": "$HOME/.config/crush/**"
+        },
+        {
+          "path": "$HOME/.iflow"
+        },
+        {
+          "path": "$HOME/.iflow/**"
+        },
+        {
+          "path": "$HOME/.junie"
+        },
+        {
+          "path": "$HOME/.junie/**"
+        },
+        {
+          "path": "$HOME/.kiro"
+        },
+        {
+          "path": "$HOME/.kiro/**"
+        },
+        {
+          "path": "$HOME/.kode"
+        },
+        {
+          "path": "$HOME/.kode/**"
+        },
+        {
+          "path": "$HOME/.mcpjam"
+        },
+        {
+          "path": "$HOME/.mcpjam/**"
+        },
+        {
+          "path": "$HOME/.vibe"
+        },
+        {
+          "path": "$HOME/.vibe/**"
+        },
+        {
+          "path": "$HOME/.mux"
+        },
+        {
+          "path": "$HOME/.mux/**"
+        },
+        {
+          "path": "$HOME/.neovate"
+        },
+        {
+          "path": "$HOME/.neovate/**"
+        },
+        {
+          "path": "$HOME/.openhands"
+        },
+        {
+          "path": "$HOME/.openhands/**"
+        },
+        {
+          "path": "$HOME/.pochi"
+        },
+        {
+          "path": "$HOME/.pochi/**"
+        },
+        {
+          "path": "$HOME/.qoder"
+        },
+        {
+          "path": "$HOME/.qoder/**"
+        },
+        {
+          "path": "$HOME/.qwen"
+        },
+        {
+          "path": "$HOME/.qwen/**"
+        },
+        {
+          "path": "$HOME/.trae-cn"
+        },
+        {
+          "path": "$HOME/.trae-cn/**"
+        },
+        {
+          "path": "$HOME/.zencoder"
+        },
+        {
+          "path": "$HOME/.zencoder/**"
+        },
+        {
+          "path": "$HOME/.zcode"
+        },
+        {
+          "path": "$HOME/.zcode/**"
+        },
+        {
+          "path": "$HOME/.adal"
+        },
+        {
+          "path": "$HOME/.adal/**"
+        },
+        {
+          "path": "$HOME/.hermes"
+        },
+        {
+          "path": "$HOME/.hermes/**"
+        },
+        {
+          "path": "$HOME/.qclaw"
+        },
+        {
+          "path": "$HOME/.qclaw/**"
+        },
+        {
+          "path": "$HOME/.easyclaw"
+        },
+        {
+          "path": "$HOME/.easyclaw/**"
+        },
+        {
+          "path": "$HOME/.openclaw-autoclaw"
+        },
+        {
+          "path": "$HOME/.openclaw-autoclaw/**"
+        },
+        {
+          "path": "$HOME/.workbuddy"
+        },
+        {
+          "path": "$HOME/.workbuddy/**"
+        },
+        {
+          "path": "$HOME/.workbuddy-ai"
+        },
+        {
+          "path": "$HOME/.workbuddy-ai/**"
+        },
+        {
+          "path": "$HOME/.dsh"
+        },
+        {
+          "path": "$HOME/.dsh/**"
+        },
+        {
+          "path": "$HOME/.gitlab/duo"
+        },
+        {
+          "path": "$HOME/.gitlab/duo/**"
+        },
+        {
+          "path": "$HOME/.minimax"
+        },
+        {
+          "path": "$HOME/.minimax/**"
+        },
+        {
+          "path": "$HOME/.omp/agent"
+        },
+        {
+          "path": "$HOME/.omp/agent/**"
         }
       ]
     },
@@ -84,6 +378,300 @@
         },
         {
           "path": "$APPCONFIG/**"
+        },
+        {
+          "path": "$HOME/.grok"
+        },
+        {
+          "path": "$HOME/.grok/**"
+        },
+        {
+          "path": "$HOME/.config/opencode"
+        },
+        {
+          "path": "$HOME/.config/opencode/**"
+        },
+        {
+          "path": "$HOME/.gemini/antigravity"
+        },
+        {
+          "path": "$HOME/.gemini/antigravity/**"
+        },
+        {
+          "path": "$HOME/.config/agents"
+        },
+        {
+          "path": "$HOME/.config/agents/**"
+        },
+        {
+          "path": "$HOME/.kilocode"
+        },
+        {
+          "path": "$HOME/.kilocode/**"
+        },
+        {
+          "path": "$HOME/.roo"
+        },
+        {
+          "path": "$HOME/.roo/**"
+        },
+        {
+          "path": "$HOME/.config/goose"
+        },
+        {
+          "path": "$HOME/.config/goose/**"
+        },
+        {
+          "path": "$HOME/.copilot"
+        },
+        {
+          "path": "$HOME/.copilot/**"
+        },
+        {
+          "path": "$HOME/.openclaw"
+        },
+        {
+          "path": "$HOME/.openclaw/**"
+        },
+        {
+          "path": "$HOME/.factory"
+        },
+        {
+          "path": "$HOME/.factory/**"
+        },
+        {
+          "path": "$HOME/.codeium/windsurf"
+        },
+        {
+          "path": "$HOME/.codeium/windsurf/**"
+        },
+        {
+          "path": "$HOME/.trae"
+        },
+        {
+          "path": "$HOME/.trae/**"
+        },
+        {
+          "path": "$HOME/.agents"
+        },
+        {
+          "path": "$HOME/.agents/**"
+        },
+        {
+          "path": "$HOME/.deepagents/agent"
+        },
+        {
+          "path": "$HOME/.deepagents/agent/**"
+        },
+        {
+          "path": "$HOME/.firebender"
+        },
+        {
+          "path": "$HOME/.firebender/**"
+        },
+        {
+          "path": "$HOME/.kimi-code"
+        },
+        {
+          "path": "$HOME/.kimi-code/**"
+        },
+        {
+          "path": "$HOME/.augment"
+        },
+        {
+          "path": "$HOME/.augment/**"
+        },
+        {
+          "path": "$HOME/.bob"
+        },
+        {
+          "path": "$HOME/.bob/**"
+        },
+        {
+          "path": "$HOME/.codebuddy"
+        },
+        {
+          "path": "$HOME/.codebuddy/**"
+        },
+        {
+          "path": "$HOME/.commandcode"
+        },
+        {
+          "path": "$HOME/.commandcode/**"
+        },
+        {
+          "path": "$HOME/.continue"
+        },
+        {
+          "path": "$HOME/.continue/**"
+        },
+        {
+          "path": "$HOME/.snowflake/cortex"
+        },
+        {
+          "path": "$HOME/.snowflake/cortex/**"
+        },
+        {
+          "path": "$HOME/.config/crush"
+        },
+        {
+          "path": "$HOME/.config/crush/**"
+        },
+        {
+          "path": "$HOME/.iflow"
+        },
+        {
+          "path": "$HOME/.iflow/**"
+        },
+        {
+          "path": "$HOME/.junie"
+        },
+        {
+          "path": "$HOME/.junie/**"
+        },
+        {
+          "path": "$HOME/.kiro"
+        },
+        {
+          "path": "$HOME/.kiro/**"
+        },
+        {
+          "path": "$HOME/.kode"
+        },
+        {
+          "path": "$HOME/.kode/**"
+        },
+        {
+          "path": "$HOME/.mcpjam"
+        },
+        {
+          "path": "$HOME/.mcpjam/**"
+        },
+        {
+          "path": "$HOME/.vibe"
+        },
+        {
+          "path": "$HOME/.vibe/**"
+        },
+        {
+          "path": "$HOME/.mux"
+        },
+        {
+          "path": "$HOME/.mux/**"
+        },
+        {
+          "path": "$HOME/.neovate"
+        },
+        {
+          "path": "$HOME/.neovate/**"
+        },
+        {
+          "path": "$HOME/.openhands"
+        },
+        {
+          "path": "$HOME/.openhands/**"
+        },
+        {
+          "path": "$HOME/.pochi"
+        },
+        {
+          "path": "$HOME/.pochi/**"
+        },
+        {
+          "path": "$HOME/.qoder"
+        },
+        {
+          "path": "$HOME/.qoder/**"
+        },
+        {
+          "path": "$HOME/.qwen"
+        },
+        {
+          "path": "$HOME/.qwen/**"
+        },
+        {
+          "path": "$HOME/.trae-cn"
+        },
+        {
+          "path": "$HOME/.trae-cn/**"
+        },
+        {
+          "path": "$HOME/.zencoder"
+        },
+        {
+          "path": "$HOME/.zencoder/**"
+        },
+        {
+          "path": "$HOME/.zcode"
+        },
+        {
+          "path": "$HOME/.zcode/**"
+        },
+        {
+          "path": "$HOME/.adal"
+        },
+        {
+          "path": "$HOME/.adal/**"
+        },
+        {
+          "path": "$HOME/.hermes"
+        },
+        {
+          "path": "$HOME/.hermes/**"
+        },
+        {
+          "path": "$HOME/.qclaw"
+        },
+        {
+          "path": "$HOME/.qclaw/**"
+        },
+        {
+          "path": "$HOME/.easyclaw"
+        },
+        {
+          "path": "$HOME/.easyclaw/**"
+        },
+        {
+          "path": "$HOME/.openclaw-autoclaw"
+        },
+        {
+          "path": "$HOME/.openclaw-autoclaw/**"
+        },
+        {
+          "path": "$HOME/.workbuddy"
+        },
+        {
+          "path": "$HOME/.workbuddy/**"
+        },
+        {
+          "path": "$HOME/.workbuddy-ai"
+        },
+        {
+          "path": "$HOME/.workbuddy-ai/**"
+        },
+        {
+          "path": "$HOME/.dsh"
+        },
+        {
+          "path": "$HOME/.dsh/**"
+        },
+        {
+          "path": "$HOME/.gitlab/duo"
+        },
+        {
+          "path": "$HOME/.gitlab/duo/**"
+        },
+        {
+          "path": "$HOME/.minimax"
+        },
+        {
+          "path": "$HOME/.minimax/**"
+        },
+        {
+          "path": "$HOME/.omp/agent"
+        },
+        {
+          "path": "$HOME/.omp/agent/**"
         }
       ]
     },
@@ -110,6 +698,300 @@
         },
         {
           "path": "$HOME/ai-skills/**"
+        },
+        {
+          "path": "$HOME/.grok"
+        },
+        {
+          "path": "$HOME/.grok/**"
+        },
+        {
+          "path": "$HOME/.config/opencode"
+        },
+        {
+          "path": "$HOME/.config/opencode/**"
+        },
+        {
+          "path": "$HOME/.gemini/antigravity"
+        },
+        {
+          "path": "$HOME/.gemini/antigravity/**"
+        },
+        {
+          "path": "$HOME/.config/agents"
+        },
+        {
+          "path": "$HOME/.config/agents/**"
+        },
+        {
+          "path": "$HOME/.kilocode"
+        },
+        {
+          "path": "$HOME/.kilocode/**"
+        },
+        {
+          "path": "$HOME/.roo"
+        },
+        {
+          "path": "$HOME/.roo/**"
+        },
+        {
+          "path": "$HOME/.config/goose"
+        },
+        {
+          "path": "$HOME/.config/goose/**"
+        },
+        {
+          "path": "$HOME/.copilot"
+        },
+        {
+          "path": "$HOME/.copilot/**"
+        },
+        {
+          "path": "$HOME/.openclaw"
+        },
+        {
+          "path": "$HOME/.openclaw/**"
+        },
+        {
+          "path": "$HOME/.factory"
+        },
+        {
+          "path": "$HOME/.factory/**"
+        },
+        {
+          "path": "$HOME/.codeium/windsurf"
+        },
+        {
+          "path": "$HOME/.codeium/windsurf/**"
+        },
+        {
+          "path": "$HOME/.trae"
+        },
+        {
+          "path": "$HOME/.trae/**"
+        },
+        {
+          "path": "$HOME/.agents"
+        },
+        {
+          "path": "$HOME/.agents/**"
+        },
+        {
+          "path": "$HOME/.deepagents/agent"
+        },
+        {
+          "path": "$HOME/.deepagents/agent/**"
+        },
+        {
+          "path": "$HOME/.firebender"
+        },
+        {
+          "path": "$HOME/.firebender/**"
+        },
+        {
+          "path": "$HOME/.kimi-code"
+        },
+        {
+          "path": "$HOME/.kimi-code/**"
+        },
+        {
+          "path": "$HOME/.augment"
+        },
+        {
+          "path": "$HOME/.augment/**"
+        },
+        {
+          "path": "$HOME/.bob"
+        },
+        {
+          "path": "$HOME/.bob/**"
+        },
+        {
+          "path": "$HOME/.codebuddy"
+        },
+        {
+          "path": "$HOME/.codebuddy/**"
+        },
+        {
+          "path": "$HOME/.commandcode"
+        },
+        {
+          "path": "$HOME/.commandcode/**"
+        },
+        {
+          "path": "$HOME/.continue"
+        },
+        {
+          "path": "$HOME/.continue/**"
+        },
+        {
+          "path": "$HOME/.snowflake/cortex"
+        },
+        {
+          "path": "$HOME/.snowflake/cortex/**"
+        },
+        {
+          "path": "$HOME/.config/crush"
+        },
+        {
+          "path": "$HOME/.config/crush/**"
+        },
+        {
+          "path": "$HOME/.iflow"
+        },
+        {
+          "path": "$HOME/.iflow/**"
+        },
+        {
+          "path": "$HOME/.junie"
+        },
+        {
+          "path": "$HOME/.junie/**"
+        },
+        {
+          "path": "$HOME/.kiro"
+        },
+        {
+          "path": "$HOME/.kiro/**"
+        },
+        {
+          "path": "$HOME/.kode"
+        },
+        {
+          "path": "$HOME/.kode/**"
+        },
+        {
+          "path": "$HOME/.mcpjam"
+        },
+        {
+          "path": "$HOME/.mcpjam/**"
+        },
+        {
+          "path": "$HOME/.vibe"
+        },
+        {
+          "path": "$HOME/.vibe/**"
+        },
+        {
+          "path": "$HOME/.mux"
+        },
+        {
+          "path": "$HOME/.mux/**"
+        },
+        {
+          "path": "$HOME/.neovate"
+        },
+        {
+          "path": "$HOME/.neovate/**"
+        },
+        {
+          "path": "$HOME/.openhands"
+        },
+        {
+          "path": "$HOME/.openhands/**"
+        },
+        {
+          "path": "$HOME/.pochi"
+        },
+        {
+          "path": "$HOME/.pochi/**"
+        },
+        {
+          "path": "$HOME/.qoder"
+        },
+        {
+          "path": "$HOME/.qoder/**"
+        },
+        {
+          "path": "$HOME/.qwen"
+        },
+        {
+          "path": "$HOME/.qwen/**"
+        },
+        {
+          "path": "$HOME/.trae-cn"
+        },
+        {
+          "path": "$HOME/.trae-cn/**"
+        },
+        {
+          "path": "$HOME/.zencoder"
+        },
+        {
+          "path": "$HOME/.zencoder/**"
+        },
+        {
+          "path": "$HOME/.zcode"
+        },
+        {
+          "path": "$HOME/.zcode/**"
+        },
+        {
+          "path": "$HOME/.adal"
+        },
+        {
+          "path": "$HOME/.adal/**"
+        },
+        {
+          "path": "$HOME/.hermes"
+        },
+        {
+          "path": "$HOME/.hermes/**"
+        },
+        {
+          "path": "$HOME/.qclaw"
+        },
+        {
+          "path": "$HOME/.qclaw/**"
+        },
+        {
+          "path": "$HOME/.easyclaw"
+        },
+        {
+          "path": "$HOME/.easyclaw/**"
+        },
+        {
+          "path": "$HOME/.openclaw-autoclaw"
+        },
+        {
+          "path": "$HOME/.openclaw-autoclaw/**"
+        },
+        {
+          "path": "$HOME/.workbuddy"
+        },
+        {
+          "path": "$HOME/.workbuddy/**"
+        },
+        {
+          "path": "$HOME/.workbuddy-ai"
+        },
+        {
+          "path": "$HOME/.workbuddy-ai/**"
+        },
+        {
+          "path": "$HOME/.dsh"
+        },
+        {
+          "path": "$HOME/.dsh/**"
+        },
+        {
+          "path": "$HOME/.gitlab/duo"
+        },
+        {
+          "path": "$HOME/.gitlab/duo/**"
+        },
+        {
+          "path": "$HOME/.minimax"
+        },
+        {
+          "path": "$HOME/.minimax/**"
+        },
+        {
+          "path": "$HOME/.omp/agent"
+        },
+        {
+          "path": "$HOME/.omp/agent/**"
         }
       ]
     },
@@ -148,6 +1030,300 @@
         },
         {
           "path": "$APPCONFIG/**"
+        },
+        {
+          "path": "$HOME/.grok"
+        },
+        {
+          "path": "$HOME/.grok/**"
+        },
+        {
+          "path": "$HOME/.config/opencode"
+        },
+        {
+          "path": "$HOME/.config/opencode/**"
+        },
+        {
+          "path": "$HOME/.gemini/antigravity"
+        },
+        {
+          "path": "$HOME/.gemini/antigravity/**"
+        },
+        {
+          "path": "$HOME/.config/agents"
+        },
+        {
+          "path": "$HOME/.config/agents/**"
+        },
+        {
+          "path": "$HOME/.kilocode"
+        },
+        {
+          "path": "$HOME/.kilocode/**"
+        },
+        {
+          "path": "$HOME/.roo"
+        },
+        {
+          "path": "$HOME/.roo/**"
+        },
+        {
+          "path": "$HOME/.config/goose"
+        },
+        {
+          "path": "$HOME/.config/goose/**"
+        },
+        {
+          "path": "$HOME/.copilot"
+        },
+        {
+          "path": "$HOME/.copilot/**"
+        },
+        {
+          "path": "$HOME/.openclaw"
+        },
+        {
+          "path": "$HOME/.openclaw/**"
+        },
+        {
+          "path": "$HOME/.factory"
+        },
+        {
+          "path": "$HOME/.factory/**"
+        },
+        {
+          "path": "$HOME/.codeium/windsurf"
+        },
+        {
+          "path": "$HOME/.codeium/windsurf/**"
+        },
+        {
+          "path": "$HOME/.trae"
+        },
+        {
+          "path": "$HOME/.trae/**"
+        },
+        {
+          "path": "$HOME/.agents"
+        },
+        {
+          "path": "$HOME/.agents/**"
+        },
+        {
+          "path": "$HOME/.deepagents/agent"
+        },
+        {
+          "path": "$HOME/.deepagents/agent/**"
+        },
+        {
+          "path": "$HOME/.firebender"
+        },
+        {
+          "path": "$HOME/.firebender/**"
+        },
+        {
+          "path": "$HOME/.kimi-code"
+        },
+        {
+          "path": "$HOME/.kimi-code/**"
+        },
+        {
+          "path": "$HOME/.augment"
+        },
+        {
+          "path": "$HOME/.augment/**"
+        },
+        {
+          "path": "$HOME/.bob"
+        },
+        {
+          "path": "$HOME/.bob/**"
+        },
+        {
+          "path": "$HOME/.codebuddy"
+        },
+        {
+          "path": "$HOME/.codebuddy/**"
+        },
+        {
+          "path": "$HOME/.commandcode"
+        },
+        {
+          "path": "$HOME/.commandcode/**"
+        },
+        {
+          "path": "$HOME/.continue"
+        },
+        {
+          "path": "$HOME/.continue/**"
+        },
+        {
+          "path": "$HOME/.snowflake/cortex"
+        },
+        {
+          "path": "$HOME/.snowflake/cortex/**"
+        },
+        {
+          "path": "$HOME/.config/crush"
+        },
+        {
+          "path": "$HOME/.config/crush/**"
+        },
+        {
+          "path": "$HOME/.iflow"
+        },
+        {
+          "path": "$HOME/.iflow/**"
+        },
+        {
+          "path": "$HOME/.junie"
+        },
+        {
+          "path": "$HOME/.junie/**"
+        },
+        {
+          "path": "$HOME/.kiro"
+        },
+        {
+          "path": "$HOME/.kiro/**"
+        },
+        {
+          "path": "$HOME/.kode"
+        },
+        {
+          "path": "$HOME/.kode/**"
+        },
+        {
+          "path": "$HOME/.mcpjam"
+        },
+        {
+          "path": "$HOME/.mcpjam/**"
+        },
+        {
+          "path": "$HOME/.vibe"
+        },
+        {
+          "path": "$HOME/.vibe/**"
+        },
+        {
+          "path": "$HOME/.mux"
+        },
+        {
+          "path": "$HOME/.mux/**"
+        },
+        {
+          "path": "$HOME/.neovate"
+        },
+        {
+          "path": "$HOME/.neovate/**"
+        },
+        {
+          "path": "$HOME/.openhands"
+        },
+        {
+          "path": "$HOME/.openhands/**"
+        },
+        {
+          "path": "$HOME/.pochi"
+        },
+        {
+          "path": "$HOME/.pochi/**"
+        },
+        {
+          "path": "$HOME/.qoder"
+        },
+        {
+          "path": "$HOME/.qoder/**"
+        },
+        {
+          "path": "$HOME/.qwen"
+        },
+        {
+          "path": "$HOME/.qwen/**"
+        },
+        {
+          "path": "$HOME/.trae-cn"
+        },
+        {
+          "path": "$HOME/.trae-cn/**"
+        },
+        {
+          "path": "$HOME/.zencoder"
+        },
+        {
+          "path": "$HOME/.zencoder/**"
+        },
+        {
+          "path": "$HOME/.zcode"
+        },
+        {
+          "path": "$HOME/.zcode/**"
+        },
+        {
+          "path": "$HOME/.adal"
+        },
+        {
+          "path": "$HOME/.adal/**"
+        },
+        {
+          "path": "$HOME/.hermes"
+        },
+        {
+          "path": "$HOME/.hermes/**"
+        },
+        {
+          "path": "$HOME/.qclaw"
+        },
+        {
+          "path": "$HOME/.qclaw/**"
+        },
+        {
+          "path": "$HOME/.easyclaw"
+        },
+        {
+          "path": "$HOME/.easyclaw/**"
+        },
+        {
+          "path": "$HOME/.openclaw-autoclaw"
+        },
+        {
+          "path": "$HOME/.openclaw-autoclaw/**"
+        },
+        {
+          "path": "$HOME/.workbuddy"
+        },
+        {
+          "path": "$HOME/.workbuddy/**"
+        },
+        {
+          "path": "$HOME/.workbuddy-ai"
+        },
+        {
+          "path": "$HOME/.workbuddy-ai/**"
+        },
+        {
+          "path": "$HOME/.dsh"
+        },
+        {
+          "path": "$HOME/.dsh/**"
+        },
+        {
+          "path": "$HOME/.gitlab/duo"
+        },
+        {
+          "path": "$HOME/.gitlab/duo/**"
+        },
+        {
+          "path": "$HOME/.minimax"
+        },
+        {
+          "path": "$HOME/.minimax/**"
+        },
+        {
+          "path": "$HOME/.omp/agent"
+        },
+        {
+          "path": "$HOME/.omp/agent/**"
         }
       ]
     },
@@ -177,6 +1353,300 @@
         },
         {
           "path": "$APPCONFIG/**"
+        },
+        {
+          "path": "$HOME/.grok"
+        },
+        {
+          "path": "$HOME/.grok/**"
+        },
+        {
+          "path": "$HOME/.config/opencode"
+        },
+        {
+          "path": "$HOME/.config/opencode/**"
+        },
+        {
+          "path": "$HOME/.gemini/antigravity"
+        },
+        {
+          "path": "$HOME/.gemini/antigravity/**"
+        },
+        {
+          "path": "$HOME/.config/agents"
+        },
+        {
+          "path": "$HOME/.config/agents/**"
+        },
+        {
+          "path": "$HOME/.kilocode"
+        },
+        {
+          "path": "$HOME/.kilocode/**"
+        },
+        {
+          "path": "$HOME/.roo"
+        },
+        {
+          "path": "$HOME/.roo/**"
+        },
+        {
+          "path": "$HOME/.config/goose"
+        },
+        {
+          "path": "$HOME/.config/goose/**"
+        },
+        {
+          "path": "$HOME/.copilot"
+        },
+        {
+          "path": "$HOME/.copilot/**"
+        },
+        {
+          "path": "$HOME/.openclaw"
+        },
+        {
+          "path": "$HOME/.openclaw/**"
+        },
+        {
+          "path": "$HOME/.factory"
+        },
+        {
+          "path": "$HOME/.factory/**"
+        },
+        {
+          "path": "$HOME/.codeium/windsurf"
+        },
+        {
+          "path": "$HOME/.codeium/windsurf/**"
+        },
+        {
+          "path": "$HOME/.trae"
+        },
+        {
+          "path": "$HOME/.trae/**"
+        },
+        {
+          "path": "$HOME/.agents"
+        },
+        {
+          "path": "$HOME/.agents/**"
+        },
+        {
+          "path": "$HOME/.deepagents/agent"
+        },
+        {
+          "path": "$HOME/.deepagents/agent/**"
+        },
+        {
+          "path": "$HOME/.firebender"
+        },
+        {
+          "path": "$HOME/.firebender/**"
+        },
+        {
+          "path": "$HOME/.kimi-code"
+        },
+        {
+          "path": "$HOME/.kimi-code/**"
+        },
+        {
+          "path": "$HOME/.augment"
+        },
+        {
+          "path": "$HOME/.augment/**"
+        },
+        {
+          "path": "$HOME/.bob"
+        },
+        {
+          "path": "$HOME/.bob/**"
+        },
+        {
+          "path": "$HOME/.codebuddy"
+        },
+        {
+          "path": "$HOME/.codebuddy/**"
+        },
+        {
+          "path": "$HOME/.commandcode"
+        },
+        {
+          "path": "$HOME/.commandcode/**"
+        },
+        {
+          "path": "$HOME/.continue"
+        },
+        {
+          "path": "$HOME/.continue/**"
+        },
+        {
+          "path": "$HOME/.snowflake/cortex"
+        },
+        {
+          "path": "$HOME/.snowflake/cortex/**"
+        },
+        {
+          "path": "$HOME/.config/crush"
+        },
+        {
+          "path": "$HOME/.config/crush/**"
+        },
+        {
+          "path": "$HOME/.iflow"
+        },
+        {
+          "path": "$HOME/.iflow/**"
+        },
+        {
+          "path": "$HOME/.junie"
+        },
+        {
+          "path": "$HOME/.junie/**"
+        },
+        {
+          "path": "$HOME/.kiro"
+        },
+        {
+          "path": "$HOME/.kiro/**"
+        },
+        {
+          "path": "$HOME/.kode"
+        },
+        {
+          "path": "$HOME/.kode/**"
+        },
+        {
+          "path": "$HOME/.mcpjam"
+        },
+        {
+          "path": "$HOME/.mcpjam/**"
+        },
+        {
+          "path": "$HOME/.vibe"
+        },
+        {
+          "path": "$HOME/.vibe/**"
+        },
+        {
+          "path": "$HOME/.mux"
+        },
+        {
+          "path": "$HOME/.mux/**"
+        },
+        {
+          "path": "$HOME/.neovate"
+        },
+        {
+          "path": "$HOME/.neovate/**"
+        },
+        {
+          "path": "$HOME/.openhands"
+        },
+        {
+          "path": "$HOME/.openhands/**"
+        },
+        {
+          "path": "$HOME/.pochi"
+        },
+        {
+          "path": "$HOME/.pochi/**"
+        },
+        {
+          "path": "$HOME/.qoder"
+        },
+        {
+          "path": "$HOME/.qoder/**"
+        },
+        {
+          "path": "$HOME/.qwen"
+        },
+        {
+          "path": "$HOME/.qwen/**"
+        },
+        {
+          "path": "$HOME/.trae-cn"
+        },
+        {
+          "path": "$HOME/.trae-cn/**"
+        },
+        {
+          "path": "$HOME/.zencoder"
+        },
+        {
+          "path": "$HOME/.zencoder/**"
+        },
+        {
+          "path": "$HOME/.zcode"
+        },
+        {
+          "path": "$HOME/.zcode/**"
+        },
+        {
+          "path": "$HOME/.adal"
+        },
+        {
+          "path": "$HOME/.adal/**"
+        },
+        {
+          "path": "$HOME/.hermes"
+        },
+        {
+          "path": "$HOME/.hermes/**"
+        },
+        {
+          "path": "$HOME/.qclaw"
+        },
+        {
+          "path": "$HOME/.qclaw/**"
+        },
+        {
+          "path": "$HOME/.easyclaw"
+        },
+        {
+          "path": "$HOME/.easyclaw/**"
+        },
+        {
+          "path": "$HOME/.openclaw-autoclaw"
+        },
+        {
+          "path": "$HOME/.openclaw-autoclaw/**"
+        },
+        {
+          "path": "$HOME/.workbuddy"
+        },
+        {
+          "path": "$HOME/.workbuddy/**"
+        },
+        {
+          "path": "$HOME/.workbuddy-ai"
+        },
+        {
+          "path": "$HOME/.workbuddy-ai/**"
+        },
+        {
+          "path": "$HOME/.dsh"
+        },
+        {
+          "path": "$HOME/.dsh/**"
+        },
+        {
+          "path": "$HOME/.gitlab/duo"
+        },
+        {
+          "path": "$HOME/.gitlab/duo/**"
+        },
+        {
+          "path": "$HOME/.minimax"
+        },
+        {
+          "path": "$HOME/.minimax/**"
+        },
+        {
+          "path": "$HOME/.omp/agent"
+        },
+        {
+          "path": "$HOME/.omp/agent/**"
         }
       ]
     },
@@ -203,6 +1673,300 @@
         },
         {
           "path": "$HOME/ai-skills/**"
+        },
+        {
+          "path": "$HOME/.grok"
+        },
+        {
+          "path": "$HOME/.grok/**"
+        },
+        {
+          "path": "$HOME/.config/opencode"
+        },
+        {
+          "path": "$HOME/.config/opencode/**"
+        },
+        {
+          "path": "$HOME/.gemini/antigravity"
+        },
+        {
+          "path": "$HOME/.gemini/antigravity/**"
+        },
+        {
+          "path": "$HOME/.config/agents"
+        },
+        {
+          "path": "$HOME/.config/agents/**"
+        },
+        {
+          "path": "$HOME/.kilocode"
+        },
+        {
+          "path": "$HOME/.kilocode/**"
+        },
+        {
+          "path": "$HOME/.roo"
+        },
+        {
+          "path": "$HOME/.roo/**"
+        },
+        {
+          "path": "$HOME/.config/goose"
+        },
+        {
+          "path": "$HOME/.config/goose/**"
+        },
+        {
+          "path": "$HOME/.copilot"
+        },
+        {
+          "path": "$HOME/.copilot/**"
+        },
+        {
+          "path": "$HOME/.openclaw"
+        },
+        {
+          "path": "$HOME/.openclaw/**"
+        },
+        {
+          "path": "$HOME/.factory"
+        },
+        {
+          "path": "$HOME/.factory/**"
+        },
+        {
+          "path": "$HOME/.codeium/windsurf"
+        },
+        {
+          "path": "$HOME/.codeium/windsurf/**"
+        },
+        {
+          "path": "$HOME/.trae"
+        },
+        {
+          "path": "$HOME/.trae/**"
+        },
+        {
+          "path": "$HOME/.agents"
+        },
+        {
+          "path": "$HOME/.agents/**"
+        },
+        {
+          "path": "$HOME/.deepagents/agent"
+        },
+        {
+          "path": "$HOME/.deepagents/agent/**"
+        },
+        {
+          "path": "$HOME/.firebender"
+        },
+        {
+          "path": "$HOME/.firebender/**"
+        },
+        {
+          "path": "$HOME/.kimi-code"
+        },
+        {
+          "path": "$HOME/.kimi-code/**"
+        },
+        {
+          "path": "$HOME/.augment"
+        },
+        {
+          "path": "$HOME/.augment/**"
+        },
+        {
+          "path": "$HOME/.bob"
+        },
+        {
+          "path": "$HOME/.bob/**"
+        },
+        {
+          "path": "$HOME/.codebuddy"
+        },
+        {
+          "path": "$HOME/.codebuddy/**"
+        },
+        {
+          "path": "$HOME/.commandcode"
+        },
+        {
+          "path": "$HOME/.commandcode/**"
+        },
+        {
+          "path": "$HOME/.continue"
+        },
+        {
+          "path": "$HOME/.continue/**"
+        },
+        {
+          "path": "$HOME/.snowflake/cortex"
+        },
+        {
+          "path": "$HOME/.snowflake/cortex/**"
+        },
+        {
+          "path": "$HOME/.config/crush"
+        },
+        {
+          "path": "$HOME/.config/crush/**"
+        },
+        {
+          "path": "$HOME/.iflow"
+        },
+        {
+          "path": "$HOME/.iflow/**"
+        },
+        {
+          "path": "$HOME/.junie"
+        },
+        {
+          "path": "$HOME/.junie/**"
+        },
+        {
+          "path": "$HOME/.kiro"
+        },
+        {
+          "path": "$HOME/.kiro/**"
+        },
+        {
+          "path": "$HOME/.kode"
+        },
+        {
+          "path": "$HOME/.kode/**"
+        },
+        {
+          "path": "$HOME/.mcpjam"
+        },
+        {
+          "path": "$HOME/.mcpjam/**"
+        },
+        {
+          "path": "$HOME/.vibe"
+        },
+        {
+          "path": "$HOME/.vibe/**"
+        },
+        {
+          "path": "$HOME/.mux"
+        },
+        {
+          "path": "$HOME/.mux/**"
+        },
+        {
+          "path": "$HOME/.neovate"
+        },
+        {
+          "path": "$HOME/.neovate/**"
+        },
+        {
+          "path": "$HOME/.openhands"
+        },
+        {
+          "path": "$HOME/.openhands/**"
+        },
+        {
+          "path": "$HOME/.pochi"
+        },
+        {
+          "path": "$HOME/.pochi/**"
+        },
+        {
+          "path": "$HOME/.qoder"
+        },
+        {
+          "path": "$HOME/.qoder/**"
+        },
+        {
+          "path": "$HOME/.qwen"
+        },
+        {
+          "path": "$HOME/.qwen/**"
+        },
+        {
+          "path": "$HOME/.trae-cn"
+        },
+        {
+          "path": "$HOME/.trae-cn/**"
+        },
+        {
+          "path": "$HOME/.zencoder"
+        },
+        {
+          "path": "$HOME/.zencoder/**"
+        },
+        {
+          "path": "$HOME/.zcode"
+        },
+        {
+          "path": "$HOME/.zcode/**"
+        },
+        {
+          "path": "$HOME/.adal"
+        },
+        {
+          "path": "$HOME/.adal/**"
+        },
+        {
+          "path": "$HOME/.hermes"
+        },
+        {
+          "path": "$HOME/.hermes/**"
+        },
+        {
+          "path": "$HOME/.qclaw"
+        },
+        {
+          "path": "$HOME/.qclaw/**"
+        },
+        {
+          "path": "$HOME/.easyclaw"
+        },
+        {
+          "path": "$HOME/.easyclaw/**"
+        },
+        {
+          "path": "$HOME/.openclaw-autoclaw"
+        },
+        {
+          "path": "$HOME/.openclaw-autoclaw/**"
+        },
+        {
+          "path": "$HOME/.workbuddy"
+        },
+        {
+          "path": "$HOME/.workbuddy/**"
+        },
+        {
+          "path": "$HOME/.workbuddy-ai"
+        },
+        {
+          "path": "$HOME/.workbuddy-ai/**"
+        },
+        {
+          "path": "$HOME/.dsh"
+        },
+        {
+          "path": "$HOME/.dsh/**"
+        },
+        {
+          "path": "$HOME/.gitlab/duo"
+        },
+        {
+          "path": "$HOME/.gitlab/duo/**"
+        },
+        {
+          "path": "$HOME/.minimax"
+        },
+        {
+          "path": "$HOME/.minimax/**"
+        },
+        {
+          "path": "$HOME/.omp/agent"
+        },
+        {
+          "path": "$HOME/.omp/agent/**"
         }
       ]
     },
@@ -229,6 +1993,300 @@
         },
         {
           "path": "$HOME/ai-skills/**"
+        },
+        {
+          "path": "$HOME/.grok"
+        },
+        {
+          "path": "$HOME/.grok/**"
+        },
+        {
+          "path": "$HOME/.config/opencode"
+        },
+        {
+          "path": "$HOME/.config/opencode/**"
+        },
+        {
+          "path": "$HOME/.gemini/antigravity"
+        },
+        {
+          "path": "$HOME/.gemini/antigravity/**"
+        },
+        {
+          "path": "$HOME/.config/agents"
+        },
+        {
+          "path": "$HOME/.config/agents/**"
+        },
+        {
+          "path": "$HOME/.kilocode"
+        },
+        {
+          "path": "$HOME/.kilocode/**"
+        },
+        {
+          "path": "$HOME/.roo"
+        },
+        {
+          "path": "$HOME/.roo/**"
+        },
+        {
+          "path": "$HOME/.config/goose"
+        },
+        {
+          "path": "$HOME/.config/goose/**"
+        },
+        {
+          "path": "$HOME/.copilot"
+        },
+        {
+          "path": "$HOME/.copilot/**"
+        },
+        {
+          "path": "$HOME/.openclaw"
+        },
+        {
+          "path": "$HOME/.openclaw/**"
+        },
+        {
+          "path": "$HOME/.factory"
+        },
+        {
+          "path": "$HOME/.factory/**"
+        },
+        {
+          "path": "$HOME/.codeium/windsurf"
+        },
+        {
+          "path": "$HOME/.codeium/windsurf/**"
+        },
+        {
+          "path": "$HOME/.trae"
+        },
+        {
+          "path": "$HOME/.trae/**"
+        },
+        {
+          "path": "$HOME/.agents"
+        },
+        {
+          "path": "$HOME/.agents/**"
+        },
+        {
+          "path": "$HOME/.deepagents/agent"
+        },
+        {
+          "path": "$HOME/.deepagents/agent/**"
+        },
+        {
+          "path": "$HOME/.firebender"
+        },
+        {
+          "path": "$HOME/.firebender/**"
+        },
+        {
+          "path": "$HOME/.kimi-code"
+        },
+        {
+          "path": "$HOME/.kimi-code/**"
+        },
+        {
+          "path": "$HOME/.augment"
+        },
+        {
+          "path": "$HOME/.augment/**"
+        },
+        {
+          "path": "$HOME/.bob"
+        },
+        {
+          "path": "$HOME/.bob/**"
+        },
+        {
+          "path": "$HOME/.codebuddy"
+        },
+        {
+          "path": "$HOME/.codebuddy/**"
+        },
+        {
+          "path": "$HOME/.commandcode"
+        },
+        {
+          "path": "$HOME/.commandcode/**"
+        },
+        {
+          "path": "$HOME/.continue"
+        },
+        {
+          "path": "$HOME/.continue/**"
+        },
+        {
+          "path": "$HOME/.snowflake/cortex"
+        },
+        {
+          "path": "$HOME/.snowflake/cortex/**"
+        },
+        {
+          "path": "$HOME/.config/crush"
+        },
+        {
+          "path": "$HOME/.config/crush/**"
+        },
+        {
+          "path": "$HOME/.iflow"
+        },
+        {
+          "path": "$HOME/.iflow/**"
+        },
+        {
+          "path": "$HOME/.junie"
+        },
+        {
+          "path": "$HOME/.junie/**"
+        },
+        {
+          "path": "$HOME/.kiro"
+        },
+        {
+          "path": "$HOME/.kiro/**"
+        },
+        {
+          "path": "$HOME/.kode"
+        },
+        {
+          "path": "$HOME/.kode/**"
+        },
+        {
+          "path": "$HOME/.mcpjam"
+        },
+        {
+          "path": "$HOME/.mcpjam/**"
+        },
+        {
+          "path": "$HOME/.vibe"
+        },
+        {
+          "path": "$HOME/.vibe/**"
+        },
+        {
+          "path": "$HOME/.mux"
+        },
+        {
+          "path": "$HOME/.mux/**"
+        },
+        {
+          "path": "$HOME/.neovate"
+        },
+        {
+          "path": "$HOME/.neovate/**"
+        },
+        {
+          "path": "$HOME/.openhands"
+        },
+        {
+          "path": "$HOME/.openhands/**"
+        },
+        {
+          "path": "$HOME/.pochi"
+        },
+        {
+          "path": "$HOME/.pochi/**"
+        },
+        {
+          "path": "$HOME/.qoder"
+        },
+        {
+          "path": "$HOME/.qoder/**"
+        },
+        {
+          "path": "$HOME/.qwen"
+        },
+        {
+          "path": "$HOME/.qwen/**"
+        },
+        {
+          "path": "$HOME/.trae-cn"
+        },
+        {
+          "path": "$HOME/.trae-cn/**"
+        },
+        {
+          "path": "$HOME/.zencoder"
+        },
+        {
+          "path": "$HOME/.zencoder/**"
+        },
+        {
+          "path": "$HOME/.zcode"
+        },
+        {
+          "path": "$HOME/.zcode/**"
+        },
+        {
+          "path": "$HOME/.adal"
+        },
+        {
+          "path": "$HOME/.adal/**"
+        },
+        {
+          "path": "$HOME/.hermes"
+        },
+        {
+          "path": "$HOME/.hermes/**"
+        },
+        {
+          "path": "$HOME/.qclaw"
+        },
+        {
+          "path": "$HOME/.qclaw/**"
+        },
+        {
+          "path": "$HOME/.easyclaw"
+        },
+        {
+          "path": "$HOME/.easyclaw/**"
+        },
+        {
+          "path": "$HOME/.openclaw-autoclaw"
+        },
+        {
+          "path": "$HOME/.openclaw-autoclaw/**"
+        },
+        {
+          "path": "$HOME/.workbuddy"
+        },
+        {
+          "path": "$HOME/.workbuddy/**"
+        },
+        {
+          "path": "$HOME/.workbuddy-ai"
+        },
+        {
+          "path": "$HOME/.workbuddy-ai/**"
+        },
+        {
+          "path": "$HOME/.dsh"
+        },
+        {
+          "path": "$HOME/.dsh/**"
+        },
+        {
+          "path": "$HOME/.gitlab/duo"
+        },
+        {
+          "path": "$HOME/.gitlab/duo/**"
+        },
+        {
+          "path": "$HOME/.minimax"
+        },
+        {
+          "path": "$HOME/.minimax/**"
+        },
+        {
+          "path": "$HOME/.omp/agent"
+        },
+        {
+          "path": "$HOME/.omp/agent/**"
         }
       ]
     },
@@ -255,6 +2313,300 @@
         },
         {
           "path": "$HOME/ai-skills/**"
+        },
+        {
+          "path": "$HOME/.grok"
+        },
+        {
+          "path": "$HOME/.grok/**"
+        },
+        {
+          "path": "$HOME/.config/opencode"
+        },
+        {
+          "path": "$HOME/.config/opencode/**"
+        },
+        {
+          "path": "$HOME/.gemini/antigravity"
+        },
+        {
+          "path": "$HOME/.gemini/antigravity/**"
+        },
+        {
+          "path": "$HOME/.config/agents"
+        },
+        {
+          "path": "$HOME/.config/agents/**"
+        },
+        {
+          "path": "$HOME/.kilocode"
+        },
+        {
+          "path": "$HOME/.kilocode/**"
+        },
+        {
+          "path": "$HOME/.roo"
+        },
+        {
+          "path": "$HOME/.roo/**"
+        },
+        {
+          "path": "$HOME/.config/goose"
+        },
+        {
+          "path": "$HOME/.config/goose/**"
+        },
+        {
+          "path": "$HOME/.copilot"
+        },
+        {
+          "path": "$HOME/.copilot/**"
+        },
+        {
+          "path": "$HOME/.openclaw"
+        },
+        {
+          "path": "$HOME/.openclaw/**"
+        },
+        {
+          "path": "$HOME/.factory"
+        },
+        {
+          "path": "$HOME/.factory/**"
+        },
+        {
+          "path": "$HOME/.codeium/windsurf"
+        },
+        {
+          "path": "$HOME/.codeium/windsurf/**"
+        },
+        {
+          "path": "$HOME/.trae"
+        },
+        {
+          "path": "$HOME/.trae/**"
+        },
+        {
+          "path": "$HOME/.agents"
+        },
+        {
+          "path": "$HOME/.agents/**"
+        },
+        {
+          "path": "$HOME/.deepagents/agent"
+        },
+        {
+          "path": "$HOME/.deepagents/agent/**"
+        },
+        {
+          "path": "$HOME/.firebender"
+        },
+        {
+          "path": "$HOME/.firebender/**"
+        },
+        {
+          "path": "$HOME/.kimi-code"
+        },
+        {
+          "path": "$HOME/.kimi-code/**"
+        },
+        {
+          "path": "$HOME/.augment"
+        },
+        {
+          "path": "$HOME/.augment/**"
+        },
+        {
+          "path": "$HOME/.bob"
+        },
+        {
+          "path": "$HOME/.bob/**"
+        },
+        {
+          "path": "$HOME/.codebuddy"
+        },
+        {
+          "path": "$HOME/.codebuddy/**"
+        },
+        {
+          "path": "$HOME/.commandcode"
+        },
+        {
+          "path": "$HOME/.commandcode/**"
+        },
+        {
+          "path": "$HOME/.continue"
+        },
+        {
+          "path": "$HOME/.continue/**"
+        },
+        {
+          "path": "$HOME/.snowflake/cortex"
+        },
+        {
+          "path": "$HOME/.snowflake/cortex/**"
+        },
+        {
+          "path": "$HOME/.config/crush"
+        },
+        {
+          "path": "$HOME/.config/crush/**"
+        },
+        {
+          "path": "$HOME/.iflow"
+        },
+        {
+          "path": "$HOME/.iflow/**"
+        },
+        {
+          "path": "$HOME/.junie"
+        },
+        {
+          "path": "$HOME/.junie/**"
+        },
+        {
+          "path": "$HOME/.kiro"
+        },
+        {
+          "path": "$HOME/.kiro/**"
+        },
+        {
+          "path": "$HOME/.kode"
+        },
+        {
+          "path": "$HOME/.kode/**"
+        },
+        {
+          "path": "$HOME/.mcpjam"
+        },
+        {
+          "path": "$HOME/.mcpjam/**"
+        },
+        {
+          "path": "$HOME/.vibe"
+        },
+        {
+          "path": "$HOME/.vibe/**"
+        },
+        {
+          "path": "$HOME/.mux"
+        },
+        {
+          "path": "$HOME/.mux/**"
+        },
+        {
+          "path": "$HOME/.neovate"
+        },
+        {
+          "path": "$HOME/.neovate/**"
+        },
+        {
+          "path": "$HOME/.openhands"
+        },
+        {
+          "path": "$HOME/.openhands/**"
+        },
+        {
+          "path": "$HOME/.pochi"
+        },
+        {
+          "path": "$HOME/.pochi/**"
+        },
+        {
+          "path": "$HOME/.qoder"
+        },
+        {
+          "path": "$HOME/.qoder/**"
+        },
+        {
+          "path": "$HOME/.qwen"
+        },
+        {
+          "path": "$HOME/.qwen/**"
+        },
+        {
+          "path": "$HOME/.trae-cn"
+        },
+        {
+          "path": "$HOME/.trae-cn/**"
+        },
+        {
+          "path": "$HOME/.zencoder"
+        },
+        {
+          "path": "$HOME/.zencoder/**"
+        },
+        {
+          "path": "$HOME/.zcode"
+        },
+        {
+          "path": "$HOME/.zcode/**"
+        },
+        {
+          "path": "$HOME/.adal"
+        },
+        {
+          "path": "$HOME/.adal/**"
+        },
+        {
+          "path": "$HOME/.hermes"
+        },
+        {
+          "path": "$HOME/.hermes/**"
+        },
+        {
+          "path": "$HOME/.qclaw"
+        },
+        {
+          "path": "$HOME/.qclaw/**"
+        },
+        {
+          "path": "$HOME/.easyclaw"
+        },
+        {
+          "path": "$HOME/.easyclaw/**"
+        },
+        {
+          "path": "$HOME/.openclaw-autoclaw"
+        },
+        {
+          "path": "$HOME/.openclaw-autoclaw/**"
+        },
+        {
+          "path": "$HOME/.workbuddy"
+        },
+        {
+          "path": "$HOME/.workbuddy/**"
+        },
+        {
+          "path": "$HOME/.workbuddy-ai"
+        },
+        {
+          "path": "$HOME/.workbuddy-ai/**"
+        },
+        {
+          "path": "$HOME/.dsh"
+        },
+        {
+          "path": "$HOME/.dsh/**"
+        },
+        {
+          "path": "$HOME/.gitlab/duo"
+        },
+        {
+          "path": "$HOME/.gitlab/duo/**"
+        },
+        {
+          "path": "$HOME/.minimax"
+        },
+        {
+          "path": "$HOME/.minimax/**"
+        },
+        {
+          "path": "$HOME/.omp/agent"
+        },
+        {
+          "path": "$HOME/.omp/agent/**"
         }
       ]
     },

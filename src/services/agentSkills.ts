@@ -1,6 +1,7 @@
 /** Skills 管理服务：fsPort + skills.ts 纯逻辑的粘合层 */
 import { invoke } from '@tauri-apps/api/core';
 import { AGENTS, SKILL_LIBRARY_DIR, type AgentId } from '../lib/agents';
+import { effectiveAgents } from '../lib/agentVisibility';
 import { absPath, tauriFs, type FsPort } from '../lib/fsPort';
 import {
   computeSkillMatrix,
@@ -25,9 +26,9 @@ export async function scanAll(fs: FsPort = tauriFs): Promise<SkillsSnapshot> {
   const libEntries = await fs.readDir(libraryAbs);
   const librarySkills = libEntries.filter((e) => e.isDirectory).map((e) => e.name);
 
-  // 各 agent
+  // 各 agent(只扫描「显示中」的 agent,可见性在设置-Agent 管理里调)
   const scans: AgentSkillsScan[] = [];
-  for (const agent of AGENTS) {
+  for (const agent of effectiveAgents()) {
     const dirAbs = await absPath(agent.skillsDir);
     const dirExists = await fs.exists(dirAbs);
     const skills: AgentSkillsScan['skills'] = [];

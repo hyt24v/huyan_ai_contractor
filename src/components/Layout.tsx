@@ -14,6 +14,7 @@ import {
   isUpdateDismissed,
   onSettingsChanged,
 } from '../lib/settings';
+import { refreshAgentVisibility } from '../lib/agentVisibility';
 import logo from '../../src-tauri/icons/icon.png';
 
 const SIDEBAR_KEY = 'huyan_tool:sidebar_collapsed';
@@ -35,6 +36,11 @@ export default function Layout() {
 
   // 桌面端每 6 小时自动快照一次 MCP 配置(可在设置-数据与备份中关闭)
   useAutoBackup(autoBackup);
+
+  // 启动时刷新 agent 检测缓存(自动模式下「检测到的」才显示)
+  useEffect(() => {
+    refreshAgentVisibility().catch(() => undefined);
+  }, []);
 
   // 设置项变更即时生效(自动备份开关等)
   useEffect(

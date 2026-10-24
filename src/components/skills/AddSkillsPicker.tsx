@@ -1,7 +1,8 @@
 /** 从中央库挑选 skills 并批量部署到多个 agent */
 import { useEffect, useMemo, useState } from 'react';
 import { CheckSquare, Search, Square, X } from 'lucide-react';
-import { AGENTS, type AgentId } from '../../lib/agents';
+import type { AgentId } from '../../lib/agents';
+import { useAgents } from '../../hooks/useAgents';
 import { skillEnabledAnywhere, type CatalogSkill } from '../../lib/skillCatalog';
 import AgentBadge from './AgentBadge';
 import { TagPill } from './SkillCard';
@@ -15,8 +16,6 @@ export interface AddSkillsPickerProps {
   onDeploy: (names: string[], agents: AgentId[]) => void;
 }
 
-const AGENT_IDS = AGENTS.map((a) => a.id);
-
 export default function AddSkillsPicker({
   open,
   skills,
@@ -25,6 +24,8 @@ export default function AddSkillsPicker({
   onClose,
   onDeploy,
 }: AddSkillsPickerProps) {
+  const visibleAgents = useAgents();
+  const visibleAgentIds = visibleAgents.map((a) => a.id);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [agents, setAgents] = useState<Set<AgentId>>(() => new Set(initialAgents));
@@ -82,7 +83,7 @@ export default function AddSkillsPicker({
     });
   };
 
-  const allAgentsSelected = AGENTS.every((a) => agents.has(a.id));
+  const allAgentsSelected = visibleAgents.every((a) => agents.has(a.id));
   const canDeploy = selected.size > 0 && agents.size > 0 && !busy;
 
   return (
@@ -112,7 +113,7 @@ export default function AddSkillsPicker({
         <div className="shrink-0 border-b bg-muted/30 px-4 py-2.5">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="mr-1 text-[11px] font-medium text-muted-foreground">目标 Agent</span>
-            {AGENTS.map((a) => {
+            {visibleAgents.map((a) => {
               const on = agents.has(a.id);
               return (
                 <button
@@ -134,7 +135,7 @@ export default function AddSkillsPicker({
             <span className="ml-auto flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => setAgents(new Set(AGENT_IDS))}
+                onClick={() => setAgents(new Set(visibleAgentIds))}
                 disabled={allAgentsSelected}
                 className="rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40"
               >
@@ -227,7 +228,7 @@ export default function AddSkillsPicker({
                         </span>
                       </span>
                       <span className="mt-0.5 flex shrink-0 items-center gap-1">
-                        {AGENTS.filter((a) => skill.agents[a.id] !== 'none').map((a) => (
+                        {visibleAgents.filter((a) => (skill.agents[a.id] ?? 'none') !== 'none').map((a) => (
                           <AgentBadge key={a.id} agent={a.id} state={skill.agents[a.id]} />
                         ))}
                       </span>

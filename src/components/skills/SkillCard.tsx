@@ -13,7 +13,8 @@ import {
   Cable,
   Trash2,
 } from 'lucide-react';
-import { AGENTS, type AgentId } from '../../lib/agents';
+import type { AgentId } from '../../lib/agents';
+import { useAgents } from '../../hooks/useAgents';
 import {
   skillEnabledAnywhere,
   sourceLabel,
@@ -173,11 +174,12 @@ export default function SkillCard({
   onUpdate,
 }: SkillCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const agents = useAgents();
   const enabledAnywhere = skillEnabledAnywhere(skill);
   const switchOn = focusAgent
     ? skill.agents[focusAgent] === 'linked'
     : enabledAnywhere;
-  const localAgents = AGENTS.filter((a) => skill.agents[a.id] === 'local');
+  const localAgents = agents.filter((a) => skill.agents[a.id] === 'local');
   const focusState = focusAgent ? skill.agents[focusAgent] : null;
 
   const menu = menuOpen && (
@@ -306,7 +308,7 @@ export default function SkillCard({
 
   const agentBadges = (
     <div className="flex items-center gap-1">
-      {AGENTS.map((a) => (
+      {agents.map((a) => (
         <AgentBadge
           key={a.id}
           agent={a.id}

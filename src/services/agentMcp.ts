@@ -1,5 +1,6 @@
 /** MCP 管理服务：fsPort + mcp.ts 纯逻辑的粘合层 */
-import { AGENTS, type AgentId } from '../lib/agents';
+import { hasMcpSupport, type AgentDef, type AgentId } from '../lib/agents';
+import { effectiveAgents } from '../lib/agentVisibility';
 import { absPath, tauriFs, type FsPort } from '../lib/fsPort';
 import {
   applyJsonServers,
@@ -26,18 +27,25 @@ export interface McpSnapshot {
   installed: AgentId[];
 }
 
+/** 参与 MCP 管理的 agent:可见性开启且已知 MCP 配置路径 */
+function mcpAgents(): AgentDef[] {
+  return effectiveAgents().filter(hasMcpSupport);
+}
+
 /** 判断 agent 是否已安装：配置文件存在，或其配置目录（skillsDir 的父级）存在 */
-async function isAgentInstalled(agent: (typeof AGENTS)[number], fs: FsPort): Promise<boolean> {
-  const cfg = await absPath(agent.mcpFile);
-  if (await fs.exists(cfg)) return true;
+async function isAgentInstalled(agent: AgentDef, fs: FsPort): Promise<boolean> {
+  if (agent.mcpFile) {
+    const cfg = await absPath(agent.mcpFile);
+    if (await fs.exists(cfg)) return true;
+  }
   const dir = await absPath(agent.skillsDir.split('/').slice(0, -1).join('/'));
   return fs.exists(dir);
 }
 
-/** 检测本机已安装的 agent */
+/** 检测本机已安装的 agent(只含支持 MCP 管理的可见 agent) */
 export async function detectInstalledAgents(fs: FsPort = tauriFs): Promise<AgentId[]> {
   const out: AgentId[] = [];
-  for (const agent of AGENTS) {
+  for (const agent of mcpAgents()) {
     if (await isAgentInstalled(agent, fs)) out.push(agent.id);
   }
   return out;
@@ -81,8 +89,8 @@ export async function scanMcp(fs: FsPort = tauriFs): Promise<McpSnapshot> {
   const scans: Partial<Record<AgentId, { servers: Record<string, McpServerSpec>; enabled: Record<string, boolean> }>> = {};
   const perAgent: Partial<Record<AgentId, string[]>> = {};
   const current: Partial<Record<AgentId, Record<string, McpServerSpec>>> = {};
-  for (const agent of AGENTS) {
-    const p = await absPath(agent.mcpFile);
+  for (const agent of mcpAgents()) {
+    const p = await absPath(agent.mcpFile!);
     if (!(await fs.exists(p))) continue;
     try {
       const text = await fs.readText(p);
@@ -98,7 +106,7 @@ export async function scanMcp(fs: FsPort = tauriFs): Promise<McpSnapshot> {
     }
   }
   // 合并：扫描结果补齐清单缺失的 server，保留清单中的勾选状态
-  const merged = mergeIntoManifest(scans, AGENTS.map((a) => a.id));
+  const merged = mergeIntoManifest(scans, mcpAgents().map((a) => a.id));
   const byName = new Map(manifest.servers.map((s) => [s.name, s]));
   const servers: CentralServer[] = merged.servers.map((s) => {
     const existing = byName.get(s.name);
@@ -176,11 +184,11 @@ export async function distribute(
   fs: FsPort = tauriFs,
 ): Promise<{ written: AgentId[]; skipped: AgentId[]; errors: Record<string, string> }> {
   const installed = new Set(await detectInstalledAgents(fs));
-  const skipped = AGENTS.filter((a) => !installed.has(a.id)).map((a) => a.id);
+  const skipped = mcpAgents().filter((a) => !installed.has(a.id)).map((a) => a.id);
   const scans: Partial<Record<AgentId, { servers: Record<string, McpServerSpec> }>> = {};
   const texts: Partial<Record<AgentId, string>> = {};
-  for (const agent of AGENTS) {
-    const p = await absPath(agent.mcpFile);
+  for (const agent of mcpAgents()) {
+    const p = await absPath(agent.mcpFile!);
     const text = (await fs.exists(p)) ? await fs.readText(p) : '';
     texts[agent.id] = text;
     scans[agent.id] =
@@ -188,10 +196,10 @@ export async function distribute(
         ? parseMcpServersJson(text || '{}')
         : parseTomlMcpServers(text);
   }
-  const plan = planDistribution(manifest, scans, AGENTS.map((a) => a.id));
+  const plan = planDistribution(manifest, scans, mcpAgents().map((a) => a.id));
   const written: AgentId[] = [];
   const errors: Record<string, string> = {};
-  for (const agent of AGENTS) {
+  for (const agent of mcpAgents()) {
     if (!installed.has(agent.id)) continue;
     const { updates, removals } = plan[agent.id];
     // 额外：清单里没勾选该 agent、但该 agent 配置里存在且属于清单管理的 server → 移除
@@ -205,7 +213,7 @@ export async function distribute(
       }
     }
     if (Object.keys(updates).length === 0 && removals.length === 0) continue;
-    const p = await absPath(agent.mcpFile);
+    const p = await absPath(agent.mcpFile!);
     try {
       const original = texts[agent.id] ?? '';
       // 备份

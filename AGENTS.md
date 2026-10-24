@@ -50,6 +50,7 @@ cd src-tauri && cargo check   # 改 Rust 时
 - **文件系统**：前端只通过 `src/lib/fsPort.ts`（FsPort）访问 fs，不直接调 invoke；新增路径要同步加 `src-tauri/capabilities/default.json` 对应命令的 allow 列表。fs:scope 里**禁止**重新引入 `$HOME/**` 这种宽泛授权。
 - **用户数据安全**：任何批量/套餐操作**禁止**删除用户本地的真实目录（skill 目录等）；对真实目录只能报错提示用户处理，只有软链可以直接删。
 - **编辑器防抖快照**：`editorHistory.ts` 配额写满时自动减半重试，单条 >512KB 不存，最多 50 条。
+- **Agent 注册表与可见性**：`src/lib/agents.ts` 注册 56 个 agent（id 兼容：原有 5 个 claude/codex/pi/cursor/gemini 勿改）。可见性走 `src/lib/agentVisibility.ts`：默认显示「检测到的」（detectDir/skillsDir 存在），用户在 设置→Agent 管理 用开关自定义；组件用 `useAgents()` hook，服务层用 `effectiveAgents()`，MCP/提示词等只对有配置路径的 agent 开放（`hasMcpSupport`/`PROMPT_TARGETS`）。agents 记录只含可见 agent，读 `skill.agents[x]` 必须 `(… ?? 'none')` 兜底。新增 agent 目录时同步跑 `default.json` 的 fs allow 追加（见 git 历史中的生成脚本）。
 
 ## 已知工具坑（不是代码 bug）
 
