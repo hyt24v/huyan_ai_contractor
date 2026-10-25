@@ -9,6 +9,7 @@ import { useAutoBackup } from '../hooks/useAutoBackup';
 import { TOOLS, TOOL_GROUPS } from '../lib/tools';
 import { checkForUpdate, currentVersion } from '../lib/updater';
 import { isTauri } from '@tauri-apps/api/core';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import {
   dismissUpdate,
   getAutoBackupEnabled,
@@ -103,6 +104,23 @@ export default function Layout() {
       })
       .catch(() => undefined); // 网络失败静默跳过
   }, [appVersion]);
+
+  // 托盘菜单「健康检查」：后端显示主窗口后发 navigate 事件，这里跳转到对应路由
+  useEffect(() => {
+    if (!isTauri()) return;
+    let unlisten: UnlistenFn | null = null;
+    let disposed = false;
+    void listen<string>('navigate', (ev) => {
+      if (ev.payload) navigate(ev.payload);
+    }).then((u) => {
+      if (disposed) u();
+      else unlisten = u;
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [navigate]);
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0');

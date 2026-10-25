@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
-use tauri::Emitter;
+use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
+use tauri::tray::TrayIconBuilder;
+use tauri::{Emitter, Manager};
 
 #[tauri::command]
 fn create_symlink(target: String, link: String) -> Result<(), String> {
@@ -254,6 +256,60 @@ fn unwatch_path(path: String) -> Result<(), String> {
     Ok(())
 }
 
+// ---------- 系统托盘（借鉴 magpie 菜单栏形态 + cc-switch 托盘弹层） ----------
+
+/// 显示并聚焦主窗口（最小化时先还原）
+fn show_main_window(app: &tauri::AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.unminimize();
+        let _ = w.show();
+        let _ = w.set_focus();
+    }
+}
+
+/// 原生菜单托盘：版本号（禁用展示）、打开主窗口、健康检查、退出
+fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
+    let version_item = MenuItemBuilder::with_id(
+        "tray-version",
+        format!("AI 包工头 v{}", env!("CARGO_PKG_VERSION")),
+    )
+    .enabled(false)
+    .build(app)?;
+    let show_item = MenuItemBuilder::with_id("tray-show", "打开主窗口").build(app)?;
+    let health_item = MenuItemBuilder::with_id("tray-health", "健康检查").build(app)?;
+    let quit_item = MenuItemBuilder::with_id("tray-quit", "退出").build(app)?;
+    let separator = PredefinedMenuItem::separator(app)?;
+    let menu = MenuBuilder::new(app)
+        .items(&[&version_item, &show_item, &health_item, &separator, &quit_item])
+        .build()?;
+    let mut tray = TrayIconBuilder::new()
+        .menu(&menu)
+        .tooltip("AI 包工头")
+        .show_menu_on_left_click(true)
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "tray-show" => show_main_window(app),
+            "tray-health" => {
+                show_main_window(app);
+                // 前端 Layout 监听 navigate 事件并跳转；webview 尚未就绪时静默丢弃
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.emit("navigate", "/health");
+                }
+            }
+            "tray-quit" => app.exit(0),
+            _ => {}
+        });
+    if let Some(icon) = app.default_window_icon() {
+        tray = tray.icon(icon.clone());
+    }
+    // macOS 菜单栏图标用模板渲染以适配深浅色菜单栏
+    #[cfg(target_os = "macos")]
+    {
+        tray = tray.icon_as_template(true);
+    }
+    tray.build(app)?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -278,6 +334,7 @@ pub fn run() {
         ])
         .setup(|app| {
             let _ = APP.set(app.handle().clone());
+            setup_tray(app)?;
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
