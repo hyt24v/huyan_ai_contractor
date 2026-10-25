@@ -30,23 +30,75 @@ interface PaletteItem {
   onHighlight?: () => void;
 }
 
+/** 子序列模糊匹配：返回命中下标，null 表示不匹配 */
+function fuzzyIndices(query: string, text: string): number[] | null {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const t = text.toLowerCase();
+  const idx: number[] = [];
+  let qi = 0;
+  for (let i = 0; i < t.length && qi < q.length; i += 1) {
+    if (t[i] === q[qi]) {
+      idx.push(i);
+      qi += 1;
+    }
+  }
+  return qi === q.length ? idx : null;
+}
+
 /** 子序列模糊匹配：返回分数，-1 表示不匹配 */
 function fuzzyScore(query: string, text: string): number {
-  const q = query.trim().toLowerCase();
-  if (!q) return 0;
-  const t = text.toLowerCase();
-  let qi = 0;
+  const idx = fuzzyIndices(query, text);
+  if (!idx) return -1;
+  if (idx.length === 0) return 0;
   let score = 0;
   let lastIndex = -2;
-  for (let i = 0; i < t.length && qi < q.length; i += 1) {
-    if (t[i] !== q[qi]) continue;
+  for (const i of idx) {
     score += 1;
     if (i === lastIndex + 1) score += 2; // 连续命中加分
     if (i === 0) score += 2; // 前缀命中加分
     lastIndex = i;
-    qi += 1;
   }
-  return qi === q.length ? score : -1;
+  return score;
+}
+
+/** 命中字符高亮（借鉴 oil-find Presentation.highlightRanges） */
+function Highlighted({ text, indices }: { text: string; indices: number[] | null }) {
+  if (!indices || indices.length === 0) return <>{text}</>;
+  const set = new Set(indices);
+  return (
+    <>
+      {[...text].map((ch, i) =>
+        set.has(i) ? (
+          <span key={i} className="font-semibold text-primary">
+            {ch}
+          </span>
+        ) : (
+          ch
+        ),
+      )}
+    </>
+  );
+}
+
+const RECENTS_KEY = 'huyan_tool:palette-recents';
+
+function loadRecents(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(RECENTS_KEY) ?? '[]');
+    return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function pushRecent(id: string): void {
+  const next = [id, ...loadRecents().filter((x) => x !== id)].slice(0, 6);
+  try {
+    localStorage.setItem(RECENTS_KEY, JSON.stringify(next));
+  } catch {
+    // 隐私模式等场景写入失败，忽略
+  }
 }
 
 function bestScore(query: string, item: PaletteItem): number {
@@ -152,7 +204,14 @@ export default function CommandPalette() {
 
   const results = useMemo<PaletteItem[]>(() => {
     const q = query.trim();
-    if (!q) return items;
+    if (!q) {
+      // 空查询 = 最近使用在前（借鉴 oil-find：面板一打开就有价值）
+      const recents = loadRecents();
+      const rank = new Map(recents.map((id, i) => [id, i]));
+      return [...items].sort(
+        (a, b) => (rank.get(a.id) ?? 999) - (rank.get(b.id) ?? 999),
+      );
+    }
     return items
       .map((item) => ({ item, score: bestScore(q, item) }))
       .filter((entry) => entry.score >= 0)
@@ -200,7 +259,10 @@ export default function CommandPalette() {
   if (!open) return null;
 
   const activate = (index: number) => {
-    results[index]?.run();
+    const item = results[index];
+    if (!item) return;
+    pushRecent(item.id);
+    item.run();
   };
 
   return (
@@ -225,6 +287,8 @@ export default function CommandPalette() {
               setActive(0);
             }}
             onKeyDown={(e) => {
+              // IME 保护：中文输入法组字期间，方向键/回车归输入法（借鉴 oil-find hasMarkedText）
+              if (e.nativeEvent.isComposing) return;
               if (e.key === 'ArrowDown') {
                 e.preventDefault();
                 if (results.length > 0) setActive((i) => (i + 1) % results.length);
@@ -254,7 +318,23 @@ export default function CommandPalette() {
         <div id="command-palette-list" role="listbox" aria-label="命令列表" className="min-h-0 flex-1 overflow-y-auto p-1.5">
           {results.length === 0 && (
             <div className="px-3 py-8 text-center text-xs text-muted-foreground">
-              没有匹配的命令
+              <div>没有匹配的命令</div>
+              <div className="mt-2 flex items-center justify-center gap-1.5">
+                <span>试试：</span>
+                {['主题', '设置', 'JSON'].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => {
+                      setQuery(s);
+                      setActive(0);
+                    }}
+                    className="rounded-full border border-input px-2 py-0.5 text-[11px] transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           {results.map((item, index) => {
@@ -278,7 +358,12 @@ export default function CommandPalette() {
               >
                 <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px] font-medium">{item.title}</span>
+                  <span className="block truncate text-[13px] font-medium">
+                    <Highlighted
+                      text={item.title}
+                      indices={query.trim() ? fuzzyIndices(query, item.title) : null}
+                    />
+                  </span>
                   <span className="block truncate text-[11px] text-muted-foreground">
                     {item.subtitle}
                   </span>
