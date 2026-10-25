@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useToast } from '../hooks/useToast';
-import { AlertTriangle, History, Pencil, Plus, RefreshCw, Send, Trash2 } from 'lucide-react';
+import { AlertTriangle, ChevronDown, History, Pencil, Plus, RefreshCw, Send, Trash2, Undo2 } from 'lucide-react';
 import { SegmentedControl, Toolbar, ToolbarButton, ToolbarDivider } from '../components/Toolbar';
 import DiffView from '../components/DiffView';
 import { hasMcpSupport, type AgentId } from '../lib/agents';
@@ -117,6 +117,13 @@ export default function McpManagerPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<SnapshotRecord[]>([]);
   const [historyBusy, setHistoryBusy] = useState(false);
+  // 矩阵表：搜索过滤 + 列头批量（可撤销，只作用于筛选结果，借鉴 cc-switch）
+  const [query, setQuery] = useState('');
+  const [colMenu, setColMenu] = useState<AgentId | null>(null);
+  const [lastBatch, setLastBatch] = useState<{
+    manifest: CentralManifest;
+    label: string;
+  } | null>(null);
 
 
   const refresh = useCallback(async () => {
@@ -283,6 +290,43 @@ export default function McpManagerPage() {
   );
 
   const servers = manifest?.servers ?? [];
+  const filteredServers = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return servers;
+    return servers.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        (s.url ?? '').toLowerCase().includes(q) ||
+        (s.command ?? '').toLowerCase().includes(q),
+    );
+  }, [servers, query]);
+
+  /** 列头批量：把某 agent 列的勾选统一设置，只作用于当前筛选结果，可撤销 */
+  const batchSetAgent = useCallback(
+    (agent: AgentId, value: boolean) => {
+      if (!manifest) return;
+      const names = new Set(filteredServers.map((s) => s.name));
+      setLastBatch({
+        manifest,
+        label: `${AGENT_SHORT[agent] ?? agent} ${value ? '全部勾选' : '全部取消'}（${names.size} 个筛选结果）`,
+      });
+      mutate((m) => ({
+        servers: m.servers.map((s) =>
+          names.has(s.name) ? { ...s, agents: { ...s.agents, [agent]: value } } : s,
+        ),
+      }));
+      setColMenu(null);
+    },
+    [manifest, filteredServers, mutate],
+  );
+
+  const undoBatch = useCallback(() => {
+    if (!lastBatch) return;
+    setManifest(lastBatch.manifest);
+    setDirty(true);
+    setLastBatch(null);
+    showToast('已撤销批量操作');
+  }, [lastBatch, showToast]);
 
   return (
     <div className="flex h-full flex-col">
@@ -309,6 +353,22 @@ export default function McpManagerPage() {
           保存并分发
         </ToolbarButton>
         {dirty && <span className="text-xs text-warning">有未分发变更</span>}
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="搜索 server…"
+          className="h-8 w-40 rounded-md border border-input bg-transparent px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        />
+        {lastBatch && (
+          <button
+            onClick={undoBatch}
+            title={`撤销：${lastBatch.label}`}
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-input px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <Undo2 className="h-3.5 w-3.5" />
+            撤销批量
+          </button>
+        )}
         {toast && (
           <span
             className={`ml-auto text-xs font-medium ${
@@ -431,15 +491,49 @@ export default function McpManagerPage() {
               <th className="w-16 px-2 py-2 font-medium">类型</th>
               <th className="px-2 py-2 font-medium">命令 / URL</th>
               {mcpAgents.map((a) => (
-                <th key={a.id} className="w-16 px-1 py-2 text-center font-medium">
-                  {AGENT_SHORT[a.id] ?? a.name}
+                <th key={a.id} className="relative w-16 px-1 py-2 text-center font-medium">
+                  <button
+                    type="button"
+                    onClick={() => setColMenu(colMenu === a.id ? null : a.id)}
+                    title="点击展开批量操作（只作用于当前筛选结果）"
+                    className="inline-flex items-center gap-0.5 rounded px-1 transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    {AGENT_SHORT[a.id] ?? a.name}
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                  {colMenu === a.id && (
+                    <>
+                      <div className="fixed inset-0 z-20" onClick={() => setColMenu(null)} />
+                      <div className="absolute left-1/2 top-full z-30 w-40 -translate-x-1/2 overflow-hidden rounded-md border bg-card py-1 text-left shadow-lg">
+                        <button
+                          type="button"
+                          onClick={() => batchSetAgent(a.id, true)}
+                          className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-accent"
+                        >
+                          全部勾选
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => batchSetAgent(a.id, false)}
+                          className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-accent"
+                        >
+                          全部取消
+                        </button>
+                        {query.trim() && (
+                          <div className="border-t px-2.5 py-1 text-[10px] text-muted-foreground">
+                            只作用于 {filteredServers.length} 个筛选结果
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </th>
               ))}
               <th className="w-20 px-2 py-2 text-center font-medium">操作</th>
             </tr>
           </thead>
           <tbody>
-            {servers.map((s) => (
+            {filteredServers.map((s) => (
               <tr key={s.name} className="border-b transition-colors hover:bg-muted/40">
                 <td className="px-4 py-1.5 font-mono text-[13px]">{s.name}</td>
                 <td className="px-2 py-1.5">
@@ -485,10 +579,14 @@ export default function McpManagerPage() {
                 </td>
               </tr>
             ))}
-            {servers.length === 0 && (
+            {filteredServers.length === 0 && (
               <tr>
                 <td colSpan={10} className="px-4 py-10 text-center text-xs text-muted-foreground">
-                  {manifest ? '清单为空，点「新增 Server」或「刷新」从现有配置导入' : '扫描中…'}
+                  {manifest
+                    ? query.trim()
+                      ? `没有匹配「${query.trim()}」的 server`
+                      : '清单为空，点「新增 Server」或「刷新」从现有配置导入'
+                    : '扫描中…'}
                 </td>
               </tr>
             )}
