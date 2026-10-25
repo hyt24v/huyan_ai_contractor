@@ -4,9 +4,11 @@ import { PanelLeftClose, PanelLeftOpen, Settings } from 'lucide-react';
 import type { Update } from '@tauri-apps/plugin-updater';
 import CommandPalette from './CommandPalette';
 import UpdateDialog from './UpdateDialog';
+import WhatsNewDialog from './WhatsNewDialog';
 import { useAutoBackup } from '../hooks/useAutoBackup';
 import { TOOLS } from '../lib/tools';
 import { checkForUpdate, currentVersion } from '../lib/updater';
+import { isTauri } from '@tauri-apps/api/core';
 import {
   dismissUpdate,
   getAutoBackupEnabled,
@@ -27,6 +29,7 @@ export default function Layout() {
   const [collapsed, setCollapsed] = useState(getInitialCollapsed);
   const [hasUpdate, setHasUpdate] = useState(false);
   const [pendingUpdate, setPendingUpdate] = useState<Update | null>(null);
+  const [whatsNew, setWhatsNew] = useState<{ version: string; body: string } | null>(null);
   const [appVersion, setAppVersion] = useState('');
   const [autoBackup, setAutoBackup] = useState(getAutoBackupEnabled);
   const location = useLocation();
@@ -66,6 +69,29 @@ export default function Layout() {
     }, 3000);
     return () => window.clearTimeout(t);
   }, []);
+
+  // 更新后首次启动：拉取当前版本的 release notes 展示「本次更新了什么」（借鉴 ColaMD）
+  useEffect(() => {
+    if (!appVersion) return;
+    const SEEN_KEY = 'huyan_tool:seen-version';
+    const seen = localStorage.getItem(SEEN_KEY);
+    if (seen === appVersion) return;
+    // 首次安装（无 seen）只记录不打扰
+    if (!seen) {
+      localStorage.setItem(SEEN_KEY, appVersion);
+      return;
+    }
+    localStorage.setItem(SEEN_KEY, appVersion);
+    if (!isTauri()) return;
+    fetch(
+      `https://api.github.com/repos/hyt24v/huyan_ai_contractor/releases/tags/v${appVersion}`,
+    )
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { body?: string } | null) => {
+        if (data?.body) setWhatsNew({ version: appVersion, body: data.body });
+      })
+      .catch(() => undefined); // 网络失败静默跳过
+  }, [appVersion]);
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0');
@@ -205,6 +231,13 @@ export default function Layout() {
         </div>
       </div>
       <CommandPalette />
+      {whatsNew && !pendingUpdate && (
+        <WhatsNewDialog
+          version={whatsNew.version}
+          body={whatsNew.body}
+          onClose={() => setWhatsNew(null)}
+        />
+      )}
       {pendingUpdate && (
         <UpdateDialog
           update={pendingUpdate}
