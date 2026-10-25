@@ -74,7 +74,9 @@ export async function enableSkill(
     if (await fs.isSymlink(link)) await fs.remove(link, true);
     else if (await fs.exists(link)) {
       // 真实目录/文件：绝不静默删除用户本地数据
-      throw new Error(`${agent.id} 中已存在同名本地 skill（${skillName}），请先在详情中处理`);
+      throw new Error(
+        `目标路径已被本地 skill 占用：${link}（真实目录不会被覆盖；可在详情中「收编到中央库」，或手动移走该目录）`,
+      );
     }
   } else if (await fs.exists(link)) {
     await fs.remove(link, true);
@@ -109,13 +111,14 @@ export async function adoptSkill(
   if (!agent) throw new Error(`未知 agent: ${agentId}`);
   const src = await absPath(`${agent.skillsDir}/${skillName}`);
   const dest = await absPath(`${SKILL_LIBRARY_DIR}/${skillName}`);
-  if (await fs.exists(dest)) throw new Error(`中央库已存在 ${skillName}`);
+  if (await fs.exists(dest))
+    throw new Error(`中央库已存在同名 skill：${dest}（请先处理中央库里的同名目录）`);
   await fs.copyDir(src, dest);
   await fs.remove(src, true);
   await fs.symlink(dest, src);
 }
 
-/** 用中央库版本替换 agent 的本地副本：删除本地目录并建立软链（不可恢复，UI 需先确认） */
+/** 用中央库版本替换 agent 的本地副本：真实目录先自动备份（选前快照）再替换为软链 */
 export async function replaceLocalWithLibrary(
   skillName: string,
   agentId: AgentId,
@@ -127,6 +130,17 @@ export async function replaceLocalWithLibrary(
   if (!(await fs.exists(dest))) throw new Error(`中央库不存在 ${skillName}`);
   const src = await absPath(`${agent.skillsDir}/${skillName}`);
   const isLink = fs.isSymlink ? await fs.isSymlink(src) : false;
+  if (!isLink && (await fs.exists(src))) {
+    // 真实目录是用户数据：替换前自动备份到 skill-backups（借鉴 skills-manager「选前先快照」）
+    const backupDir = await absPath('.ai-baogongtou/skill-backups');
+    if (!(await fs.exists(backupDir))) await fs.mkdir(backupDir);
+    const stamp = new Date()
+      .toISOString()
+      .replace(/[:.]/g, '-')
+      .replace('T', '_')
+      .slice(0, 19);
+    await fs.copyDir(src, `${backupDir}/${skillName}-${agentId}-${stamp}`);
+  }
   if (isLink || (await fs.exists(src))) await fs.remove(src, true);
   await fs.symlink(dest, src);
 }
@@ -138,7 +152,8 @@ export async function installFromGit(
   fs: FsPort = tauriFs,
 ): Promise<void> {
   const dest = await absPath(`${SKILL_LIBRARY_DIR}/${skillName}`);
-  if (await fs.exists(dest)) throw new Error(`中央库已存在 ${skillName}`);
+  if (await fs.exists(dest))
+    throw new Error(`中央库已存在同名 skill：${dest}（请先处理中央库里的同名目录）`);
 
   const tree = parseGitTreeUrl(url);
   if (tree) {

@@ -1386,7 +1386,7 @@ export default function SkillsManagerPage() {
           if (!detail) return;
           if (
             !window.confirm(
-              `将删除 ${agentName(agent)} 中的本地副本「${detail.name}」，改用中央库版本（本地修改将丢失，不可恢复）。继续？`,
+              `将用中央库版本替换 ${agentName(agent)} 中的本地副本「${detail.name}」。\n本地副本会先自动备份到 ~/.ai-baogongtou/skill-backups/（可恢复）。继续？`,
             )
           )
             return;
