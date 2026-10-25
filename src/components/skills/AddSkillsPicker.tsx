@@ -216,7 +216,7 @@ export default function AddSkillsPicker({
                           <span className="font-mono text-[12px] font-medium">{skill.name}</span>
                           {skillEnabledAnywhere(skill) && (
                             <span className="rounded-full bg-success/15 px-1.5 py-0.5 text-[10px] text-success">
-                              已启用
+                              已部署
                             </span>
                           )}
                           {skill.tags.slice(0, 3).map((tag) => (

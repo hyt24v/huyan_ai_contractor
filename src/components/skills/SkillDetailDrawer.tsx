@@ -1,4 +1,4 @@
-/** Skill 详情抽屉：文件树浏览(SKILL.md 等 md 渲染预览)、查看路径 / 来源 / 标签、逐 agent 启用禁用 */
+/** Skill 详情抽屉：文件树浏览(SKILL.md 等 md 渲染预览)、查看路径 / 来源 / 标签、逐 agent 部署移除 */
 import { useEffect, useState } from 'react';
 import {
   ArrowUpCircle,
@@ -39,9 +39,9 @@ const SOURCE_ICON: Record<SkillSource, typeof Folder> = {
 };
 
 const STATE_LABEL: Record<SkillAgentState, string> = {
-  linked: '已启用',
+  linked: '已部署',
   local: '本地副本',
-  none: '未启用',
+  none: '未部署',
 };
 
 const STATE_TONE: Record<SkillAgentState, string> = {
@@ -246,7 +246,7 @@ export default function SkillDetailDrawer({
                   disabled={busy}
                   onClick={onSyncAll}
                 >
-                  全部启用
+                  全部部署
                 </ActionButton>
               )}
             </div>
@@ -271,7 +271,7 @@ export default function SkillDetailDrawer({
                           disabled={busy}
                           onClick={() => onToggleAgent(a.id)}
                         >
-                          启用
+                          部署
                         </ActionButton>
                       )}
                       {state === 'local' && !skill.inLibrary && (

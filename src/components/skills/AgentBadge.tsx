@@ -1,4 +1,4 @@
-/** 各 agent 的小徽标：字母 + 品牌色调，支持点击切换启用状态 */
+/** 各 agent 的小徽标：字母 + 品牌色调，支持点击切换部署状态 */
 import { AGENTS, type AgentId } from '../../lib/agents';
 import type { SkillAgentState } from '../../lib/skills';
 
@@ -20,9 +20,9 @@ const AGENT_LETTER: Record<string, string> = {
 };
 
 const STATE_LABEL: Record<SkillAgentState, string> = {
-  linked: '已启用',
+  linked: '已部署',
   local: '本地技能',
-  none: '未启用',
+  none: '未部署',
 };
 
 export function agentName(id: AgentId): string {

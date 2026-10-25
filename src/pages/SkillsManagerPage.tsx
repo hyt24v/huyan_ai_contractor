@@ -107,8 +107,8 @@ const SOURCE_FILTERS: { value: CatalogFilter; label: string }[] = [
 
 const VIEW_OPTIONS: { value: CatalogView; label: string }[] = [
   { value: 'all', label: '全部' },
-  { value: 'enabled', label: '已启用' },
-  { value: 'available', label: '未启用' },
+  { value: 'enabled', label: '已部署' },
+  { value: 'available', label: '未部署' },
 ];
 
 const errMsg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
@@ -459,13 +459,13 @@ export default function SkillsManagerPage() {
     setPickerOpen(true);
   };
 
-  // ---- 启用 / 禁用 / 收编 ----
+  // ---- 部署 / 移除 / 收编 ----
   const setAgentState = useCallback(
     (name: string, agent: AgentId, enable: boolean) => {
       const skill = findSkill(name);
       if (!skill) return;
       if (enable && !skill.inLibrary) {
-        showToast('本地技能需先收编到中央库才能启用', 'err');
+        showToast('本地技能需先收编到中央库才能部署', 'err');
         return;
       }
       if (enable && skill.agents[agent] === 'local' && skill.inLibrary) {
@@ -479,7 +479,7 @@ export default function SkillsManagerPage() {
         } else {
           await disableSkill(name, agent);
         }
-      }, enable ? `已在 ${agentName(agent)} 启用 ${name}` : `已在 ${agentName(agent)} 禁用 ${name}`);
+      }, enable ? `已部署 ${name} 到 ${agentName(agent)}` : `已从 ${agentName(agent)} 移除 ${name}`);
     },
     [findSkill, run, showToast],
   );
@@ -523,7 +523,7 @@ export default function SkillsManagerPage() {
         if (failed.length > 0) {
           throw new Error(`成功 ${ok}/${targets.length}；${failed.join('；')}`);
         }
-      }, enabled ? `已禁用 ${name} 的全部链接` : `已将 ${name} 启用到全部 Agent`);
+      }, enabled ? `已移除 ${name} 的全部链接` : `已将 ${name} 部署到全部 Agent`);
     },
     [findSkill, run, showToast],
   );
@@ -581,8 +581,8 @@ export default function SkillsManagerPage() {
       if (failed.length > 0) {
         throw new Error(`成功 ${ok} 项；失败 ${failed.length} 项：${failed.slice(0, 3).join('；')}`);
       }
-      return `已${mode === 'enable' ? '启用' : '禁用'} ${ok} 项${ok === 0 ? '（状态已符合，无需变更）' : ''}`;
-    }, `已批量${mode === 'enable' ? '启用' : '禁用'} ${selected.size} 个 skill`);
+      return `已${mode === 'enable' ? '部署' : '移除'} ${ok} 项${ok === 0 ? '（状态已符合，无需变更）' : ''}`;
+    }, `已批量${mode === 'enable' ? '部署' : '移除'} ${selected.size} 个 skill`);
     setSelected(new Set());
   };
 
@@ -608,7 +608,7 @@ export default function SkillsManagerPage() {
       if (failed.length > 0) {
         throw new Error(`成功 ${ok} 项；失败 ${failed.length} 项：${failed.slice(0, 3).join('；')}`);
       }
-      return `已部署 ${ok} 项${skipped > 0 ? `，跳过 ${skipped} 项（已在库外/已启用）` : ''}`;
+      return `已部署 ${ok} 项${skipped > 0 ? `，跳过 ${skipped} 项（已在库外/已部署）` : ''}`;
     }, `已部署 ${names.length} 个 skill 到 ${agents.length} 个 Agent`);
     setPickerOpen(false);
   };
@@ -970,7 +970,7 @@ export default function SkillsManagerPage() {
             </code>
             <span className="text-muted-foreground/40">·</span>
             <span>
-              已启用 {stats?.enabled ?? 0} / 共 {totalCount} 个
+              已部署 {stats?.enabled ?? 0} / 共 {totalCount} 个
             </span>
           </div>
         </div>
@@ -1627,7 +1627,7 @@ export default function SkillsManagerPage() {
           <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-success/15 text-[8px] text-success">
             ●
           </span>
-          启用 = 在 Agent skills 目录建立指向中央库的软链；禁用只删链接，中央库内容不受影响
+          部署 = 在 Agent skills 目录建立指向中央库的软链；移除只删链接，中央库内容不受影响
         </div>
       </div>
 
@@ -1658,7 +1658,7 @@ export default function SkillsManagerPage() {
             onClick={() => batchApply('enable')}
             className="inline-flex h-7 items-center rounded-full bg-primary px-2.5 text-[11px] font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
           >
-            启用
+            部署
           </button>
           <button
             type="button"
@@ -1666,7 +1666,7 @@ export default function SkillsManagerPage() {
             onClick={() => batchApply('disable')}
             className="inline-flex h-7 items-center rounded-full border border-input px-2.5 text-[11px] font-medium hover:bg-accent disabled:opacity-40"
           >
-            禁用
+            移除
           </button>
           <button
             type="button"

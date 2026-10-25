@@ -206,7 +206,7 @@ export default function SkillCard({
         {skill.inLibrary && (
           <MenuItem
             icon={Cable}
-            label="启用到全部 Agent"
+            label="部署到全部 Agent"
             onClick={() => {
               setMenuOpen(false);
               onSyncAll();
@@ -276,14 +276,14 @@ export default function SkillCard({
       onToggle={focusAgent ? () => onToggleAgent(focusAgent) : onToggleAll}
       title={
         !skill.inLibrary
-          ? '先收编到中央库才能启用'
+          ? '先收编到中央库才能部署'
           : focusAgent
             ? switchOn
-              ? '从该 Agent 禁用'
-              : '在该 Agent 启用'
+              ? '从该 Agent 移除'
+              : '部署到该 Agent'
             : switchOn
-              ? '从全部 Agent 禁用'
-              : '启用到全部 Agent'
+              ? '从全部 Agent 移除'
+              : '部署到全部 Agent'
       }
     />
   );
@@ -405,7 +405,7 @@ export default function SkillCard({
           className={`h-2 w-2 shrink-0 rounded-full ${
             enabledAnywhere ? 'bg-success' : 'bg-muted-foreground/30'
           }`}
-          title={enabledAnywhere ? '已在某个 Agent 启用' : '未启用'}
+          title={enabledAnywhere ? '已部署到某个 Agent' : '未部署'}
         />
         <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-semibold">
           {skill.name}
@@ -443,7 +443,7 @@ export default function SkillCard({
                   : 'bg-muted text-muted-foreground'
             }`}
           >
-            {focusState === 'linked' ? '已同步' : focusState === 'local' ? '本地' : '未启用'}
+            {focusState === 'linked' ? '已同步' : focusState === 'local' ? '本地' : '未部署'}
           </span>
         ) : (
           <span className="inline-flex min-w-0 items-center gap-1">
