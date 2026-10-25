@@ -1,5 +1,6 @@
-/** 设置页:左侧分组导航 + 右侧内容(skills-manager / VSCode 风格) */
-import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
+/** 设置页:左侧分组导航 + 右侧内容(skills-manager / VSCode 风格);Esc 返回上一页(cc-switch 风格) */
+import { useEffect } from 'react';
+import { NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import {
   ArrowUpCircle,
   Bot,
@@ -30,6 +31,19 @@ const SECTIONS: SectionDef[] = [
 ];
 
 export default function SettingsPage() {
+  const navigate = useNavigate();
+
+  // Esc 返回上一页;有弹窗(role=dialog,如命令面板/确认弹窗)打开时让给弹窗自己处理
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (document.querySelector('[role="dialog"]')) return;
+      navigate(-1);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [navigate]);
+
   return (
     <div className="flex h-full min-h-0">
       {/* 分组导航 */}
