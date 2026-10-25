@@ -96,7 +96,7 @@ function ProviderCard({
 }) {
   return (
     <div
-      className={`flex flex-col gap-2 rounded-lg border bg-card p-3 transition-shadow ${
+      className={`group flex flex-col gap-2 rounded-lg border bg-card p-3 transition-shadow ${
         active ? 'border-primary/60 shadow-sm ring-1 ring-primary/30' : ''
       }`}
     >
@@ -144,7 +144,7 @@ function ProviderCard({
         </button>
         <button
           onClick={onEdit}
-          className="inline-flex h-7 items-center gap-1 rounded-md border border-input px-2.5 text-[11px] transition-colors hover:bg-accent"
+          className="inline-flex h-7 items-center gap-1 rounded-md border border-input px-2.5 text-[11px] opacity-0 transition-all hover:bg-accent focus-visible:opacity-100 group-hover:opacity-100"
         >
           <Pencil className="h-3 w-3" />
           编辑
@@ -152,7 +152,7 @@ function ProviderCard({
         <button
           onClick={onDelete}
           title="从清单删除（可重新导入，不会改动 Agent 配置文件）"
-          className="ml-auto inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          className="ml-auto inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
         >
           <Trash2 className="h-3 w-3" />
           删除

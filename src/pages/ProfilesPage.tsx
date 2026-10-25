@@ -409,7 +409,7 @@ export default function ProfilesPage() {
               return (
                 <div
                   key={profile.id}
-                  className="flex flex-col rounded-lg border bg-card p-3 shadow-sm"
+                  className="group flex flex-col rounded-lg border bg-card p-3 shadow-sm"
                 >
                   <div className="flex items-start gap-2">
                     <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
@@ -492,7 +492,7 @@ export default function ProfilesPage() {
                     <button
                       disabled={busy}
                       onClick={() => openEdit(profile)}
-                      className="inline-flex h-7 items-center gap-1 rounded-md border border-input px-2 text-xs transition-colors hover:bg-accent disabled:opacity-50"
+                      className="inline-flex h-7 items-center gap-1 rounded-md border border-input px-2 text-xs opacity-0 transition-all hover:bg-accent focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-50"
                     >
                       <Pencil className="h-3 w-3" />
                       编辑
@@ -500,7 +500,7 @@ export default function ProfilesPage() {
                     <button
                       disabled={busy}
                       onClick={() => duplicate(profile)}
-                      className="inline-flex h-7 items-center gap-1 rounded-md border border-input px-2 text-xs transition-colors hover:bg-accent disabled:opacity-50"
+                      className="inline-flex h-7 items-center gap-1 rounded-md border border-input px-2 text-xs opacity-0 transition-all hover:bg-accent focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-50"
                     >
                       <CopyIcon className="h-3 w-3" />
                       复制
@@ -508,7 +508,7 @@ export default function ProfilesPage() {
                     <button
                       disabled={busy}
                       onClick={() => remove(profile)}
-                      className="ml-auto inline-flex h-7 items-center gap-1 rounded-md border border-input px-2 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                      className="ml-auto inline-flex h-7 items-center gap-1 rounded-md border border-input px-2 text-xs text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-50"
                     >
                       <Trash2 className="h-3 w-3" />
                       删除
