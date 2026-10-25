@@ -17,6 +17,30 @@ export interface AgentSkillsScan {
 
 export type SkillAgentState = 'linked' | 'local' | 'none';
 
+/** 项目工作区中单个 skill 的状态（借鉴 skills-manager 三态） */
+export type ProjectSkillStatus =
+  | 'synced'        // 软链指向中央库 = 与中心一致
+  | 'project-only'  // 真实目录且中央库无同名 = 仅项目
+  | 'diverged'      // 真实目录且中央库有同名 = 分叉，需用户决策
+  | 'none';         // 项目里不存在
+
+/** 由 inLibrary + agent 状态推导项目三态（纯函数，可单测） */
+export function projectSkillStatus(
+  inLibrary: boolean,
+  state: SkillAgentState,
+): ProjectSkillStatus {
+  if (state === 'linked') return 'synced';
+  if (state === 'local') return inLibrary ? 'diverged' : 'project-only';
+  return 'none';
+}
+
+export const PROJECT_STATUS_LABEL: Record<ProjectSkillStatus, string> = {
+  synced: '与中心一致',
+  'project-only': '仅项目',
+  diverged: '分叉',
+  none: '未部署',
+};
+
 export interface SkillRow {
   name: string;
   /** 中央库中存在 */

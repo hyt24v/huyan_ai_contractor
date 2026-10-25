@@ -3,6 +3,7 @@ import {
   computeSkillMatrix,
   linkPointsToLibrary,
   parseSkillMdMeta,
+  projectSkillStatus,
   skillNameFromGitUrl,
 } from './skills';
 
@@ -36,6 +37,24 @@ describe('computeSkillMatrix', () => {
       inLibrary: true,
       agents: { claude: 'none', pi: 'none' },
     });
+  });
+});
+
+describe('projectSkillStatus', () => {
+  it('软链指向中央库 = 与中心一致', () => {
+    expect(projectSkillStatus(true, 'linked')).toBe('synced');
+    // 中央库里没有但软链存在(异常情况)也算 synced,以软链为准
+    expect(projectSkillStatus(false, 'linked')).toBe('synced');
+  });
+  it('真实目录且中央库无同名 = 仅项目', () => {
+    expect(projectSkillStatus(false, 'local')).toBe('project-only');
+  });
+  it('真实目录且中央库有同名 = 分叉', () => {
+    expect(projectSkillStatus(true, 'local')).toBe('diverged');
+  });
+  it('项目里不存在 = none', () => {
+    expect(projectSkillStatus(true, 'none')).toBe('none');
+    expect(projectSkillStatus(false, 'none')).toBe('none');
   });
 });
 

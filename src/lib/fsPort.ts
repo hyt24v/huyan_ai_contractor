@@ -81,3 +81,35 @@ export const tauriFs: FsPort = {
     invoke<void>('create_symlink', { target, link }),
   gitClone: (url, dest) => invoke<void>('git_clone', { url, dest }),
 };
+
+/**
+ * 全走自定义 Rust 命令的 FsPort：用于「项目工作区」等用户显式关联、
+ * 位于 plugin-fs scope 之外的目录（项目可以在磁盘任意位置）。
+ * 与 copy_dir/remove_path 等既有先例一致，不引入 $HOME/** 泛授权。
+ */
+export const rawFs: FsPort = {
+  readText: (p) => invoke<string>('read_text', { path: p }),
+  writeText: () =>
+    Promise.reject(new Error('rawFs 不支持写文本（项目工作区只部署软链/复制）')),
+  exists: (p) => invoke<boolean>('path_exists', { path: p }),
+  readDir: async (p) => {
+    const entries = await invoke<
+      { name: string; is_directory: boolean; is_symlink: boolean }[]
+    >('read_dir', { path: p });
+    return entries.map((e) => ({
+      name: e.name,
+      isDirectory: e.is_directory,
+      isSymlink: e.is_symlink,
+    }));
+  },
+  mkdir: (p) => invoke<void>('mkdir_p', { path: p }),
+  remove: (p, recursive) =>
+    invoke<void>('remove_path', { path: p, recursive: recursive ?? false }),
+  rename: () => Promise.reject(new Error('rawFs 不支持 rename')),
+  copyDir: (src, dst) => copyDirRecursive(src, dst),
+  isSymlink: (p) => invoke<boolean>('is_symlink', { path: p }),
+  readLink: (p) => invoke<string>('read_symlink', { path: p }),
+  symlink: (target, link) =>
+    invoke<void>('create_symlink', { target, link }),
+  gitClone: (url, dest) => invoke<void>('git_clone', { url, dest }),
+};

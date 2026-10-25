@@ -6,6 +6,8 @@ import {
   ChevronRight,
   Download,
   ExternalLink,
+  Folder,
+  FolderGit2,
   GitBranch,
   Globe2,
   Grid2x2,
@@ -21,7 +23,7 @@ import {
   Star,
   X,
 } from 'lucide-react';
-import { SegmentedControl } from '../components/Toolbar';
+import { SegmentedControl, ToolbarButton } from '../components/Toolbar';
 import SkillAuditDrawer from '../components/SkillAuditDrawer';
 import AddSkillsPicker from '../components/skills/AddSkillsPicker';
 import AgentBadge, { agentName } from '../components/skills/AgentBadge';
@@ -31,6 +33,14 @@ import SkillGrid from '../components/skills/SkillGrid';
 import { AGENTS, type AgentId } from '../lib/agents';
 import { useAgents } from '../hooks/useAgents';
 import { onSettingsChanged } from '../lib/settings';
+import {
+  PROJECT_STATUS_LABEL,
+  computeSkillMatrix,
+  projectSkillStatus,
+  type AgentSkillsScan,
+  type ProjectSkillStatus,
+  type SkillAgentState,
+} from '../lib/skills';
 import type {
   CatalogFilter,
   CatalogSkill,
@@ -63,10 +73,27 @@ import {
 import { scanSkillCatalog } from '../services/skillCatalog';
 import { auditSnapshot } from '../services/skillAudit';
 import { listCurated, searchRepos } from '../services/skillRegistry';
+import {
+  adoptFromProject,
+  addProject,
+  deployToProject,
+  loadProjects,
+  removeFromProject,
+  removeProject,
+  replaceProjectWithLibrary,
+  scanProject,
+  type LinkedProject,
+} from '../services/projectSkills';
 import { loadProfiles } from '../services/profiles';
 import { isTauri } from '@tauri-apps/api/core';
 
-type NavKey = 'library' | 'agents' | 'install' | AgentId;
+type NavKey =
+  | 'library'
+  | 'agents'
+  | 'install'
+  | 'projects'
+  | AgentId
+  | `proj:${string}`;
 type LayoutMode = 'grid' | 'list';
 type MarketSource = 'curated' | 'github' | 'fallback';
 
@@ -273,6 +300,15 @@ export default function SkillsManagerPage() {
   const [auditLoading, setAuditLoading] = useState(false);
 
   const [installUrl, setInstallUrl] = useState('');
+
+  // ---- 项目工作区（复刻 skills-manager 项目库模型） ----
+  const [projects, setProjects] = useState<LinkedProject[]>([]);
+  const [projectScans, setProjectScans] = useState<AgentSkillsScan[]>([]);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkPath, setLinkPath] = useState('');
+  const [deployOpen, setDeployOpen] = useState(false);
+  const [deploySkill, setDeploySkill] = useState('');
+  const [deployAgent, setDeployAgent] = useState<AgentId>('claude');
   const [marketQuery, setMarketQuery] = useState('');
   const [marketRepos, setMarketRepos] = useState<SkillRepo[]>(() => listCurated());
   const [marketSource, setMarketSource] = useState<MarketSource>('curated');
@@ -312,10 +348,42 @@ export default function SkillsManagerPage() {
       .catch(() => {
         // 浏览器 / 无配置文件时忽略
       });
+    loadProjects()
+      .then((list) => {
+        if (alive) setProjects(list);
+      })
+      .catch(() => {
+        // 首次使用无 projects.json
+      });
     return () => {
       alive = false;
     };
   }, []);
+
+  const activeAgent: AgentId | null =
+    nav === 'library' ||
+    nav === 'agents' ||
+    nav === 'install' ||
+    nav === 'projects' ||
+    nav.startsWith('proj:')
+      ? null
+      : (nav as AgentId);
+  /** 当前项目工作区路径（nav = proj:<path>） */
+  const activeProject = nav.startsWith('proj:') ? nav.slice(5) : null;
+
+  // 进入项目页 / 每次操作后重扫项目（与中央库 refresh 同步）
+  const refreshProject = useCallback(async () => {
+    if (!activeProject) return;
+    try {
+      setProjectScans(await scanProject(activeProject));
+    } catch {
+      setProjectScans([]);
+    }
+  }, [activeProject]);
+
+  useEffect(() => {
+    void refreshProject();
+  }, [refreshProject]);
 
   const run = useCallback(
     async (fn: () => Promise<string | void>, okMsg: string) => {
@@ -324,17 +392,16 @@ export default function SkillsManagerPage() {
         const msg = await fn();
         showToast(typeof msg === 'string' && msg ? msg : okMsg);
         await refresh();
+        await refreshProject();
       } catch (e) {
         showToast(`操作失败：${errMsg(e)}`, 'err');
       } finally {
         setBusy(false);
       }
     },
-    [refresh, showToast],
+    [refresh, refreshProject, showToast],
   );
 
-  const activeAgent: AgentId | null =
-    nav === 'library' || nav === 'agents' || nav === 'install' ? null : nav;
   const stats = useMemo(() => (catalog ? catalogStats(catalog) : null), [catalog]);
   const activeStats = activeAgent && stats ? stats.byAgent[activeAgent] : null;
   const activeDef = activeAgent ? AGENTS.find((a) => a.id === activeAgent) ?? null : null;
@@ -546,7 +613,105 @@ export default function SkillsManagerPage() {
     setPickerOpen(false);
   };
 
-  // ---- Git 更新 ----
+  // ---- 项目工作区操作（复刻 skills-manager：部署 / 移除 / 收编 / 替换） ----
+  const linkProject = useCallback(async () => {
+    setBusy(true);
+    try {
+      const next = await addProject(linkPath);
+      setProjects(next);
+      setLinkOpen(false);
+      setLinkPath('');
+      showToast('已关联项目');
+    } catch (e) {
+      showToast(`关联失败：${errMsg(e)}`, 'err');
+    } finally {
+      setBusy(false);
+    }
+  }, [linkPath, showToast]);
+
+  const unlinkProject = useCallback(
+    (path: string) => {
+      if (!window.confirm(`取消关联项目 ${path}？只移除登记，不改动磁盘文件。`)) return;
+      void run(async () => {
+        const next = await removeProject(path);
+        setProjects(next);
+        if (nav === `proj:${path}`) selectNav('projects');
+      }, '已取消关联');
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nav, run],
+  );
+
+  const projectDeploy = useCallback(
+    (name: string, agent: AgentId) => {
+      if (!activeProject) return;
+      void run(
+        () => deployToProject(name, activeProject, agent),
+        `已部署 ${name} 到项目`,
+      );
+    },
+    [activeProject, run],
+  );
+
+  const projectRemove = useCallback(
+    (name: string, agent: AgentId) => {
+      if (!activeProject) return;
+      void run(
+        () => removeFromProject(name, activeProject, agent),
+        `已移除项目中的 ${name} 链接`,
+      );
+    },
+    [activeProject, run],
+  );
+
+  const projectAdopt = useCallback(
+    (name: string, agent: AgentId) => {
+      if (!activeProject) return;
+      void run(
+        () => adoptFromProject(name, activeProject, agent),
+        `已收编 ${name} 到中央库`,
+      );
+    },
+    [activeProject, run],
+  );
+
+  const projectReplace = useCallback(
+    (name: string, agent: AgentId) => {
+      if (!activeProject) return;
+      if (
+        !window.confirm(
+          `将用中央库版本替换项目中的「${name}」。\n项目里的副本会先自动备份到 ~/.ai-baogongtou/skill-backups/（可恢复）。继续？`,
+        )
+      )
+        return;
+      void run(
+        () => replaceProjectWithLibrary(name, activeProject, agent),
+        `已用中央库版本替换项目中的 ${name}`,
+      );
+    },
+    [activeProject, run],
+  );
+
+  /** 项目页行：中央库 skill × 可见 agent，带项目三态 */
+  const projectRows = useMemo(() => {
+    if (!activeProject || !catalog) return [];
+    const libNames = catalog.skills.filter((s) => s.inLibrary).map((s) => s.name);
+    const rows = computeSkillMatrix(libNames, projectScans);
+    return rows.flatMap((row) =>
+      agents.map((a) => {
+        const state: SkillAgentState = row.agents[a.id] ?? 'none';
+        const status: ProjectSkillStatus = projectSkillStatus(row.inLibrary, state);
+        return { name: row.name, inLibrary: row.inLibrary, agent: a.id, state, status };
+      }),
+    );
+  }, [activeProject, catalog, projectScans, agents]);
+
+  const librarySkillNames = useMemo(
+    () => (catalog?.skills ?? []).filter((s) => s.inLibrary).map((s) => s.name),
+    [catalog],
+  );
+
+  const baseName = (p: string) => p.split('/').filter(Boolean).pop() ?? p;
   const updateOne = useCallback(
     async (name: string) => {
       setUpdating(true);
@@ -814,6 +979,145 @@ export default function SkillsManagerPage() {
   };
 
   const renderBody = () => {
+    if (nav === 'projects') {
+      return (
+        <div>
+          {projects.length === 0 ? (
+            <div className="mx-auto mt-12 max-w-md rounded-xl border border-dashed bg-card/40 px-6 py-10 text-center">
+              <FolderGit2 className="mx-auto h-10 w-10 text-muted-foreground/30" />
+              <h3 className="mt-3 text-sm font-semibold">还没有关联项目</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                关联项目后，项目里的 .claude/skills 等目录会与中央库双向同步。
+              </p>
+              <div className="mt-4 flex justify-center">
+                <PrimaryButton onClick={() => setLinkOpen(true)} icon={<Plus className="h-3.5 w-3.5" />}>
+                  关联第一个项目
+                </PrimaryButton>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {projects.map((p) => (
+                <button
+                  key={p.path}
+                  type="button"
+                  onClick={() => selectNav(`proj:${p.path}`)}
+                  className="group flex items-center gap-3 rounded-lg border bg-card p-4 text-left shadow-sm transition hover:border-ring/60 hover:shadow-md"
+                >
+                  <Folder className="h-8 w-8 shrink-0 text-muted-foreground/60" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-sm font-semibold">{baseName(p.path)}</span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50 transition group-hover:translate-x-0.5 group-hover:text-foreground" />
+                    </div>
+                    <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground/70">
+                      {p.path}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (activeProject) {
+      const rows = projectRows.filter((r) => r.state !== 'none');
+      const tone = (s: ProjectSkillStatus) =>
+        s === 'synced'
+          ? 'bg-success/15 text-success'
+          : s === 'diverged'
+            ? 'bg-warning text-warning-foreground'
+            : 'bg-muted text-muted-foreground';
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <PrimaryButton
+              onClick={() => {
+                setDeploySkill(librarySkillNames[0] ?? '');
+                setDeployAgent(agents[0]?.id ?? 'claude');
+                setDeployOpen(true);
+              }}
+              disabled={busy || librarySkillNames.length === 0}
+              icon={<Plus className="h-3.5 w-3.5" />}
+            >
+              从中央库部署到项目
+            </PrimaryButton>
+            <GhostButton onClick={() => unlinkProject(activeProject)} disabled={busy}>
+              取消关联
+            </GhostButton>
+          </div>
+          {rows.length === 0 ? (
+            <div className="rounded-lg border border-dashed bg-card/40 px-4 py-12 text-center text-xs text-muted-foreground">
+              项目里还没有 skills。点「从中央库部署到项目」，或把 skill 目录放进项目的 agent skills 目录后刷新。
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">Skill</th>
+                    <th className="w-24 px-2 py-2 font-medium">Agent</th>
+                    <th className="w-28 px-2 py-2 font-medium">状态</th>
+                    <th className="w-52 px-2 py-2 text-right font-medium">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={`${r.name}-${r.agent}`} className="border-t transition-colors hover:bg-muted/40">
+                      <td className="px-3 py-1.5 font-mono text-[13px]">{r.name}</td>
+                      <td className="px-2 py-1.5">
+                        <AgentBadge agent={r.agent} state={r.state} />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] ${tone(r.status)}`}>
+                          {PROJECT_STATUS_LABEL[r.status]}
+                        </span>
+                      </td>
+                      <td className="px-2 py-1.5 text-right">
+                        {r.status === 'synced' && (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => projectRemove(r.name, r.agent)}
+                            className="rounded-md border border-input px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
+                          >
+                            移除链接
+                          </button>
+                        )}
+                        {r.status === 'project-only' && (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => projectAdopt(r.name, r.agent)}
+                            className="rounded-md border border-input px-2 py-0.5 text-[11px] transition-colors hover:bg-accent disabled:opacity-40"
+                          >
+                            收编到中央库
+                          </button>
+                        )}
+                        {r.status === 'diverged' && (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => projectReplace(r.name, r.agent)}
+                            title="项目副本自动备份后替换为中央库软链"
+                            className="rounded-md border border-warning/40 px-2 py-0.5 text-[11px] text-warning transition-colors hover:bg-warning/10 disabled:opacity-40"
+                          >
+                            用中央库替换
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     if (nav === 'agents') {
       return (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -1129,6 +1433,32 @@ export default function SkillsManagerPage() {
           ))}
         </div>
 
+        {/* 项目工作区（复刻 skills-manager：项目库与中央库双向同步） */}
+        <div className="border-t px-2 pb-1">
+          <SectionLabel>项目工作区</SectionLabel>
+          <NavItem
+            icon={<FolderGit2 />}
+            label="全部项目"
+            count={projects.length}
+            active={nav === 'projects'}
+            onClick={() => selectNav('projects')}
+          />
+          {projects.map((p) => (
+            <NavItem
+              key={p.path}
+              icon={<Folder />}
+              label={baseName(p.path)}
+              active={nav === `proj:${p.path}`}
+              onClick={() => selectNav(`proj:${p.path}`)}
+            />
+          ))}
+          <NavItem
+            icon={<Plus />}
+            label="关联项目…"
+            onClick={() => setLinkOpen(true)}
+          />
+        </div>
+
         {profiles.length > 0 && (
           <div className="border-t px-2 pb-1">
             <SectionLabel>预设</SectionLabel>
@@ -1411,6 +1741,105 @@ export default function SkillsManagerPage() {
         onClose={() => setPickerOpen(false)}
         onDeploy={deployFromPicker}
       />
+
+      {/* 关联项目对话框 */}
+      {linkOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setLinkOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="关联项目"
+            className="w-full max-w-md rounded-lg border bg-card p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-sm font-semibold">关联项目</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              输入项目根目录的绝对路径（如 /Users/you/myproject）。项目里的 .claude/skills 等目录会与中央库双向同步。
+            </p>
+            <input
+              value={linkPath}
+              onChange={(e) => setLinkPath(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && linkPath.trim() && !busy) void linkProject();
+              }}
+              placeholder="/Users/you/myproject"
+              spellCheck={false}
+              className="mt-3 h-8 w-full rounded-md border border-input bg-transparent px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <ToolbarButton onClick={() => setLinkOpen(false)}>取消</ToolbarButton>
+              <ToolbarButton
+                primary
+                disabled={busy || !linkPath.trim()}
+                onClick={() => void linkProject()}
+              >
+                关联
+              </ToolbarButton>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 部署到项目对话框 */}
+      {deployOpen && activeProject && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setDeployOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="从中央库部署到项目"
+            className="w-full max-w-md rounded-lg border bg-card p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-sm font-semibold">从中央库部署到项目</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              在项目的 agent skills 目录建软链指向中央库，改一处处处生效。
+            </p>
+            <label className="mt-3 block space-y-1">
+              <span className="text-xs text-muted-foreground">Skill（中央库）</span>
+              <select
+                value={deploySkill}
+                onChange={(e) => setDeploySkill(e.target.value)}
+                className="h-8 w-full rounded-md border border-input bg-background px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                {librarySkillNames.map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </label>
+            <label className="mt-2 block space-y-1">
+              <span className="text-xs text-muted-foreground">目标 Agent</span>
+              <select
+                value={deployAgent}
+                onChange={(e) => setDeployAgent(e.target.value as AgentId)}
+                className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                {agents.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}（{a.skillsDir}）</option>
+                ))}
+              </select>
+            </label>
+            <div className="mt-4 flex justify-end gap-2">
+              <ToolbarButton onClick={() => setDeployOpen(false)}>取消</ToolbarButton>
+              <ToolbarButton
+                primary
+                disabled={busy || !deploySkill}
+                onClick={() => {
+                  projectDeploy(deploySkill, deployAgent);
+                  setDeployOpen(false);
+                }}
+              >
+                部署
+              </ToolbarButton>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

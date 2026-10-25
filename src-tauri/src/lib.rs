@@ -144,6 +144,54 @@ fn git_head(path: String) -> Result<String, String> {
     run_git(&["-C", path.as_str(), "rev-parse", "--short", "HEAD"])
 }
 
+// ---------- 项目工作区专用：绕过 plugin-fs scope 的自定义命令 ----------
+// 项目目录由用户显式关联，可能在 $HOME 的 agent 目录授权之外，
+// 与 copy_dir / remove_path / create_symlink 一样走自定义命令（现状先例）。
+
+#[derive(serde::Serialize)]
+struct DirEntry {
+    name: String,
+    is_directory: bool,
+    is_symlink: bool,
+}
+
+/// 列目录（不含 . 开头项）；目录不存在返回空列表
+#[tauri::command]
+fn read_dir(path: String) -> Result<Vec<DirEntry>, String> {
+    let p = Path::new(&path);
+    if !p.is_dir() {
+        return Ok(Vec::new());
+    }
+    let mut out = Vec::new();
+    let entries = std::fs::read_dir(p).map_err(|e| e.to_string())?;
+    for entry in entries {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with('.') {
+            continue;
+        }
+        let ft = entry.file_type().map_err(|e| e.to_string())?;
+        out.push(DirEntry {
+            name,
+            is_directory: ft.is_dir(),
+            is_symlink: ft.is_symlink(),
+        });
+    }
+    Ok(out)
+}
+
+/// 递归创建目录（mkdir -p）
+#[tauri::command]
+fn mkdir_p(path: String) -> Result<(), String> {
+    std::fs::create_dir_all(&path).map_err(|e| e.to_string())
+}
+
+/// 读文本文件（项目工作区的 SKILL.md 等）
+#[tauri::command]
+fn read_text(path: String) -> Result<String, String> {
+    std::fs::read_to_string(&path).map_err(|e| e.to_string())
+}
+
 // ---------- 文件监听（借鉴 ColaMD：监听父目录以兼容原子写入 rename） ----------
 
 const FS_EVENT: &str = "fs-changed";
@@ -329,6 +377,9 @@ pub fn run() {
             git_pull,
             git_remote,
             git_head,
+            read_dir,
+            mkdir_p,
+            read_text,
             watch_path,
             unwatch_path
         ])
