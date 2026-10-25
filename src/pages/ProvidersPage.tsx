@@ -348,6 +348,41 @@ export default function ProvidersPage() {
     [currentStore, refresh, showToast],
   );
 
+  // 空状态主行动：把 agent 配置文件里已有的模型服务读进来登记（借鉴 cc-switch 空状态即引导）
+  const importCurrent = useCallback(
+    async (agent: AgentId) => {
+      const read = current[agent];
+      if (!read?.found) return;
+      setBusy(true);
+      try {
+        const provider = createProvider(
+          {
+            name: `${agentById(agent).name} 当前配置`,
+            agent,
+            baseUrl: read.current.baseUrl ?? '',
+            apiKey: '', // 安全起见不代为搬运明文 Key，用户编辑时自行补
+            model: read.current.model ?? '',
+            api: 'openai-responses',
+          },
+          new Date(),
+          currentStore.providers.map((p) => p.id),
+        );
+        if (validateProvider(provider).length > 0) {
+          showToast('当前配置缺少 baseUrl，无法导入', 'err');
+          return;
+        }
+        await upsertProvider(provider);
+        showToast(`已导入 ${agentById(agent).name} 的当前配置（请补充 API Key）`);
+        void refresh();
+      } catch (e) {
+        showToast(`导入失败：${e instanceof Error ? e.message : String(e)}`, 'err');
+      } finally {
+        setBusy(false);
+      }
+    },
+    [current, currentStore.providers, refresh, showToast],
+  );
+
   const total = currentStore.providers.length;
 
   return (
@@ -465,6 +500,15 @@ export default function ProvidersPage() {
                       {writable
                         ? '还没有模型服务。新增后可一键写入该 Agent 的配置文件。'
                         : '该 Agent 仅支持查看已有记录，暂不支持写入配置。'}
+                      {current[agent.id]?.found && (
+                        <button
+                          onClick={() => void importCurrent(agent.id)}
+                          disabled={busy}
+                          className="ml-auto shrink-0 rounded-md border border-input px-2 py-1 text-[11px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+                        >
+                          导入文件中的当前配置
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

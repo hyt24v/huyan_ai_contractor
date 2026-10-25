@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Toolbar, ToolbarButton, ToolbarDivider } from '../components/Toolbar';
 import type { AgentId } from '../lib/agents';
+import { AGENTS } from '../lib/agents';
 import { PROMPT_TARGETS } from '../lib/agentTargets';
 import { useAgents } from '../hooks/useAgents';
 import {
@@ -321,6 +322,45 @@ export default function PromptsPage() {
   const prompts = lib?.prompts ?? [];
   const activeFor = (agent: AgentId): string | undefined => lib?.active[agent];
 
+  // 空状态主行动：把各 agent 现有的提示词文件（CLAUDE.md 等）一键收进库（借鉴 cc-switch 空状态即引导）
+  const importFromAgents = useCallback(async () => {
+    if (!lib) return;
+    setBusy(true);
+    try {
+      let next = lib;
+      let count = 0;
+      for (const target of PROMPT_TARGETS) {
+        if (!target.writable || !target.file) continue;
+        if (!visibleAgents.some((a) => a.id === target.agent)) continue;
+        const text = await readCurrentPrompt(target.agent);
+        if (!text?.trim()) continue;
+        const agentLabel = AGENTS.find((a) => a.id === target.agent)?.name ?? target.agent;
+        const res = addPrompt(next, {
+          name: nextAvailableName(
+            `${agentLabel} 现有提示词`,
+            next.prompts.map((p) => p.name),
+          ),
+          content: text,
+          description: `从 ${target.file} 导入`,
+        });
+        next = res.library;
+        count++;
+      }
+      if (count === 0) {
+        notify('各 agent 都没有可导入的提示词文件', false);
+        return;
+      }
+      await savePromptLibrary(next);
+      setLib(next);
+      populate(next.prompts[0] ?? null);
+      notify(`已导入 ${count} 个 agent 的现有提示词`);
+    } catch (e) {
+      notify(`导入失败：${errorText(e)}`, false);
+    } finally {
+      setBusy(false);
+    }
+  }, [lib, notify, populate, visibleAgents]);
+
   return (
     <div className="flex h-full">
       {/* 左侧提示词库 */}
@@ -372,7 +412,23 @@ export default function PromptsPage() {
           })}
           {lib && prompts.length === 0 && (
             <div className="px-2 py-6 text-center text-xs text-muted-foreground">
-              还没有提示词，点击右上角「新建」
+              还没有提示词
+              <div className="mt-3 flex flex-col items-center gap-1.5">
+                <button
+                  onClick={() => void create()}
+                  disabled={busy}
+                  className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  新建第一个提示词
+                </button>
+                <button
+                  onClick={() => void importFromAgents()}
+                  disabled={busy}
+                  className="rounded-md border border-input px-3 py-1.5 text-xs transition-colors hover:bg-accent disabled:opacity-50"
+                >
+                  从各 agent 导入现有文件
+                </button>
+              </div>
             </div>
           )}
         </div>
