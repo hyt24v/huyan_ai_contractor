@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '../hooks/useToast';
+import { useFileWatch } from '../hooks/useFileWatch';
 import {
   BookOpen,
   CircleCheck,
@@ -40,6 +41,8 @@ interface AgentFileState {
   path: string;
   exists: boolean;
   chars: number;
+  /** 最近一次读到的磁盘内容，用于回声过滤（自己写入触发的 fs 事件直接忽略） */
+  text: string | null;
 }
 
 const ERR_HINT = '（此功能仅在桌面 App 中可用）';
@@ -63,6 +66,10 @@ export default function PromptsPage() {
   const [error, setError] = useState('');
   const [agentFiles, setAgentFiles] = useState<Partial<Record<AgentId, AgentFileState>>>({});
   const { toast, showToast } = useToast(2600);
+  /** 外部变更高亮的 agent（5 秒后自动消退，ColaMD 式环境化指示） */
+  const [externalChanged, setExternalChanged] = useState<ReadonlySet<AgentId>>(new Set());
+  const agentFilesRef = useRef(agentFiles);
+  agentFilesRef.current = agentFiles;
 
   const notify = useCallback(
     (msg: string, ok = true) => showToast(msg, ok ? 'ok' : 'err'),
@@ -89,9 +96,9 @@ export default function PromptsPage() {
       }
       try {
         const text = await readCurrentPrompt(target.agent);
-        next[target.agent] = { path, exists: text !== null, chars: text?.length ?? 0 };
+        next[target.agent] = { path, exists: text !== null, chars: text?.length ?? 0, text };
       } catch {
-        next[target.agent] = { path, exists: false, chars: 0 };
+        next[target.agent] = { path, exists: false, chars: 0, text: null };
       }
     }
     setAgentFiles(next);
@@ -113,6 +120,45 @@ export default function PromptsPage() {
   useEffect(() => {
     void loadAndSelectFirst();
   }, [loadAndSelectFirst]);
+
+  // ---------- 磁盘变更自动同步（P0-1，借鉴 ColaMD） ----------
+  const watchedPaths = visibleAgents
+    .map((a) => agentFiles[a.id]?.path)
+    .filter((p): p is string => Boolean(p));
+
+  const handleExternalChange = useCallback(
+    async (path: string, kind: 'modified' | 'removed') => {
+      const target = PROMPT_TARGETS.find(
+        (t) => t.writable && agentFilesRef.current[t.agent]?.path === path,
+      );
+      if (!target) return;
+      let text: string | null = null;
+      try {
+        text = await readCurrentPrompt(target.agent);
+      } catch {
+        text = null;
+      }
+      if (text === (agentFilesRef.current[target.agent]?.text ?? null)) return; // 自己写入的回声
+      setAgentFiles((cur) => ({
+        ...cur,
+        [target.agent]: { path, exists: text !== null, chars: text?.length ?? 0, text },
+      }));
+      setExternalChanged((cur) => new Set(cur).add(target.agent));
+      setTimeout(() => {
+        setExternalChanged((cur) => {
+          const next = new Set(cur);
+          next.delete(target.agent);
+          return next;
+        });
+      }, 5000);
+      notify(
+        `${target.agent} 的提示词文件已被外部${kind === 'removed' ? '删除' : '修改'}，状态已同步`,
+      );
+    },
+    [notify],
+  );
+
+  useFileWatch(watchedPaths, handleExternalChange);
 
   // 未保存修改时拦截关闭窗口
   useEffect(() => {
@@ -461,7 +507,15 @@ export default function PromptsPage() {
                   key={agent.id}
                   className="flex items-center gap-3 border-b py-1.5 last:border-b-0"
                 >
-                  <div className="w-24 shrink-0 text-[13px] font-medium">{agent.name}</div>
+                  <div className="flex w-24 shrink-0 items-center gap-1.5 text-[13px] font-medium">
+                    {externalChanged.has(agent.id) && (
+                      <span
+                        className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-warning"
+                        title="文件刚被外部修改"
+                      />
+                    )}
+                    {agent.name}
+                  </div>
                   <code className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
                     {writable
                       ? (file?.path ?? target?.file)

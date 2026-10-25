@@ -1,4 +1,9 @@
-use std::path::Path;
+use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
+use tauri::Emitter;
 
 #[tauri::command]
 fn create_symlink(target: String, link: String) -> Result<(), String> {
@@ -137,6 +142,118 @@ fn git_head(path: String) -> Result<String, String> {
     run_git(&["-C", path.as_str(), "rev-parse", "--short", "HEAD"])
 }
 
+// ---------- 文件监听（借鉴 ColaMD：监听父目录以兼容原子写入 rename） ----------
+
+const FS_EVENT: &str = "fs-changed";
+/// 前沿去抖：同一目标 300ms 内只发一次事件（处理器会重读文件，后续变化还会再触发）
+const FS_DEBOUNCE: Duration = Duration::from_millis(300);
+
+struct WatchState {
+    watcher: Option<RecommendedWatcher>,
+    /// 目标文件 -> 实际监听的目录（父目录）
+    targets: HashMap<PathBuf, PathBuf>,
+    /// 已监听目录 -> 目标引用计数
+    dir_refs: HashMap<PathBuf, usize>,
+    /// 目标 -> 上次发事件时间
+    last_emit: HashMap<PathBuf, Instant>,
+}
+
+static WATCH: OnceLock<Mutex<WatchState>> = OnceLock::new();
+static APP: OnceLock<tauri::AppHandle> = OnceLock::new();
+
+fn watch_state() -> &'static Mutex<WatchState> {
+    WATCH.get_or_init(|| {
+        Mutex::new(WatchState {
+            watcher: None,
+            targets: HashMap::new(),
+            dir_refs: HashMap::new(),
+            last_emit: HashMap::new(),
+        })
+    })
+}
+
+fn handle_fs_event(event: Event) {
+    let Some(app) = APP.get() else { return };
+    let Ok(mut st) = watch_state().lock() else { return };
+    let now = Instant::now();
+    for p in &event.paths {
+        // 监听的是父目录，同目录其它文件的事件直接丢弃；原子写入(rename)的 to 路径恰好是目标
+        if !st.targets.contains_key(p) {
+            continue;
+        }
+        if let Some(t) = st.last_emit.get(p)
+            && now.duration_since(*t) < FS_DEBOUNCE
+        {
+            continue;
+        }
+        st.last_emit.insert(p.clone(), now);
+        let kind = if p.exists() { "modified" } else { "removed" };
+        let _ = app.emit(
+            FS_EVENT,
+            serde_json::json!({ "path": p.to_string_lossy(), "kind": kind }),
+        );
+    }
+}
+
+/// 监听单个文件的外部变更（含原子写入覆盖、删除、重建）。
+/// 父目录不存在时静默不监听（agent 未安装等场景），返回 Ok。
+#[tauri::command]
+fn watch_path(path: String) -> Result<(), String> {
+    let target = PathBuf::from(&path);
+    let Some(parent) = target.parent() else { return Ok(()) };
+    if !parent.is_dir() {
+        return Ok(());
+    }
+    let parent = parent.to_path_buf();
+    let mut st = watch_state().lock().map_err(|e| e.to_string())?;
+    if st.targets.contains_key(&target) {
+        return Ok(());
+    }
+    if st.watcher.is_none() {
+        st.watcher = Some(
+            RecommendedWatcher::new(
+                |res: Result<Event, notify::Error>| {
+                    if let Ok(ev) = res {
+                        handle_fs_event(ev);
+                    }
+                },
+                notify::Config::default(),
+            )
+            .map_err(|e| e.to_string())?,
+        );
+    }
+    let need_watch = !st.dir_refs.contains_key(&parent);
+    if need_watch {
+        st.watcher
+            .as_mut()
+            .expect("watcher 已初始化")
+            .watch(&parent, RecursiveMode::NonRecursive)
+            .map_err(|e| e.to_string())?;
+    }
+    *st.dir_refs.entry(parent.clone()).or_insert(0) += 1;
+    st.targets.insert(target, parent);
+    Ok(())
+}
+
+#[tauri::command]
+fn unwatch_path(path: String) -> Result<(), String> {
+    let target = PathBuf::from(&path);
+    let mut st = watch_state().lock().map_err(|e| e.to_string())?;
+    if let Some(dir) = st.targets.remove(&target) {
+        if let Some(refs) = st.dir_refs.get_mut(&dir) {
+            *refs -= 1;
+            if *refs == 0 {
+                st.dir_refs.remove(&dir);
+                if let Some(w) = st.watcher.as_mut() {
+                    let _ = w.unwatch(&dir);
+                }
+            }
+        }
+        st.last_emit.remove(&target);
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -155,9 +272,12 @@ pub fn run() {
             remove_path,
             git_pull,
             git_remote,
-            git_head
+            git_head,
+            watch_path,
+            unwatch_path
         ])
         .setup(|app| {
+            let _ = APP.set(app.handle().clone());
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
