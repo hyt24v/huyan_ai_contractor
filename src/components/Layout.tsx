@@ -17,6 +17,10 @@ import {
   onSettingsChanged,
 } from '../lib/settings';
 import { refreshAgentVisibility } from '../lib/agentVisibility';
+import {
+  getHealthIssueCount,
+  onHealthIssueCount,
+} from '../lib/healthStatus';
 import logo from '../../src-tauri/icons/icon.png';
 
 const SIDEBAR_KEY = 'huyan_tool:sidebar_collapsed';
@@ -32,6 +36,7 @@ export default function Layout() {
   const [whatsNew, setWhatsNew] = useState<{ version: string; body: string } | null>(null);
   const [appVersion, setAppVersion] = useState('');
   const [autoBackup, setAutoBackup] = useState(getAutoBackupEnabled);
+  const [healthIssues, setHealthIssues] = useState(getHealthIssueCount);
   const location = useLocation();
   const navigate = useNavigate();
   const currentTool = TOOLS.find((t) => location.pathname.startsWith(t.path));
@@ -48,6 +53,12 @@ export default function Layout() {
   // 设置项变更即时生效(自动备份开关等)
   useEffect(
     () => onSettingsChanged(() => setAutoBackup(getAutoBackupEnabled())),
+    [],
+  );
+
+  // 健康检查「需要关注」聚合计数（借鉴 fanbox「谁在等我」徽标）
+  useEffect(
+    () => onHealthIssueCount(() => setHealthIssues(getHealthIssueCount())),
     [],
   );
 
@@ -143,6 +154,14 @@ export default function Layout() {
                     <span className="absolute left-[-6px] top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-full bg-primary" />
                   )}
                   <t.icon className="h-4 w-4" />
+                  {t.path === '/health' && healthIssues > 0 && (
+                    <span
+                      className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-warning px-0.5 text-[9px] font-bold text-warning-foreground"
+                      title={`${healthIssues} 项需要关注`}
+                    >
+                      {healthIssues > 99 ? '99+' : healthIssues}
+                    </span>
+                  )}
                 </>
               )}
             </NavLink>

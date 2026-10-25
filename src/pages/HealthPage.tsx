@@ -17,6 +17,7 @@ import { StatusBadge, type BadgeTone } from '../components/StatusBadge';
 import { AGENTS } from '../lib/agents';
 import { agentLabel, type HealthReport, type Severity } from '../lib/diagnostics';
 import { runDiagnostics } from '../services/diagnostics';
+import { setHealthIssueCount } from '../lib/healthStatus';
 import { isTauri } from '@tauri-apps/api/core';
 
 const SEVERITY_META: Record<Severity, { label: string; tone: BadgeTone; icon: LucideIcon }> = {
@@ -51,6 +52,8 @@ export default function HealthPage() {
     try {
       const run = await runDiagnostics();
       setReport(run.report);
+      // 发布聚合计数（activitybar 徽标）：错误+警告计入「需要关注」
+      setHealthIssueCount(run.report.counts.error + run.report.counts.warning);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
