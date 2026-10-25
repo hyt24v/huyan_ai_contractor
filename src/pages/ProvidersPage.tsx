@@ -1,31 +1,26 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../hooks/useToast';
 import { isTauri } from '@tauri-apps/api/core';
 import {
-  Check,
   Download,
-  KeyRound,
-  Pencil,
   Plus,
   RefreshCw,
   Server,
   ShieldAlert,
-  Trash2,
   Upload,
 } from 'lucide-react';
 import { Toolbar, ToolbarButton, ToolbarDivider } from '../components/Toolbar';
 import ConfirmApplyDialog from '../components/ConfirmApplyDialog';
-import { AGENTS, agentById, type AgentId } from '../lib/agents';
+import ProviderTable from '../components/providers/ProviderTable';
+import { agentById, type AgentId } from '../lib/agents';
 import { downloadText } from '../lib/json';
 import {
   API_LABEL,
   PROVIDER_APIS,
-  activeProvider,
   createProvider,
   emptyStore,
   exportStoreJson,
   importStoreJson,
-  isActive,
   maskKey,
   updateProvider,
   validateProvider,
@@ -50,6 +45,9 @@ import {
   type ReadResult,
 } from '../services/providers';
 
+/** 支持模型服务写入/查看的 agent（PROVIDER_TARGETS 登记顺序即清单排序顺序） */
+const PROVIDER_AGENTS = Object.keys(PROVIDER_TARGETS) as AgentId[];
+
 const emptyDraft = (): ProviderInput => ({
   name: '',
   agent: 'claude',
@@ -68,128 +66,6 @@ const providerToDraft = (p: Provider): ProviderInput => ({
   api: p.api ?? 'openai-responses',
 });
 
-function ApiBadge({ api }: { api?: ProviderApi }) {
-  return (
-    <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
-      {api ? API_LABEL[api] : '默认 API'}
-    </span>
-  );
-}
-
-/** 单个 provider 卡片 */
-function ProviderCard({
-  provider,
-  active,
-  writable,
-  busy,
-  onApply,
-  onEdit,
-  onDelete,
-}: {
-  provider: Provider;
-  active: boolean;
-  writable: boolean;
-  busy: boolean;
-  onApply: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-}) {
-  return (
-    <div
-      className={`group flex flex-col gap-2 rounded-lg border bg-card p-3 transition-shadow ${
-        active ? 'border-primary/60 shadow-sm ring-1 ring-primary/30' : ''
-      }`}
-    >
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <span className="truncate text-sm font-medium">{provider.name}</span>
-            {active && (
-              <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                当前
-              </span>
-            )}
-          </div>
-          <div className="truncate font-mono text-[11px] text-muted-foreground">
-            {provider.id}
-          </div>
-        </div>
-      </div>
-
-      <div className="truncate rounded-md bg-muted/50 px-2 py-1 font-mono text-[11px]">
-        {provider.baseUrl}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-        <span className="rounded-full border border-input px-2 py-0.5 font-mono">
-          {provider.model || '未指定模型'}
-        </span>
-        <ApiBadge api={provider.api} />
-      </div>
-
-      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-        <KeyRound className="h-3 w-3 shrink-0" />
-        <span className="font-mono">{maskKey(provider.apiKey)}</span>
-      </div>
-
-      <div className="mt-1 flex items-center gap-1.5 border-t pt-2">
-        <button
-          onClick={onApply}
-          disabled={busy || !writable}
-          title={writable ? '写入该 Agent 的配置文件并设为当前' : UNSUPPORTED_NOTE}
-          className="inline-flex h-7 items-center gap-1 rounded-md bg-primary px-2.5 text-[11px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-40"
-        >
-          <Check className="h-3 w-3" />
-          应用
-        </button>
-        <button
-          onClick={onEdit}
-          className="inline-flex h-7 items-center gap-1 rounded-md border border-input px-2.5 text-[11px] opacity-0 transition-all hover:bg-accent focus-visible:opacity-100 group-hover:opacity-100"
-        >
-          <Pencil className="h-3 w-3" />
-          编辑
-        </button>
-        <button
-          onClick={onDelete}
-          title="从清单删除（可重新导入，不会改动 Agent 配置文件）"
-          className="ml-auto inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
-        >
-          <Trash2 className="h-3 w-3" />
-          删除
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/** 当前配置文件摘要 */
-function CurrentLine({ read }: { read?: ReadResult }) {
-  if (!read) return null;
-  if (read.error) {
-    return <span className="text-[11px] text-destructive">读取失败：{read.error}</span>;
-  }
-  if (!read.found) {
-    return (
-      <span className="text-[11px] text-muted-foreground">
-        {read.file ? '配置文件中尚未写入模型服务' : ''}
-      </span>
-    );
-  }
-  const c = read.current;
-  return (
-    <span className="truncate text-[11px] text-muted-foreground">
-      文件中：<span className="font-mono">{c.baseUrl ?? '—'}</span>
-      {c.model ? (
-        <>
-          {' · '}
-          <span className="font-mono">{c.model}</span>
-        </>
-      ) : null}
-      {c.hasKey ? ' · 已含 Key' : ''}
-    </span>
-  );
-}
-
 export default function ProvidersPage() {
   const [store, setStore] = useState<ProviderStore | null>(null);
   const [current, setCurrent] = useState<Partial<Record<AgentId, ReadResult>>>({});
@@ -201,6 +77,7 @@ export default function ProvidersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState('');
   const [showKey, setShowKey] = useState(false);
+  const [agentFilter, setAgentFilter] = useState<'all' | AgentId>('all');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
@@ -208,7 +85,7 @@ export default function ProvidersPage() {
     try {
       const next = await loadStore();
       setStore(next);
-      setCurrent(await readAllCurrent(AGENTS.map((a) => a.id), undefined, next));
+      setCurrent(await readAllCurrent(PROVIDER_AGENTS, undefined, next));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setStore(emptyStore());
@@ -220,6 +97,25 @@ export default function ProvidersPage() {
   }, [refresh]);
 
   const currentStore = store ?? emptyStore();
+
+  // 单屏清单：按 agent（PROVIDER_TARGETS 登记顺序）再按名称排序，顶部 pills 筛选
+  const sortedProviders = useMemo(() => {
+    const order = (id: AgentId) => {
+      const i = PROVIDER_AGENTS.indexOf(id);
+      return i === -1 ? PROVIDER_AGENTS.length : i;
+    };
+    return [...currentStore.providers].sort(
+      (a, b) => order(a.agent) - order(b.agent) || a.name.localeCompare(b.name),
+    );
+  }, [currentStore.providers]);
+
+  const visibleProviders = useMemo(
+    () =>
+      agentFilter === 'all'
+        ? sortedProviders
+        : sortedProviders.filter((p) => p.agent === agentFilter),
+    [agentFilter, sortedProviders],
+  );
 
   const openNew = useCallback(() => {
     setDraft(emptyDraft());
@@ -267,7 +163,7 @@ export default function ProvidersPage() {
     }
   }, [currentStore.providers, draft, editingId, refresh, showToast]);
 
-  // 「先看后切」：卡片「应用」只打开预览弹窗，确认后才写入 agent 配置（借鉴 cc-switch）
+  // 「先看后切」：清单「生效」单选只打开预览弹窗，确认后才写入 agent 配置（借鉴 cc-switch）
   const doApply = useCallback(
     async (p: Provider) => {
       setApplyTarget(null);
@@ -280,7 +176,7 @@ export default function ProvidersPage() {
         }
         const next = await setActive(p.agent, p.id);
         setStore(next);
-        const reads = await readAllCurrent(AGENTS.map((a) => a.id), undefined, next);
+        const reads = await readAllCurrent(PROVIDER_AGENTS, undefined, next);
         setCurrent(reads);
         showToast(result.message);
       } catch (e) {
@@ -384,6 +280,13 @@ export default function ProvidersPage() {
   );
 
   const total = currentStore.providers.length;
+  // 空状态下可「导入文件中的当前配置」的 agent（筛选到单个 agent 时只留它）
+  const importableAgents = PROVIDER_AGENTS.filter(
+    (a) =>
+      current[a]?.found &&
+      (agentFilter === 'all' || agentFilter === a) &&
+      !currentStore.providers.some((p) => p.agent === a),
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -453,88 +356,62 @@ export default function ProvidersPage() {
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-auto p-4">
+      {/* Agent 筛选 pills */}
+      <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b px-3 py-2">
+        {(['all', ...PROVIDER_AGENTS] as const).map((id) => {
+          const selected = agentFilter === id;
+          const count =
+            id === 'all'
+              ? total
+              : currentStore.providers.filter((p) => p.agent === id).length;
+          return (
+            <button
+              key={id}
+              onClick={() => setAgentFilter(id)}
+              className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
+                selected
+                  ? 'border-primary/60 bg-primary/10 font-medium text-primary'
+                  : 'border-input text-muted-foreground hover:bg-accent'
+              }`}
+            >
+              {id === 'all' ? '全部' : agentById(id).name}
+              <span className="ml-1 font-mono text-[10px] opacity-70">{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-auto">
         {store === null ? (
           <div className="py-16 text-center text-xs text-muted-foreground">读取中…</div>
-        ) : (
-          <div className="space-y-7">
-            {AGENTS.map((agent) => {
-              const target = providerTarget(agent.id);
-              const list = currentStore.providers.filter((p) => p.agent === agent.id);
-              const active = activeProvider(currentStore, agent.id);
-              const writable = target.writable;
-              return (
-                <section key={agent.id}>
-                  <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <h2 className="text-sm font-semibold tracking-tight">{agent.name}</h2>
-                    <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
-                      {target.file || '—'}
-                    </span>
-                    {writable ? (
-                      <span className="rounded-full bg-success/10 px-2 py-0.5 text-[10px] text-success">
-                        可写入
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
-                        {UNSUPPORTED_NOTE}
-                      </span>
-                    )}
-                    <CurrentLine read={current[agent.id]} />
-                    <button
-                      onClick={() => {
-                        setDraft({ ...emptyDraft(), agent: agent.id });
-                        setEditingId(null);
-                        setFormError('');
-                        setShowKey(false);
-                      }}
-                      className="ml-auto inline-flex h-7 items-center gap-1 rounded-md border border-input px-2 text-[11px] transition-colors hover:bg-accent"
-                    >
-                      <Plus className="h-3 w-3" />
-                      添加到 {agent.name}
-                    </button>
-                  </div>
-
-                  {list.length === 0 ? (
-                    <div className="flex items-center gap-2 rounded-lg border border-dashed px-3 py-6 text-xs text-muted-foreground">
-                      <Server className="h-4 w-4" />
-                      {writable
-                        ? '还没有模型服务。新增后可一键写入该 Agent 的配置文件。'
-                        : '该 Agent 仅支持查看已有记录，暂不支持写入配置。'}
-                      {current[agent.id]?.found && (
-                        <button
-                          onClick={() => void importCurrent(agent.id)}
-                          disabled={busy}
-                          className="ml-auto shrink-0 rounded-md border border-input px-2 py-1 text-[11px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
-                        >
-                          导入文件中的当前配置
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                      {list.map((p) => (
-                        <ProviderCard
-                          key={p.id}
-                          provider={p}
-                          active={isActive(currentStore, p)}
-                          writable={writable}
-                          busy={busy}
-                          onApply={() => setApplyTarget(p)}
-                          onEdit={() => openEdit(p)}
-                          onDelete={() => void deleteOne(p)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  {!writable && active && (
-                    <div className="mt-1 text-[11px] text-muted-foreground">
-                      当前标记：{active.name}
-                    </div>
-                  )}
-                </section>
-              );
-            })}
+        ) : visibleProviders.length === 0 ? (
+          <div className="p-4">
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed px-3 py-6 text-xs text-muted-foreground">
+              <Server className="h-4 w-4" />
+              {total === 0
+                ? '还没有模型服务。新增后可一键写入对应 Agent 的配置文件。'
+                : '该 Agent 下暂无模型服务。'}
+              {importableAgents.map((a) => (
+                <button
+                  key={a}
+                  onClick={() => void importCurrent(a)}
+                  disabled={busy}
+                  className="shrink-0 rounded-md border border-input px-2 py-1 text-[11px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+                >
+                  导入 {agentById(a).name} 文件中的当前配置
+                </button>
+              ))}
+            </div>
           </div>
+        ) : (
+          <ProviderTable
+            store={currentStore}
+            providers={visibleProviders}
+            busy={busy}
+            onApply={setApplyTarget}
+            onEdit={openEdit}
+            onDelete={(p) => void deleteOne(p)}
+          />
         )}
       </div>
 
@@ -543,7 +420,7 @@ export default function ProvidersPage() {
         models.json。Cursor / Gemini 暂不支持写入。
       </div>
 
-      {/* 新增 / 编辑弹窗 */}
+      {/* 应用确认弹窗（P0-2 先看后切） */}
       {applyTarget && (
         <ConfirmApplyDialog
           title={`应用模型服务「${applyTarget.name}」`}
@@ -587,6 +464,7 @@ export default function ProvidersPage() {
         />
       )}
 
+      {/* 新增 / 编辑弹窗 */}
       {draft && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -627,10 +505,10 @@ export default function ProvidersPage() {
                   }
                   className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
-                  {AGENTS.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                      {PROVIDER_TARGETS[a.id].writable ? '' : `（${UNSUPPORTED_NOTE}）`}
+                  {PROVIDER_AGENTS.map((id) => (
+                    <option key={id} value={id}>
+                      {agentById(id).name}
+                      {PROVIDER_TARGETS[id].writable ? '' : `（${UNSUPPORTED_NOTE}）`}
                     </option>
                   ))}
                 </select>
@@ -697,7 +575,7 @@ export default function ProvidersPage() {
               </label>
             </div>
 
-            {!PROVIDER_TARGETS[draft.agent].writable && (
+            {!PROVIDER_TARGETS[draft.agent]?.writable && (
               <div className="rounded-md bg-muted/60 px-2 py-1.5 text-[11px] text-muted-foreground">
                 {agentById(draft.agent).name}：{UNSUPPORTED_NOTE}。可先登记，后续再手动配置。
               </div>
