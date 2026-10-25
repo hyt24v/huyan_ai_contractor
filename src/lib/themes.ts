@@ -25,6 +25,9 @@ export interface ThemeDefinition {
     warning: string;
     warningForeground: string;
     success: string;
+    /** 信息/有新版（蓝，与 primary 正交，借鉴 skills-manager 三色状态语义） */
+    info: string;
+    infoForeground: string;
     border: string;
     input: string;
     ring: string;
@@ -57,6 +60,8 @@ export const THEMES: ThemeDefinition[] = [
       warning: '#ffd66b',
       warningForeground: '#0a0a14',
       success: '#7be0ad',
+      info: '#7dcfff',
+      infoForeground: '#0a0a14',
       border: '#262640',
       input: '#262640',
       ring: '#82aaff',
@@ -85,6 +90,8 @@ export const THEMES: ThemeDefinition[] = [
       warning: '#e5c07b',
       warningForeground: '#21252b',
       success: '#98c379',
+      info: '#56b6c2',
+      infoForeground: '#21252b',
       border: '#3e4451',
       input: '#3e4451',
       ring: '#61afef',
@@ -113,6 +120,8 @@ export const THEMES: ThemeDefinition[] = [
       warning: '#f9e2af',
       warningForeground: '#181825',
       success: '#a6e3a1',
+      info: '#89dceb',
+      infoForeground: '#181825',
       border: '#45475a',
       input: '#45475a',
       ring: '#89b4fa',
@@ -141,6 +150,8 @@ export const THEMES: ThemeDefinition[] = [
       warning: '#dbbc7f',
       warningForeground: '#2d353b',
       success: '#a7c080',
+      info: '#83c5be',
+      infoForeground: '#2d353b',
       border: '#4a5653',
       input: '#4a5653',
       ring: '#7fbbb3',
@@ -169,6 +180,8 @@ export const THEMES: ThemeDefinition[] = [
       warning: '#c98a2e',
       warningForeground: '#ffffff',
       success: '#4c9a6c',
+      info: '#5b8fd6',
+      infoForeground: '#ffffff',
       border: '#f0d3de',
       input: '#f0d3de',
       ring: '#e0719c',
@@ -197,6 +210,8 @@ export const THEMES: ThemeDefinition[] = [
       warning: '#d97706',
       warningForeground: '#ffffff',
       success: '#059669',
+      info: '#0891b2',
+      infoForeground: '#ffffff',
       border: '#e4e4e7',
       input: '#e4e4e7',
       ring: '#2563eb',
@@ -252,6 +267,8 @@ const TOKEN_CSS_VAR: Record<keyof ThemeDefinition['tokens'], string> = {
   warning: '--warning',
   warningForeground: '--warning-foreground',
   success: '--success',
+  info: '--info',
+  infoForeground: '--info-foreground',
   border: '--border',
   input: '--input',
   ring: '--ring',
