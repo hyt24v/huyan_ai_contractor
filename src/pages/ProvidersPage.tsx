@@ -3,6 +3,9 @@ import { useToast } from '../hooks/useToast';
 import { isTauri } from '@tauri-apps/api/core';
 import {
   Download,
+  Gauge,
+  ListPlus,
+  Loader2,
   Plus,
   RefreshCw,
   Server,
@@ -11,7 +14,7 @@ import {
 } from 'lucide-react';
 import { Toolbar, ToolbarButton, ToolbarDivider } from '../components/Toolbar';
 import ConfirmApplyDialog from '../components/ConfirmApplyDialog';
-import ProviderTable from '../components/providers/ProviderTable';
+import ProviderTable, { type RowTestResult } from '../components/providers/ProviderTable';
 import { agentById, type AgentId } from '../lib/agents';
 import { downloadText } from '../lib/json';
 import {
@@ -34,6 +37,8 @@ import {
   providerTarget,
   UNSUPPORTED_NOTE,
 } from '../lib/providerTargets';
+import { PROVIDER_PRESETS, presetById } from '../lib/providerPresets';
+import { fetchModels, testEndpoint } from '../lib/providerApi';
 import {
   applyProvider,
   loadStore,
@@ -74,6 +79,27 @@ export default function ProvidersPage() {
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<ProviderInput | null>(null);
   const [applyTarget, setApplyTarget] = useState<Provider | null>(null);
+  // 预设模板 + 测速 + 模型拉取（借鉴 cc-switch）
+  const [presetId, setPresetId] = useState('custom');
+  const [modelsList, setModelsList] = useState<string[]>([]);
+  const [modelsMsg, setModelsMsg] = useState('');
+  const [fetchingModels, setFetchingModels] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testMsg, setTestMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  // 行内测速结果（provider id → 结果）
+  const [rowTestingId, setRowTestingId] = useState<string | null>(null);
+  const [rowTestResults, setRowTestResults] = useState<Record<string, RowTestResult>>({});
+
+  /** 行内测速：测试该 provider 端点的连通性与延迟（借鉴 cc-switch 端点测速） */
+  const testOne = useCallback(async (p: Provider) => {
+    setRowTestingId(p.id);
+    try {
+      const r = await testEndpoint(p.baseUrl, p.apiKey);
+      setRowTestResults((prev) => ({ ...prev, [p.id]: { text: r.message, ok: r.ok } }));
+    } finally {
+      setRowTestingId(null);
+    }
+  }, []);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState('');
   const [showKey, setShowKey] = useState(false);
@@ -122,6 +148,10 @@ export default function ProvidersPage() {
     setEditingId(null);
     setFormError('');
     setShowKey(false);
+    setPresetId('custom');
+    setModelsList([]);
+    setModelsMsg('');
+    setTestMsg(null);
   }, []);
 
   const openEdit = useCallback((p: Provider) => {
@@ -129,7 +159,54 @@ export default function ProvidersPage() {
     setEditingId(p.id);
     setFormError('');
     setShowKey(false);
+    setPresetId('custom');
+    setModelsList([]);
+    setModelsMsg('');
+    setTestMsg(null);
   }, []);
+
+  /** 选预设：自动填名称（未填时）+ Base URL + 建议模型（借鉴 cc-switch 预设一键添加） */
+  const applyPreset = useCallback(
+    (id: string) => {
+      setPresetId(id);
+      const preset = presetById(id);
+      if (!preset || !draft) return;
+      setDraft({
+        ...draft,
+        name: draft.name || preset.name,
+        baseUrl: preset.baseUrl,
+        model: draft.model || preset.models[0] || '',
+      });
+      setTestMsg(null);
+      setModelsMsg('');
+    },
+    [draft],
+  );
+
+  const runTest = useCallback(async () => {
+    if (!draft) return;
+    setTesting(true);
+    setTestMsg(null);
+    try {
+      const r = await testEndpoint(draft.baseUrl, draft.apiKey);
+      setTestMsg({ text: r.message, ok: r.ok });
+    } finally {
+      setTesting(false);
+    }
+  }, [draft]);
+
+  const pullModels = useCallback(async () => {
+    if (!draft) return;
+    setFetchingModels(true);
+    setModelsMsg('');
+    try {
+      const r = await fetchModels(draft.baseUrl, draft.apiKey);
+      setModelsList(r.models);
+      setModelsMsg(r.message);
+    } finally {
+      setFetchingModels(false);
+    }
+  }, [draft]);
 
   const saveDraft = useCallback(async () => {
     if (!draft) return;
@@ -411,6 +488,9 @@ export default function ProvidersPage() {
             onApply={setApplyTarget}
             onEdit={openEdit}
             onDelete={(p) => void deleteOne(p)}
+            onTest={(p) => void testOne(p)}
+            testingId={rowTestingId}
+            testResults={rowTestResults}
           />
         )}
       </div>
@@ -487,6 +567,31 @@ export default function ProvidersPage() {
             </div>
 
             <div className="grid gap-2.5 sm:grid-cols-2">
+              <label className="space-y-1 sm:col-span-2">
+                <span className="text-xs text-muted-foreground">预设模板</span>
+                <select
+                  value={presetId}
+                  onChange={(e) => applyPreset(e.target.value)}
+                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="custom">自定义（手动填写）</option>
+                  {PROVIDER_PRESETS.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                {presetId !== 'custom' && presetById(presetId)?.site && (
+                  <a
+                    href={presetById(presetId)!.site}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block text-[11px] text-primary hover:underline"
+                  >
+                    去 {presetById(presetId)!.name} 获取 API Key →
+                  </a>
+                )}
+              </label>
               <label className="space-y-1 sm:col-span-1">
                 <span className="text-xs text-muted-foreground">名称 *</span>
                 <input
@@ -516,13 +621,39 @@ export default function ProvidersPage() {
 
               <label className="space-y-1 sm:col-span-2">
                 <span className="text-xs text-muted-foreground">Base URL *</span>
-                <input
-                  value={draft.baseUrl}
-                  onChange={(e) => setDraft({ ...draft, baseUrl: e.target.value })}
-                  placeholder="https://api.example.com"
-                  spellCheck={false}
-                  className="h-8 w-full rounded-md border border-input bg-transparent px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                />
+                <div className="flex gap-1.5">
+                  <input
+                    value={draft.baseUrl}
+                    onChange={(e) => {
+                      setDraft({ ...draft, baseUrl: e.target.value });
+                      setTestMsg(null);
+                    }}
+                    placeholder="https://api.example.com"
+                    spellCheck={false}
+                    className="h-8 w-full rounded-md border border-input bg-transparent px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void runTest()}
+                    disabled={testing || !draft.baseUrl.trim()}
+                    title="测试端点连通性与延迟"
+                    className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-input px-2 text-[11px] transition-colors hover:bg-accent disabled:opacity-40"
+                  >
+                    {testing ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Gauge className="h-3 w-3" />
+                    )}
+                    测速
+                  </button>
+                </div>
+                {testMsg && (
+                  <div
+                    className={`text-[11px] ${testMsg.ok ? 'text-success' : 'text-warning'}`}
+                  >
+                    {testMsg.text}
+                  </div>
+                )}
               </label>
 
               <label className="space-y-1">
@@ -543,13 +674,38 @@ export default function ProvidersPage() {
               </label>
               <label className="space-y-1">
                 <span className="text-xs text-muted-foreground">模型（可选）</span>
-                <input
-                  value={draft.model ?? ''}
-                  onChange={(e) => setDraft({ ...draft, model: e.target.value })}
-                  placeholder="如 claude-sonnet-4-5 / gpt-5"
-                  spellCheck={false}
-                  className="h-8 w-full rounded-md border border-input bg-transparent px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                />
+                <div className="flex gap-1.5">
+                  <input
+                    value={draft.model ?? ''}
+                    onChange={(e) => setDraft({ ...draft, model: e.target.value })}
+                    placeholder="如 claude-sonnet-4-5 / gpt-5"
+                    spellCheck={false}
+                    list="provider-models"
+                    className="h-8 w-full rounded-md border border-input bg-transparent px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void pullModels()}
+                    disabled={fetchingModels || !draft.baseUrl.trim()}
+                    title="从该供应商拉取模型列表（/v1/models）"
+                    className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-input px-2 text-[11px] transition-colors hover:bg-accent disabled:opacity-40"
+                  >
+                    {fetchingModels ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <ListPlus className="h-3 w-3" />
+                    )}
+                    拉取
+                  </button>
+                </div>
+                <datalist id="provider-models">
+                  {modelsList.map((m) => (
+                    <option key={m} value={m} />
+                  ))}
+                </datalist>
+                {modelsMsg && (
+                  <div className="text-[11px] text-muted-foreground">{modelsMsg}</div>
+                )}
               </label>
 
               <label className="space-y-1 sm:col-span-2">

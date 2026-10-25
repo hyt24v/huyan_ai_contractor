@@ -192,6 +192,34 @@ fn read_text(path: String) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
+// ---------- HTTP 转发（测速 / 拉模型列表；webview fetch 有 CORS 限制） ----------
+
+/// GET 一个 URL（可带 Bearer token），返回状态码/耗时/响应体。
+/// 4xx/5xx 不视为错误（401 = Key 无效也是有效测试结果），网络层失败才返回 Err。
+#[tauri::command]
+fn http_request(url: String, authorization: Option<String>) -> Result<serde_json::Value, String> {
+    let start = Instant::now();
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(15)))
+        .http_status_as_error(false)
+        .build()
+        .into();
+    let mut req = agent.get(&url);
+    if let Some(auth) = authorization {
+        if !auth.is_empty() {
+            req = req.header("Authorization", format!("Bearer {auth}"));
+        }
+    }
+    let mut resp = req.call().map_err(|e| e.to_string())?;
+    let status = resp.status().as_u16();
+    let body = resp.body_mut().read_to_string().map_err(|e| e.to_string())?;
+    Ok(serde_json::json!({
+        "status": status,
+        "elapsed_ms": start.elapsed().as_millis(),
+        "body": body,
+    }))
+}
+
 // ---------- 文件监听（借鉴 ColaMD：监听父目录以兼容原子写入 rename） ----------
 
 const FS_EVENT: &str = "fs-changed";
@@ -380,6 +408,7 @@ pub fn run() {
             read_dir,
             mkdir_p,
             read_text,
+            http_request,
             watch_path,
             unwatch_path
         ])

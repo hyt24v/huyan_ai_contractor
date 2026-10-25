@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from 'lucide-react';
+import { Gauge, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { AGENTS } from '../../lib/agents';
 import { PROVIDER_TARGETS, UNSUPPORTED_NOTE } from '../../lib/providerTargets';
 import {
@@ -61,6 +61,11 @@ function ActiveRadio({
   );
 }
 
+export interface RowTestResult {
+  text: string;
+  ok: boolean;
+}
+
 /**
  * 模型服务单屏清单：一行 = 一个 provider（借鉴 magpie 的单屏清单密度）。
  * 排序与筛选由调用方完成，这里只负责渲染。
@@ -72,6 +77,9 @@ export default function ProviderTable({
   onApply,
   onEdit,
   onDelete,
+  onTest,
+  testingId,
+  testResults,
 }: {
   store: ProviderStore;
   providers: Provider[];
@@ -79,6 +87,10 @@ export default function ProviderTable({
   onApply: (p: Provider) => void;
   onEdit: (p: Provider) => void;
   onDelete: (p: Provider) => void;
+  /** 行内测速（借鉴 cc-switch 端点测速） */
+  onTest?: (p: Provider) => void;
+  testingId?: string | null;
+  testResults?: Record<string, RowTestResult>;
 }) {
   return (
     <table className="w-full border-collapse text-xs">
@@ -124,6 +136,15 @@ export default function ProviderTable({
                 title={p.baseUrl}
               >
                 {p.baseUrl}
+                {testResults?.[p.id] && (
+                  <div
+                    className={`mt-0.5 truncate text-[10px] ${
+                      testResults[p.id].ok ? 'text-success' : 'text-warning'
+                    }`}
+                  >
+                    {testResults[p.id].text}
+                  </div>
+                )}
               </td>
               <td
                 className="max-w-[10rem] truncate px-2 py-2 font-mono text-[11px]"
@@ -147,6 +168,20 @@ export default function ProviderTable({
               </td>
               <td className="px-3 py-2 text-right">
                 <div className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                  {onTest && (
+                    <button
+                      onClick={() => onTest(p)}
+                      disabled={testingId === p.id}
+                      title="测试端点连通性与延迟"
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-accent disabled:opacity-40"
+                    >
+                      {testingId === p.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Gauge className="h-3 w-3" />
+                      )}
+                    </button>
+                  )}
                   <button
                     onClick={() => onEdit(p)}
                     title="编辑"
