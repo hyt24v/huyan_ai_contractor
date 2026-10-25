@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { Toolbar, ToolbarButton, ToolbarDivider } from '../components/Toolbar';
+import ConfirmApplyDialog from '../components/ConfirmApplyDialog';
 import { AGENTS, type AgentId } from '../lib/agents';
 import {
   addProfile,
@@ -119,6 +120,7 @@ export default function ProfilesPage() {
   const [promptLib, setPromptLib] = useState<PromptLibrary | null>(null);
   const [providerStore, setProviderStore] = useState<ProviderStore>({ providers: [], active: {} });
   const [modal, setModal] = useState<ModalState | null>(null);
+  const [applyTarget, setApplyTarget] = useState<Profile | null>(null);
   const [report, setReport] = useState<ApplyReport | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -235,19 +237,10 @@ export default function ProfilesPage() {
     [persist, store],
   );
 
-  const apply = useCallback(
+  // 「先看后切」：卡片「应用」只打开预览弹窗，真正写入在弹窗确认后执行（借鉴 cc-switch）
+  const doApply = useCallback(
     async (profile: Profile) => {
-      const promptCount = Object.keys(profile.prompts).length;
-      const providerCount = Object.keys(profile.providers ?? {}).length;
-      const ok = window.confirm(
-        `应用套餐「${profile.name}」？\n\n` +
-          `· 启用 ${profile.skills.length} 个 Skill（全部 agent）\n` +
-          `· 写回 ${profile.mcpServers.length} 个 MCP server 配置\n` +
-          `· 写入 ${promptCount} 个提示词\n` +
-          `· 应用 ${providerCount} 个模型服务\n\n` +
-          '所有被覆盖的文件都会先备份。',
-      );
-      if (!ok) return;
+      setApplyTarget(null);
       setBusy(true);
       setReport(null);
       try {
@@ -490,7 +483,7 @@ export default function ProfilesPage() {
                   <div className="mt-auto flex items-center gap-1.5 pt-3">
                     <button
                       disabled={busy}
-                      onClick={() => void apply(profile)}
+                      onClick={() => setApplyTarget(profile)}
                       className="inline-flex h-7 items-center gap-1 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                     >
                       <Play className="h-3 w-3" />
@@ -535,6 +528,58 @@ export default function ProfilesPage() {
           套餐文件 ~/.ai-baogongtou/profiles.json · 共 {profiles.length} 个
         </span>
       </div>
+
+      {applyTarget && (
+        <ConfirmApplyDialog
+          title={`应用套餐「${applyTarget.name}」`}
+          preview={
+            <div className="space-y-2 text-xs">
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="rounded-md bg-muted/50 px-2.5 py-1.5">
+                  Skills
+                  <span className="ml-1 font-mono font-medium">
+                    {applyTarget.skills.length}
+                  </span>{' '}
+                  个（启用到全部 agent）
+                </div>
+                <div className="rounded-md bg-muted/50 px-2.5 py-1.5">
+                  MCP server
+                  <span className="ml-1 font-mono font-medium">
+                    {applyTarget.mcpServers.length}
+                  </span>{' '}
+                  个（写回配置）
+                </div>
+                <div className="rounded-md bg-muted/50 px-2.5 py-1.5">
+                  提示词
+                  <span className="ml-1 font-mono font-medium">
+                    {Object.keys(applyTarget.prompts).length}
+                  </span>{' '}
+                  条
+                </div>
+                <div className="rounded-md bg-muted/50 px-2.5 py-1.5">
+                  模型服务
+                  <span className="ml-1 font-mono font-medium">
+                    {Object.keys(applyTarget.providers ?? {}).length}
+                  </span>{' '}
+                  条
+                </div>
+              </div>
+              {applyTarget.description && (
+                <p className="text-muted-foreground">{applyTarget.description}</p>
+              )}
+            </div>
+          }
+          consequences={[
+            '按套餐重算全部 agent 的 Skills / MCP / 提示词 / 模型服务',
+            '被覆盖的配置文件会先自动备份',
+            '部分失败会逐条列出，不影响其他项',
+          ]}
+          confirmLabel="确认应用套餐"
+          busy={busy}
+          onConfirm={() => void doApply(applyTarget)}
+          onCancel={() => setApplyTarget(null)}
+        />
+      )}
 
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">

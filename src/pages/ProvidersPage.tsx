@@ -14,6 +14,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { Toolbar, ToolbarButton, ToolbarDivider } from '../components/Toolbar';
+import ConfirmApplyDialog from '../components/ConfirmApplyDialog';
 import { AGENTS, agentById, type AgentId } from '../lib/agents';
 import { downloadText } from '../lib/json';
 import {
@@ -196,6 +197,7 @@ export default function ProvidersPage() {
   const { toast, showToast } = useToast(3000);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<ProviderInput | null>(null);
+  const [applyTarget, setApplyTarget] = useState<Provider | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState('');
   const [showKey, setShowKey] = useState(false);
@@ -265,12 +267,10 @@ export default function ProvidersPage() {
     }
   }, [currentStore.providers, draft, editingId, refresh, showToast]);
 
-  const applyOne = useCallback(
+  // 「先看后切」：卡片「应用」只打开预览弹窗，确认后才写入 agent 配置（借鉴 cc-switch）
+  const doApply = useCallback(
     async (p: Provider) => {
-      if (!PROVIDER_TARGETS[p.agent].writable) {
-        showToast(`${agentById(p.agent).name}：${UNSUPPORTED_NOTE}`, 'err');
-        return;
-      }
+      setApplyTarget(null);
       setBusy(true);
       try {
         const result = await applyProvider(p);
@@ -475,7 +475,7 @@ export default function ProvidersPage() {
                           active={isActive(currentStore, p)}
                           writable={writable}
                           busy={busy}
-                          onApply={() => void applyOne(p)}
+                          onApply={() => setApplyTarget(p)}
                           onEdit={() => openEdit(p)}
                           onDelete={() => void deleteOne(p)}
                         />
@@ -500,6 +500,49 @@ export default function ProvidersPage() {
       </div>
 
       {/* 新增 / 编辑弹窗 */}
+      {applyTarget && (
+        <ConfirmApplyDialog
+          title={`应用模型服务「${applyTarget.name}」`}
+          preview={
+            <div className="space-y-1.5 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="w-20 shrink-0 text-muted-foreground">目标 Agent</span>
+                <span className="font-medium">{agentById(applyTarget.agent).name}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-20 shrink-0 text-muted-foreground">配置文件</span>
+                <code className="truncate font-mono text-[11px]">
+                  {providerTarget(applyTarget.agent).file}
+                </code>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-20 shrink-0 text-muted-foreground">Base URL</span>
+                <code className="truncate font-mono text-[11px]">{applyTarget.baseUrl}</code>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-20 shrink-0 text-muted-foreground">模型</span>
+                <span className="font-mono text-[11px]">
+                  {applyTarget.model || '未指定'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-20 shrink-0 text-muted-foreground">API Key</span>
+                <span className="font-mono text-[11px]">{maskKey(applyTarget.apiKey)}</span>
+              </div>
+            </div>
+          }
+          consequences={[
+            `写入 ${agentById(applyTarget.agent).name} 的配置文件并设为当前生效`,
+            '原文件内容自动备份到 ~/.ai-baogongtou/provider-backups/',
+            '生效方式因 Agent 而异：Claude 即时热重载，Codex / Pi 需重开会话',
+          ]}
+          confirmLabel="确认应用"
+          busy={busy}
+          onConfirm={() => void doApply(applyTarget)}
+          onCancel={() => setApplyTarget(null)}
+        />
+      )}
+
       {draft && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
