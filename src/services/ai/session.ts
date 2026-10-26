@@ -12,6 +12,12 @@ export interface AiMessage {
   ts: number;
   /**  assistant 消息标记为失败（HTTP 错误等），UI 染红 */
   error?: boolean;
+  /** 推理模型的思考过程，UI 折叠展示 */
+  reasoning?: string;
+  /** 正在流式生成中 */
+  streaming?: boolean;
+  /** 本条消息实际使用的模型 */
+  model?: string;
 }
 
 const MAX_MESSAGES = 40;
@@ -42,8 +48,42 @@ export function appendMessage(
   return full;
 }
 
+/** 更新某条消息（流式增量渲染用）：按 id 局部 patch，生成新数组引用触发订阅 */
+export function updateMessage(
+  scope: string,
+  id: string,
+  patch: Partial<Omit<AiMessage, 'id' | 'role' | 'ts'>>,
+): void {
+  const list = sessions.get(scope);
+  if (!list) return;
+  const idx = list.findIndex((m) => m.id === id);
+  if (idx < 0) return;
+  const next = [...list];
+  next[idx] = { ...next[idx], ...patch };
+  sessions.set(scope, next);
+  notify();
+}
+
 export function clearSession(scope: string): void {
   if (sessions.delete(scope)) notify();
+}
+
+// ---------- 每会话模型覆盖（对话中临时切换模型，不改全局默认） ----------
+
+const modelOverrides = new Map<string, string>();
+
+export function getModelOverride(scope: string): string | undefined {
+  return modelOverrides.get(scope);
+}
+
+export function setModelOverride(scope: string, model: string): void {
+  modelOverrides.set(scope, model);
+  notify();
+}
+
+/** React hook：订阅某 scope 的模型覆盖 */
+export function useModelOverride(scope: string): string | undefined {
+  return useSyncExternalStore(subscribe, () => getModelOverride(scope));
 }
 
 function subscribe(listener: () => void): () => void {

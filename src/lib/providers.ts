@@ -38,7 +38,10 @@ export interface Provider {
   agent: AgentId;
   baseUrl: string;
   apiKey?: string;
+  /** 默认模型（AI 助手对话、写入 agent 配置时用） */
   model?: string;
+  /** 可选模型列表（AI 助手对话中可切换）；缺省时以 model 为唯一选项 */
+  models?: string[];
   api?: ProviderApi;
   createdAt: string;
   updatedAt: string;
@@ -59,6 +62,7 @@ export interface ProviderInput {
   baseUrl: string;
   apiKey?: string;
   model?: string;
+  models?: string[];
   api?: ProviderApi;
 }
 
@@ -108,6 +112,13 @@ export function validateProvider(input: ProviderInput): string[] {
   if (input.model !== undefined && /[\r\n]/.test(input.model))
     errors.push('模型名不能包含换行');
 
+  if (input.models !== undefined) {
+    if (input.models.some((m) => typeof m !== 'string' || /[\r\n]/.test(m)))
+      errors.push('模型列表不能包含换行');
+    else if (input.models.map((m) => m.trim()).some((m) => m === ''))
+      errors.push('模型列表不能包含空项');
+  }
+
   if (input.api !== undefined && !isProviderApi(input.api))
     errors.push('未知的 API 协议');
 
@@ -151,6 +162,20 @@ export function uniqueProviderId(
   return `${base}-${i}`;
 }
 
+/** 模型列表归一化：trim、去空、去重（保序） */
+export function normalizeModels(models: string[] | undefined): string[] | undefined {
+  if (!models) return undefined;
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const m of models) {
+    const t = m.trim();
+    if (!t || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+  }
+  return out.length > 0 ? out : undefined;
+}
+
 export function createProvider(
   input: ProviderInput,
   now: Date,
@@ -158,7 +183,8 @@ export function createProvider(
 ): Provider {
   const ts = now.toISOString();
   const key = input.apiKey?.trim();
-  const model = input.model?.trim();
+  const models = normalizeModels(input.models);
+  const model = input.model?.trim() || models?.[0];
   return {
     id: input.id?.trim() || uniqueProviderId(input.name, existingIds),
     name: input.name.trim(),
@@ -166,6 +192,7 @@ export function createProvider(
     baseUrl: input.baseUrl.trim(),
     ...(key ? { apiKey: key } : {}),
     ...(model ? { model } : {}),
+    ...(models ? { models } : {}),
     ...(input.api ? { api: input.api } : {}),
     createdAt: ts,
     updatedAt: ts,
@@ -179,7 +206,8 @@ export function updateProvider(
   now: Date,
 ): Provider {
   const key = input.apiKey?.trim();
-  const model = input.model?.trim();
+  const models = normalizeModels(input.models);
+  const model = input.model?.trim() || models?.[0];
   return {
     id: existing.id,
     name: input.name.trim(),
@@ -187,6 +215,7 @@ export function updateProvider(
     baseUrl: input.baseUrl.trim(),
     ...(key ? { apiKey: key } : {}),
     ...(model ? { model } : {}),
+    ...(models ? { models } : {}),
     ...(input.api ? { api: input.api } : {}),
     createdAt: existing.createdAt,
     updatedAt: now.toISOString(),
@@ -286,6 +315,14 @@ export function normalizeStore(raw: unknown, now: Date): ProviderStore {
         ? { apiKey: o.apiKey }
         : {}),
       ...(typeof o.model === 'string' && o.model !== '' ? { model: o.model } : {}),
+      ...(Array.isArray(o.models)
+        ? (() => {
+            const models = normalizeModels(
+              o.models.filter((m): m is string => typeof m === 'string'),
+            );
+            return models ? { models } : {};
+          })()
+        : {}),
       ...(isProviderApi(o.api) ? { api: o.api } : {}),
       createdAt: typeof o.createdAt === 'string' ? o.createdAt : ts,
       updatedAt: typeof o.updatedAt === 'string' ? o.updatedAt : ts,
@@ -325,6 +362,9 @@ function parseProvider(raw: unknown, now: Date): Provider | string {
     baseUrl: typeof r.baseUrl === 'string' ? r.baseUrl : '',
     apiKey: typeof r.apiKey === 'string' ? r.apiKey : undefined,
     model: typeof r.model === 'string' ? r.model : undefined,
+    models: Array.isArray(r.models)
+      ? r.models.filter((m): m is string => typeof m === 'string')
+      : undefined,
     api: r.api as ProviderApi | undefined,
   };
   const errors = validateProvider(input);
@@ -336,7 +376,10 @@ function parseProvider(raw: unknown, now: Date): Provider | string {
     agent: input.agent,
     baseUrl: input.baseUrl.trim(),
     ...(input.apiKey?.trim() ? { apiKey: input.apiKey.trim() } : {}),
-    ...(input.model?.trim() ? { model: input.model.trim() } : {}),
+    ...(input.model?.trim() || normalizeModels(input.models)?.[0]
+      ? { model: (input.model?.trim() || normalizeModels(input.models)![0]) as string }
+      : {}),
+    ...(normalizeModels(input.models) ? { models: normalizeModels(input.models)! } : {}),
     ...(input.api ? { api: input.api } : {}),
     createdAt: typeof r.createdAt === 'string' ? r.createdAt : ts,
     updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt : ts,
@@ -689,9 +732,16 @@ export function applyPiModels(originalText: string, provider: Provider): string 
     baseUrl: provider.baseUrl,
     api: provider.api ?? 'openai-responses',
     ...(provider.apiKey ? { apiKey: provider.apiKey } : {}),
-    ...(provider.model
-      ? { models: [{ id: provider.model, name: provider.model }] }
-      : {}),
+    ...(() => {
+      const models = provider.models?.length
+        ? provider.models
+        : provider.model
+          ? [provider.model]
+          : [];
+      return models.length > 0
+        ? { models: models.map((m) => ({ id: m, name: m })) }
+        : {};
+    })(),
   };
   root.providers = providers;
   return JSON.stringify(root, null, 2) + '\n';

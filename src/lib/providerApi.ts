@@ -45,6 +45,27 @@ export async function httpPost(
   return httpRequest(url, { ...opts, method: 'POST', body });
 }
 
+/** SSE 流式请求（AI 聊天）：Rust 侧逐行透传 data: 载荷为 'ai-sse' 事件，前端按协议解析 */
+export async function aiSseRequest(
+  streamId: string,
+  url: string,
+  body: string,
+  opts?: { apiKey?: string; headers?: Record<string, string> },
+): Promise<void> {
+  return invoke('ai_sse_request', {
+    streamId,
+    url,
+    authorization: opts?.apiKey || null,
+    body,
+    headers: opts?.headers ?? null,
+  });
+}
+
+/** 中止进行中的 SSE 流（前端「停止」按钮） */
+export async function aiSseAbort(streamId: string): Promise<void> {
+  return invoke('ai_sse_abort', { streamId });
+}
+
 /** 由 baseUrl 推导 /models 地址：已含版本段（/v1、/v4…）则直接拼，否则补 /v1 */
 export function modelsUrl(baseUrl: string): string {
   const base = baseUrl.trim().replace(/\/+$/, '');

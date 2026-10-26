@@ -1,7 +1,9 @@
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
+use std::io::BufRead;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
@@ -267,6 +269,127 @@ fn http_request(
     }))
 }
 
+// ---------- AI SSE 流式转发（原始 data: 载荷逐行推给前端，协议解析在前端做） ----------
+
+const AI_SSE_EVENT: &str = "ai-sse";
+
+/// 进行中的 SSE 流：stream_id -> 中止标志（前端「停止」按钮用）
+static SSE_ABORTS: OnceLock<Mutex<HashMap<String, Arc<AtomicBool>>>> = OnceLock::new();
+
+fn sse_aborts() -> &'static Mutex<HashMap<String, Arc<AtomicBool>>> {
+    SSE_ABORTS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+#[tauri::command]
+fn ai_sse_abort(stream_id: String) {
+    if let Some(flag) = sse_aborts().lock().unwrap().get(&stream_id) {
+        flag.store(true, Ordering::Relaxed);
+    }
+}
+
+/// 发起 SSE 流式请求（仅 POST）。事件负载：
+/// {id, kind: "data", data} 每收到一行 data: 载荷
+/// {id, kind: "body", status, body} 响应不是 SSE（供应商不支持流式/报错）时整包回传，前端走非流式解析
+/// {id, kind: "done", status} / {id, kind: "aborted"} / {id, kind: "error", message}
+#[tauri::command]
+async fn ai_sse_request(
+    window: tauri::Window,
+    stream_id: String,
+    url: String,
+    authorization: Option<String>,
+    body: Option<String>,
+    headers: Option<HashMap<String, String>>,
+) -> Result<(), String> {
+    let abort = Arc::new(AtomicBool::new(false));
+    sse_aborts()
+        .lock()
+        .unwrap()
+        .insert(stream_id.clone(), abort.clone());
+    let sid = stream_id.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Err(e) = run_sse(&window, &stream_id, &url, &authorization, body, &headers, &abort)
+        {
+            let _ = window.emit(
+                AI_SSE_EVENT,
+                serde_json::json!({"id": stream_id, "kind": "error", "message": e}),
+            );
+        }
+        sse_aborts().lock().unwrap().remove(&sid);
+    });
+    Ok(())
+}
+
+fn run_sse(
+    window: &tauri::Window,
+    stream_id: &str,
+    url: &str,
+    authorization: &Option<String>,
+    body: Option<String>,
+    headers: &Option<HashMap<String, String>>,
+    abort: &Arc<AtomicBool>,
+) -> Result<(), String> {
+    // 流式长生成不设整体超时，由前端「停止」按钮中止
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .timeout_global(None)
+        .http_status_as_error(false)
+        .build()
+        .into();
+    let req = apply_auth(agent.post(url), authorization, headers)
+        .header("Content-Type", "application/json")
+        .header("Accept", "text/event-stream");
+    let mut resp = req.send(body.unwrap_or_default()).map_err(|e| e.to_string())?;
+    let status = resp.status().as_u16();
+    let is_sse = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.contains("text/event-stream"))
+        .unwrap_or(false);
+    if !is_sse {
+        let text = resp
+            .body_mut()
+            .read_to_string()
+            .map_err(|e| e.to_string())?;
+        window
+            .emit(
+                AI_SSE_EVENT,
+                serde_json::json!({"id": stream_id, "kind": "body", "status": status, "body": text}),
+            )
+            .map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+    let mut reader = std::io::BufReader::new(resp.body_mut().as_reader());
+    let mut line = String::new();
+    loop {
+        if abort.load(Ordering::Relaxed) {
+            let _ = window.emit(
+                AI_SSE_EVENT,
+                serde_json::json!({"id": stream_id, "kind": "aborted"}),
+            );
+            return Ok(());
+        }
+        line.clear();
+        let n = reader.read_line(&mut line).map_err(|e| e.to_string())?;
+        if n == 0 {
+            break; // EOF
+        }
+        // 只透传 data: 载荷；event:/注释/空行由前端按载荷里的 type 自行分流
+        if let Some(data) = line.trim_end().strip_prefix("data:") {
+            let _ = window.emit(
+                AI_SSE_EVENT,
+                serde_json::json!({"id": stream_id, "kind": "data", "data": data.trim()}),
+            );
+        }
+    }
+    window
+        .emit(
+            AI_SSE_EVENT,
+            serde_json::json!({"id": stream_id, "kind": "done", "status": status}),
+        )
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 // ---------- 文件监听（借鉴 ColaMD：监听父目录以兼容原子写入 rename） ----------
 
 const FS_EVENT: &str = "fs-changed";
@@ -452,6 +575,8 @@ pub fn run() {
             mkdir_p,
             read_text,
             http_request,
+            ai_sse_request,
+            ai_sse_abort,
             watch_path,
             unwatch_path
         ])
