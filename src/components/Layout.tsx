@@ -9,7 +9,6 @@ import { useAutoBackup } from '../hooks/useAutoBackup';
 import { TOOLS, TOOL_GROUPS } from '../lib/tools';
 import { checkForUpdate, currentVersion } from '../lib/updater';
 import { isTauri } from '@tauri-apps/api/core';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import {
   dismissUpdate,
   getAutoBackupEnabled,
@@ -18,10 +17,6 @@ import {
   onSettingsChanged,
 } from '../lib/settings';
 import { refreshAgentVisibility } from '../lib/agentVisibility';
-import {
-  getHealthIssueCount,
-  onHealthIssueCount,
-} from '../lib/healthStatus';
 import logo from '../../src-tauri/icons/icon.png';
 
 const SIDEBAR_KEY = 'huyan_tool:sidebar_collapsed';
@@ -37,7 +32,6 @@ export default function Layout() {
   const [whatsNew, setWhatsNew] = useState<{ version: string; body: string } | null>(null);
   const [appVersion, setAppVersion] = useState('');
   const [autoBackup, setAutoBackup] = useState(getAutoBackupEnabled);
-  const [healthIssues, setHealthIssues] = useState(getHealthIssueCount);
   const location = useLocation();
   const navigate = useNavigate();
   const currentTool = TOOLS.find((t) => location.pathname.startsWith(t.path));
@@ -54,12 +48,6 @@ export default function Layout() {
   // 设置项变更即时生效(自动备份开关等)
   useEffect(
     () => onSettingsChanged(() => setAutoBackup(getAutoBackupEnabled())),
-    [],
-  );
-
-  // 健康检查「需要关注」聚合计数（借鉴 fanbox「谁在等我」徽标）
-  useEffect(
-    () => onHealthIssueCount(() => setHealthIssues(getHealthIssueCount())),
     [],
   );
 
@@ -105,23 +93,6 @@ export default function Layout() {
       .catch(() => undefined); // 网络失败静默跳过
   }, [appVersion]);
 
-  // 托盘菜单「健康检查」：后端显示主窗口后发 navigate 事件，这里跳转到对应路由
-  useEffect(() => {
-    if (!isTauri()) return;
-    let unlisten: UnlistenFn | null = null;
-    let disposed = false;
-    void listen<string>('navigate', (ev) => {
-      if (ev.payload) navigate(ev.payload);
-    }).then((u) => {
-      if (disposed) u();
-      else unlisten = u;
-    });
-    return () => {
-      disposed = true;
-      unlisten?.();
-    };
-  }, [navigate]);
-
   useEffect(() => {
     localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0');
   }, [collapsed]);
@@ -143,9 +114,10 @@ export default function Layout() {
   }, [navigate]);
 
   return (
-    <div className="flex h-full bg-background">
+    // dbx 范式：chrome 外壳底色 + gap-1 p-1 留缝，各面板为独立圆角描边卡片
+    <div className="flex h-full gap-1 bg-chrome p-1">
       {/* Activity Bar（图标条） */}
-      <div className="flex w-12 shrink-0 flex-col items-center border-r border-border/40 bg-activitybar py-2">
+      <div className="flex w-12 shrink-0 flex-col items-center rounded-lg border border-border/40 bg-activitybar py-2">
         <img
           src={logo}
           alt="AI包工头"
@@ -172,14 +144,6 @@ export default function Layout() {
                     <span className="absolute left-[-6px] top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-full bg-primary" />
                   )}
                   <t.icon className="h-4 w-4" />
-                  {t.path === '/health' && healthIssues > 0 && (
-                    <span
-                      className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-warning px-0.5 text-[9px] font-bold text-warning-foreground"
-                      title={`${healthIssues} 项需要关注`}
-                    >
-                      {healthIssues > 99 ? '99+' : healthIssues}
-                    </span>
-                  )}
                 </>
               )}
             </NavLink>
@@ -206,7 +170,7 @@ export default function Layout() {
 
       {/* 导航面板（可收起）：纯文字，图标由左侧 activitybar 承担，避免同一工具出现两个图标 */}
       {!collapsed && (
-        <aside className="flex w-48 shrink-0 flex-col border-r border-border/40 bg-sidebar">
+        <aside className="flex w-48 shrink-0 flex-col rounded-lg border border-border/40 bg-sidebar">
           <nav className="flex-1 overflow-y-auto px-2.5 pb-2 pt-2">
             {TOOL_GROUPS.map((group) => (
               <div key={group}>
@@ -229,11 +193,6 @@ export default function Layout() {
                           }
                         >
                           <span className="truncate">{t.name}</span>
-                          {t.path === '/health' && healthIssues > 0 && (
-                            <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-warning px-1 text-[10px] font-bold text-warning-foreground">
-                              {healthIssues > 99 ? '99+' : healthIssues}
-                            </span>
-                          )}
                         </NavLink>,
                       ],
                 )}
@@ -246,10 +205,10 @@ export default function Layout() {
         </aside>
       )}
 
-      {/* 主区域：主角卡片 */}
-      <div className="min-w-0 flex-1 p-3">
-        <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-lg border bg-card shadow-md">
-          <header className="flex h-12 shrink-0 items-center justify-between border-b border-border/40 px-4">
+      {/* 主区域：内容面板（浮在 chrome 外壳上，无阴影） */}
+      <div className="min-w-0 flex-1">
+        <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-border/40 bg-content">
+          <header className="flex h-10 shrink-0 items-center justify-between border-b border-border/40 px-3">
             <div className="flex min-w-0 items-center gap-2">
               <button
                 onClick={() => setCollapsed((c) => !c)}
@@ -263,7 +222,7 @@ export default function Layout() {
                   <PanelLeftClose className="h-4 w-4" />
                 )}
               </button>
-              <span className="truncate text-[15px] font-semibold tracking-tight">
+              <span className="truncate text-sm font-semibold tracking-tight">
                 AI包工头
                 <span className="mx-1.5 text-muted-foreground/40">/</span>
                 <span className="text-muted-foreground">

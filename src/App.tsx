@@ -4,7 +4,6 @@ import JsonToolPage from './pages/JsonToolPage';
 import MarkdownPage from './pages/MarkdownPage';
 import McpManagerPage from './pages/McpManagerPage';
 import SkillsManagerPage from './pages/SkillsManagerPage';
-import HealthPage from './pages/HealthPage';
 import ProfilesPage from './pages/ProfilesPage';
 import ProvidersPage from './pages/ProvidersPage';
 import PromptsPage from './pages/PromptsPage';
@@ -20,7 +19,6 @@ export default function App() {
           <Route path="/markdown" element={<MarkdownPage />} />
           <Route path="/skills" element={<SkillsManagerPage />} />
           <Route path="/mcp" element={<McpManagerPage />} />
-          <Route path="/health" element={<HealthPage />} />
           <Route path="/profiles" element={<ProfilesPage />} />
           <Route path="/providers" element={<ProvidersPage />} />
           <Route path="/prompts" element={<PromptsPage />} />

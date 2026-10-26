@@ -33,7 +33,7 @@ export default function DataSection() {
       <SettingGroup>
         <SettingRow
           label="自动备份 MCP 配置"
-          description="应用打开期间每 6 小时自动快照一次各 agent 的 MCP 配置,可在健康检查页恢复"
+          description="应用打开期间每 6 小时自动快照一次各 agent 的 MCP 配置,可在 MCP 管理页回滚"
         >
           <Toggle checked={autoBackup} onChange={setAutoBackupEnabled} label="自动备份 MCP 配置" />
         </SettingRow>

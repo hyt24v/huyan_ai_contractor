@@ -5,7 +5,7 @@
 ## 项目速览
 
 - Tauri 桌面应用「AI包工头」：React 18 + TS + Vite 前端，Rust 后端（`src-tauri/`）
-- 纯本地工具集：JSON 编辑器、Markdown 编辑器、Skills/MCP/提示词/配置套餐/模型服务管理、健康检查
+- 纯本地工具集：JSON 编辑器、Markdown 编辑器、Skills/MCP/提示词/配置套餐/模型服务管理
 - 测试：`npm test`（Vitest）；类型：`npx tsc -b --force`；后端：`cd src-tauri && cargo check`
 
 ## 分支与发布规则（重要）

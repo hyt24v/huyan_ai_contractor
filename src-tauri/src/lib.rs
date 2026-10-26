@@ -343,7 +343,7 @@ fn show_main_window(app: &tauri::AppHandle) {
     }
 }
 
-/// 原生菜单托盘：版本号（禁用展示）、打开主窗口、健康检查、退出
+/// 原生菜单托盘：版本号（禁用展示）、打开主窗口、退出
 fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     let version_item = MenuItemBuilder::with_id(
         "tray-version",
@@ -352,11 +352,10 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     .enabled(false)
     .build(app)?;
     let show_item = MenuItemBuilder::with_id("tray-show", "打开主窗口").build(app)?;
-    let health_item = MenuItemBuilder::with_id("tray-health", "健康检查").build(app)?;
     let quit_item = MenuItemBuilder::with_id("tray-quit", "退出").build(app)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let menu = MenuBuilder::new(app)
-        .items(&[&version_item, &show_item, &health_item, &separator, &quit_item])
+        .items(&[&version_item, &show_item, &separator, &quit_item])
         .build()?;
     let mut tray = TrayIconBuilder::new()
         .menu(&menu)
@@ -364,13 +363,6 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| match event.id().as_ref() {
             "tray-show" => show_main_window(app),
-            "tray-health" => {
-                show_main_window(app);
-                // 前端 Layout 监听 navigate 事件并跳转；webview 尚未就绪时静默丢弃
-                if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.emit("navigate", "/health");
-                }
-            }
             "tray-quit" => app.exit(0),
             _ => {}
         });

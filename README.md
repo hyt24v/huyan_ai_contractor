@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  本地 AI Agent 工具箱：JSON 编辑器、Skills 管理、MCP 管理、健康检查、配置套餐、模型服务、提示词。<br />
+  本地 AI Agent 工具箱：JSON 编辑器、Skills 管理、MCP 管理、配置套餐、模型服务、提示词。<br />
   纯本地运行，数据不出本机；支持网页版和 macOS 桌面 App（Tauri）。
 </p>
 
@@ -53,7 +53,6 @@
   - 标签 / 来源 / 预设过滤，详情抽屉预览 `SKILL.md`
   - 本地 skill 收编、GitHub URL 安装、审计、市场搜索、git 更新
 - **MCP 管理**：中央清单 `~/.ai-baogongtou/mcp-central.json`，勾选分发到各 Agent；分发前 Diff 预览、自动快照、历史回滚、漂移检测
-- **健康检查**：Agent 配置 / Skills / MCP / 备份统一体检，输出评分与问题清单
 - **配置套餐**：把 Skills + MCP + 提示词 + 模型服务打包成套餐，一键应用
 - **模型服务**：Provider 预设与切换，支持 Claude Code / Codex / Pi，写入前自动备份
 - **提示词**：维护 `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` 等提示词库，按 Agent 写入并保留备份
@@ -133,8 +132,8 @@ npm run tauri:build  # 打包 AI包工头.app + .dmg
 ```text
 src/
   components/        通用组件 + skills/ 卡片、详情抽屉、Agent 徽章
-  lib/               纯逻辑（JSON/JSONL、MCP、Skills、诊断、套餐、Provider）
-  pages/             JSON、Skills、MCP、健康检查、配置套餐、模型服务、提示词
+  lib/               纯逻辑（JSON/JSONL、MCP、Skills、套餐、Provider）
+  pages/             JSON、Skills、MCP、配置套餐、模型服务、提示词
   services/          与 Tauri / 文件系统交互的粘合层
 src-tauri/
   capabilities/      Tauri FS 权限

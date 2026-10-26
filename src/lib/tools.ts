@@ -2,7 +2,6 @@ import {
   Braces,
   Cable,
   FileText,
-  HeartPulse,
   Layers,
   PenLine,
   Puzzle,
@@ -14,7 +13,7 @@ export interface ToolDef {
   name: string;
   icon: typeof Braces;
   /** 侧栏分组（借鉴 skills-manager 侧栏分组） */
-  group: '编辑器' | '管理' | '系统';
+  group: '编辑器' | '管理';
 }
 
 export const TOOLS: ToolDef[] = [
@@ -25,8 +24,7 @@ export const TOOLS: ToolDef[] = [
   { path: '/prompts', name: '提示词', icon: FileText, group: '管理' },
   { path: '/profiles', name: '配置套餐', icon: Layers, group: '管理' },
   { path: '/providers', name: '模型服务', icon: Server, group: '管理' },
-  { path: '/health', name: '健康检查', icon: HeartPulse, group: '系统' },
 ];
 
 /** 侧栏分组顺序 */
-export const TOOL_GROUPS: ToolDef['group'][] = ['编辑器', '管理', '系统'];
+export const TOOL_GROUPS: ToolDef['group'][] = ['编辑器', '管理'];
