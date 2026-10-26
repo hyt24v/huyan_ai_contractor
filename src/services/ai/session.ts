@@ -16,6 +16,9 @@ export interface AiMessage {
 
 const MAX_MESSAGES = 40;
 
+/** 稳定的空数组引用：useSyncExternalStore 的 getSnapshot 必须返回缓存值，否则无限重渲染 */
+const EMPTY_MESSAGES: readonly AiMessage[] = Object.freeze([]);
+
 const sessions = new Map<string, AiMessage[]>();
 const listeners = new Set<() => void>();
 let seq = 0;
@@ -25,7 +28,7 @@ function notify(): void {
 }
 
 export function listMessages(scope: string): readonly AiMessage[] {
-  return sessions.get(scope) ?? [];
+  return sessions.get(scope) ?? EMPTY_MESSAGES;
 }
 
 export function appendMessage(
