@@ -17,6 +17,11 @@ describe('detectMode', () => {
     expect(detectMode('{"a":1}\n{"b":2}')).toBe('jsonl');
     expect(detectMode('{"a":1}\n\n{"b":2}')).toBe('jsonl');
   });
+  it('多行美化 JSON 连写（每条记录跨多行）→ jsonl', () => {
+    const pretty =
+      '{\n  "name": "AI包工头",\n  "version": "0.5.1"\n}\n{\n  "name": "AI包工头",\n  "version": "0.5.1"\n}';
+    expect(detectMode(pretty)).toBe('jsonl');
+  });
   it('单行 JSON → json', () => {
     expect(detectMode('{"a":1}')).toBe('json');
   });

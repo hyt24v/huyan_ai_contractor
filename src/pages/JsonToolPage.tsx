@@ -30,7 +30,7 @@ import {
   duplicateLine,
   jsonlStats,
   normalizeJsonl,
-  parseJsonl,
+  parseJsonlSmart,
   type JsonlLineResult,
   type JsonValue,
 } from '../lib/jsonl';
@@ -177,7 +177,7 @@ export default function JsonToolPage() {
           }
         }
       } else {
-        const rs = parseJsonl(value);
+        const rs = parseJsonlSmart(value);
         setJsonlResults(rs);
         setJsonError(null);
         if (model) {
@@ -191,9 +191,12 @@ export default function JsonToolPage() {
                 message: r.error ?? '解析失败',
                 startLineNumber: r.line,
                 startColumn: 1,
-                endLineNumber: r.line,
+                endLineNumber: Math.min(
+                  r.endLine ?? r.line,
+                  model.getLineCount(),
+                ),
                 endColumn: model.getLineMaxColumn(
-                  Math.min(r.line, model.getLineCount()),
+                  Math.min(r.endLine ?? r.line, model.getLineCount()),
                 ),
               })),
           );
@@ -384,10 +387,14 @@ export default function JsonToolPage() {
   }, [mode, jsonlResults, jsonValue]);
 
   const handleTableDelete = useCallback(
-    (line: number) => {
+    (line: number, endLine?: number) => {
       if (mode === 'jsonl') {
-        setText(deleteLine(text, line));
-        showToast(`已删除第 ${line} 行`);
+        setText(deleteLine(text, line, endLine));
+        showToast(
+          endLine && endLine > line
+            ? `已删除第 ${line}–${endLine} 行`
+            : `已删除第 ${line} 行`,
+        );
       } else if (Array.isArray(jsonValue)) {
         const next = (jsonValue as JsonValue[]).filter(
           (_, i) => i !== line - 1,
@@ -433,7 +440,7 @@ export default function JsonToolPage() {
             if (mode === 'json') {
               showToast(parseJsonTolerant(text).ok ? '✓ JSON 合法' : 'JSON 有错误');
             } else {
-              const s = jsonlStats(parseJsonl(text));
+              const s = jsonlStats(parseJsonlSmart(text));
               showToast(
                 s.errors === 0
                   ? `✓ ${s.valid} 行全部合法`

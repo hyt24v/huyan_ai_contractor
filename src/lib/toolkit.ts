@@ -4,7 +4,11 @@
 import { jsonrepair } from 'jsonrepair';
 import { JSONPath } from 'jsonpath-plus';
 import { parseJson } from './json';
-import { parseJsonl, type JsonValue } from './jsonl';
+import {
+  parseJsonlSmart,
+  parseJsonRecords,
+  type JsonValue,
+} from './jsonl';
 
 // ---------- 模式识别 ----------
 
@@ -24,6 +28,9 @@ export function detectMode(text: string): EditorMode {
   if (nonEmpty.length >= 2) {
     const okCount = nonEmpty.filter((l) => parseJson(l).ok).length;
     if (okCount >= 1) return 'jsonl';
+    // 多行美化 JSON 连写（每条记录跨多行）：按顶层 JSON 值切分再判
+    const records = parseJsonRecords(text);
+    if (records.length >= 2 && records.some((r) => r.ok)) return 'jsonl';
   }
   return 'json';
 }
@@ -136,7 +143,7 @@ export function queryJsonPath(
     if (!r.ok) return { ok: false, error: `JSON 解析失败：${r.error.message}` };
     doc = r.value;
   } else {
-    const rs = parseJsonl(text);
+    const rs = parseJsonlSmart(text);
     const values: JsonValue[] = [];
     for (const l of rs) {
       if (!l.empty && l.ok) values.push(asJsonValue(l.value));

@@ -15,7 +15,7 @@ export default function JsonlTableView({
   onJumpToLine,
 }: {
   results: JsonlLineResult[];
-  onDeleteLine: (line: number) => void;
+  onDeleteLine: (line: number, endLine?: number) => void;
   onJumpToLine: (line: number) => void;
 }) {
   const validRows = useMemo(
@@ -62,7 +62,7 @@ export default function JsonlTableView({
                 className="mb-1 mr-1.5 rounded-md bg-destructive/10 px-1.5 py-0.5 font-mono text-[11px] text-destructive hover:bg-destructive/20"
                 title={r.error}
               >
-                第 {r.line} 行
+                第 {r.endLine && r.endLine > r.line ? `${r.line}–${r.endLine}` : r.line} 行
               </button>
             ))}
           </div>
@@ -116,7 +116,7 @@ export default function JsonlTableView({
                 })}
                 <td className="px-2 py-1.5 text-center align-middle">
                   <button
-                    onClick={() => onDeleteLine(r.line)}
+                    onClick={() => onDeleteLine(r.line, r.endLine)}
                     className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                     title="删除此行"
                   >
