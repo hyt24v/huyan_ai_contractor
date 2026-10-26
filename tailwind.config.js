@@ -41,6 +41,11 @@ export default {
         ring: 'hsl(var(--ring))',
         activitybar: 'hsl(var(--activitybar))',
         sidebar: 'hsl(var(--sidebar))',
+        chrome: {
+          DEFAULT: 'hsl(var(--chrome))',
+          muted: 'hsl(var(--chrome-muted))',
+        },
+        content: 'hsl(var(--content))',
       },
       borderRadius: {
         lg: 'var(--radius-outer)',

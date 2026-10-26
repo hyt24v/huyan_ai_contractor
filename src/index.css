@@ -25,6 +25,9 @@
     --ring: 221 83% 53%;
     --activitybar: 240 5% 95%;
     --sidebar: 0 0% 98%;
+    --chrome: 240 6% 92%;
+    --chrome-muted: 240 4% 64%;
+    --content: 0 0% 100%;
     /* 分级圆角（Otty/VS Code 范式：control/inner/outer）；加大后更贴近 macOS 原生质感 */
     --radius-control: 6px;
     --radius-inner: 10px;
@@ -47,6 +50,13 @@
   }
   ::selection {
     @apply bg-primary/20;
+  }
+}
+
+/* 面板卡片（dbx 范式：1px border + 圆角，浮在 chrome 外壳上，无阴影） */
+@layer components {
+  .panel {
+    @apply rounded-lg border bg-card;
   }
 }
 

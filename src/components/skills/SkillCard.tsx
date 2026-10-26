@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { AgentId } from '../../lib/agents';
 import { useAgents } from '../../hooks/useAgents';
+import type { SkillAgentState } from '../../lib/skills';
 import {
   skillEnabledAnywhere,
   sourceLabel,
@@ -22,6 +23,7 @@ import {
   type SkillSource,
 } from '../../lib/skillCatalog';
 import AgentBadge from './AgentBadge';
+import AgentBadgeStrip from './AgentBadgeStrip';
 
 const TAG_TONES = [
   'bg-sky-500/10 text-sky-700 dark:text-sky-300',
@@ -306,19 +308,19 @@ export default function SkillCard({
     </div>
   );
 
+  const handlePress = (agent: AgentId, state: SkillAgentState) => {
+    if (state === 'local') onAdopt(agent);
+    else onToggleAgent(agent);
+  };
+
+  // 只展示已部署/本地的徽标，超出折叠 +N；不再平铺全部可见 agent 的灰点
   const agentBadges = (
-    <div className="flex items-center gap-1">
-      {agents.map((a) => (
-        <AgentBadge
-          key={a.id}
-          agent={a.id}
-          state={skill.agents[a.id]}
-          onClick={() =>
-            skill.agents[a.id] === 'local' ? onAdopt(a.id) : onToggleAgent(a.id)
-          }
-        />
-      ))}
-    </div>
+    <AgentBadgeStrip
+      agents={agents}
+      states={skill.agents}
+      busy={busy}
+      onPress={handlePress}
+    />
   );
 
   if (layout === 'list') {
@@ -363,7 +365,7 @@ export default function SkillCard({
             />
           </span>
         ) : (
-          <span className="hidden shrink-0 sm:block">{agentBadges}</span>
+          <span className="shrink-0">{agentBadges}</span>
         )}
         {skill.gitRemote && (
           <button

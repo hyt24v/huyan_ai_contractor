@@ -35,6 +35,12 @@ export interface ThemeDefinition {
     activitybar: string;
     /** 导航面板 */
     sidebar: string;
+    /** 应用外壳底色（dbx 范式：面板卡片浮在其上） */
+    chrome: string;
+    /** 外壳上的弱化文字/元素色 */
+    chromeMuted: string;
+    /** 内容面板底色 */
+    content: string;
   };
 }
 
@@ -67,6 +73,9 @@ export const THEMES: ThemeDefinition[] = [
       ring: '#82aaff',
       activitybar: '#0d0d1a',
       sidebar: '#10101d',
+      chrome: '#0c0c18',
+      chromeMuted: '#565670',
+      content: '#12121f',
     },
   },
   {
@@ -97,6 +106,9 @@ export const THEMES: ThemeDefinition[] = [
       ring: '#61afef',
       activitybar: '#1f242b',
       sidebar: '#242930',
+      chrome: '#1b2026',
+      chromeMuted: '#5c6370',
+      content: '#21252b',
     },
   },
   {
@@ -127,6 +139,9 @@ export const THEMES: ThemeDefinition[] = [
       ring: '#89b4fa',
       activitybar: '#11111b',
       sidebar: '#181825',
+      chrome: '#14141f',
+      chromeMuted: '#6c7086',
+      content: '#181825',
     },
   },
   {
@@ -157,6 +172,9 @@ export const THEMES: ThemeDefinition[] = [
       ring: '#7fbbb3',
       activitybar: '#272e33',
       sidebar: '#313b41',
+      chrome: '#232a2e',
+      chromeMuted: '#56635f',
+      content: '#343f44',
     },
   },
   {
@@ -187,6 +205,9 @@ export const THEMES: ThemeDefinition[] = [
       ring: '#e0719c',
       activitybar: '#f9e3ec',
       sidebar: '#fceef3',
+      chrome: '#f6dfe8',
+      chromeMuted: '#c49aa8',
+      content: '#ffffff',
     },
   },
   {
@@ -217,6 +238,9 @@ export const THEMES: ThemeDefinition[] = [
       ring: '#2563eb',
       activitybar: '#f0f0f2',
       sidebar: '#fafafa',
+      chrome: '#ebebef',
+      chromeMuted: '#a1a1aa',
+      content: '#ffffff',
     },
   },
 ];
@@ -274,6 +298,9 @@ const TOKEN_CSS_VAR: Record<keyof ThemeDefinition['tokens'], string> = {
   ring: '--ring',
   activitybar: '--activitybar',
   sidebar: '--sidebar',
+  chrome: '--chrome',
+  chromeMuted: '--chrome-muted',
+  content: '--content',
 };
 
 /** 把主题注入到 <html>：CSS 变量 + data-theme + dark class（兼容既有 dark: 变体） */

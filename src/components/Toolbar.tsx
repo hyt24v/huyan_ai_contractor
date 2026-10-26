@@ -1,14 +1,15 @@
 import type { ReactNode } from 'react';
+import { Button } from './ui/controls';
 
 export function Toolbar({ children }: { children: ReactNode }) {
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b bg-card px-4 py-2.5">
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b bg-card px-4 py-2">
       {children}
     </div>
   );
 }
 
-/** shadcn 风格工具栏按钮 */
+/** 工具栏按钮（dbx 密度：h-8 px-2.5 text-xs，无阴影） */
 export function ToolbarButton({
   onClick,
   children,
@@ -24,19 +25,16 @@ export function ToolbarButton({
   active?: boolean;
   disabled?: boolean;
 }) {
-  const base =
-    'inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors ' +
-    'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ' +
-    'disabled:pointer-events-none disabled:opacity-50';
-  const color = primary
-    ? 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90'
-    : active
-      ? 'bg-accent text-accent-foreground'
-      : 'border border-input bg-transparent text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground';
   return (
-    <button onClick={onClick} title={title} disabled={disabled} className={`${base} ${color}`}>
+    <Button
+      variant={primary ? 'default' : active ? 'ghost' : 'outline'}
+      onClick={onClick}
+      title={title}
+      disabled={disabled}
+      className={active ? 'bg-accent text-accent-foreground' : ''}
+    >
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -62,7 +60,7 @@ export function SegmentedControl<T extends string>({
           onClick={() => onChange(opt.value)}
           className={`h-7 rounded-sm px-3 text-xs font-medium transition-all ${
             value === opt.value
-              ? 'bg-background text-foreground shadow-sm'
+              ? 'bg-background text-foreground'
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >

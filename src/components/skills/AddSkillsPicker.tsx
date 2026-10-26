@@ -5,6 +5,7 @@ import type { AgentId } from '../../lib/agents';
 import { useAgents } from '../../hooks/useAgents';
 import { skillEnabledAnywhere, type CatalogSkill } from '../../lib/skillCatalog';
 import AgentBadge from './AgentBadge';
+import AgentPickerPopover from './AgentPickerPopover';
 import { TagPill } from './SkillCard';
 
 export interface AddSkillsPickerProps {
@@ -25,7 +26,6 @@ export default function AddSkillsPicker({
   onDeploy,
 }: AddSkillsPickerProps) {
   const visibleAgents = useAgents();
-  const visibleAgentIds = visibleAgents.map((a) => a.id);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [agents, setAgents] = useState<Set<AgentId>>(() => new Set(initialAgents));
@@ -62,15 +62,6 @@ export default function AddSkillsPicker({
     });
   };
 
-  const toggleAgent = (agent: AgentId) => {
-    setAgents((prev) => {
-      const next = new Set(prev);
-      if (next.has(agent)) next.delete(agent);
-      else next.add(agent);
-      return next;
-    });
-  };
-
   const selectAllVisible = () => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -83,7 +74,6 @@ export default function AddSkillsPicker({
     });
   };
 
-  const allAgentsSelected = visibleAgents.every((a) => agents.has(a.id));
   const canDeploy = selected.size > 0 && agents.size > 0 && !busy;
 
   return (
@@ -109,47 +99,31 @@ export default function AddSkillsPicker({
           </button>
         </div>
 
-        {/* 目标 Agent 始终可见 */}
+        {/* 目标 Agent：聚合到可搜索多选弹层，不再平铺 chips */}
         <div className="shrink-0 border-b bg-muted/30 px-4 py-2.5">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="mr-1 text-[11px] font-medium text-muted-foreground">目标 Agent</span>
-            {visibleAgents.map((a) => {
-              const on = agents.has(a.id);
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-medium text-muted-foreground">目标 Agent</span>
+            <AgentPickerPopover
+              agents={visibleAgents}
+              selected={agents}
+              onChange={(next: Set<AgentId>) => setAgents(next)}
+              label="选择"
+            />
+            {(() => {
+              // 只统计当前可见 agent，隐藏的不计入 +N
+              const chosen = visibleAgents.filter((a) => agents.has(a.id));
+              if (chosen.length === 0) return null;
               return (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={() => toggleAgent(a.id)}
-                  title={on ? `取消 ${a.name}` : `选择 ${a.name}`}
-                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition ${
-                    on
-                      ? 'border-primary/40 bg-primary/10 text-foreground'
-                      : 'border-border bg-card text-muted-foreground hover:bg-accent'
-                  }`}
-                >
-                  <AgentBadge agent={a.id} state={on ? 'linked' : 'none'} />
-                  {a.name}
-                </button>
+                <span className="flex min-w-0 items-center gap-1">
+                  {chosen.slice(0, 6).map((a) => (
+                    <AgentBadge key={a.id} agent={a.id} state="linked" />
+                  ))}
+                  {chosen.length > 6 && (
+                    <span className="text-[10px] text-muted-foreground">+{chosen.length - 6}</span>
+                  )}
+                </span>
               );
-            })}
-            <span className="ml-auto flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setAgents(new Set(visibleAgentIds))}
-                disabled={allAgentsSelected}
-                className="rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40"
-              >
-                全选
-              </button>
-              <button
-                type="button"
-                onClick={() => setAgents(new Set())}
-                disabled={agents.size === 0}
-                className="rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40"
-              >
-                清空
-              </button>
-            </span>
+            })()}
           </div>
         </div>
 

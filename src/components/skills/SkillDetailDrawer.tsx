@@ -3,12 +3,15 @@ import { useEffect, useState } from 'react';
 import {
   ArrowUpCircle,
   Cable,
+  ChevronDown,
+  ChevronUp,
   FileText,
   FolderInput,
   Folder,
   GitBranch,
   Globe2,
   Loader2,
+  Search,
   Trash2,
   X,
 } from 'lucide-react';
@@ -112,6 +115,8 @@ export default function SkillDetailDrawer({
   const [fileContent, setFileContent] = useState('');
   const [fileLoading, setFileLoading] = useState(false);
   const [fileError, setFileError] = useState('');
+  const [agentQuery, setAgentQuery] = useState('');
+  const [showUndeployed, setShowUndeployed] = useState(false);
 
   // 打开时加载文件树,默认选中 SKILL.md(没有则第一个 md)
   useEffect(() => {
@@ -121,6 +126,8 @@ export default function SkillDetailDrawer({
     setSelected(null);
     setFileContent('');
     setFileError('');
+    setAgentQuery('');
+    setShowUndeployed(false);
     listSkillFiles(skill)
       .then((list) => {
         if (!alive) return;
@@ -238,21 +245,48 @@ export default function SkillDetailDrawer({
           </dl>
 
           <div className="mt-3 border-t pt-3">
-            <div className="mb-1.5 flex items-center justify-between">
+            <div className="mb-1.5 flex items-center justify-between gap-2">
               <span className="text-[11px] font-medium text-muted-foreground">部署状态</span>
-              {skill.inLibrary && (
-                <ActionButton
-                  icon={Cable}
-                  disabled={busy}
-                  onClick={onSyncAll}
-                >
-                  全部部署
-                </ActionButton>
-              )}
+              <span className="flex items-center gap-1.5">
+                {visibleAgents.length > 8 && (
+                  <span className="relative">
+                    <Search className="pointer-events-none absolute left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      value={agentQuery}
+                      onChange={(e) => setAgentQuery(e.target.value)}
+                      placeholder="搜索 Agent…"
+                      className="h-6 w-32 rounded-md border border-input bg-transparent pl-5 pr-1.5 text-[11px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    />
+                  </span>
+                )}
+                {skill.inLibrary && (
+                  <ActionButton
+                    icon={Cable}
+                    disabled={busy}
+                    onClick={onSyncAll}
+                  >
+                    全部部署
+                  </ActionButton>
+                )}
+              </span>
             </div>
-            <div className="space-y-1">
-              {visibleAgents.map((a) => {
-                const state = skill.agents[a.id];
+            {(() => {
+              const needle = agentQuery.trim().toLowerCase();
+              const matched = needle
+                ? visibleAgents.filter(
+                    (a) => a.name.toLowerCase().includes(needle) || a.id.includes(needle),
+                  )
+                : visibleAgents;
+              const deployed = matched.filter(
+                (a) => (skill.agents[a.id] ?? 'none') !== 'none',
+              );
+              const undeployed = matched.filter(
+                (a) => (skill.agents[a.id] ?? 'none') === 'none',
+              );
+              // 未部署的 agent 可能几十个：默认折叠，搜索时强制展开匹配项
+              const expandNone = showUndeployed || needle !== '' || undeployed.length <= 8;
+              const renderRow = (a: (typeof visibleAgents)[number]) => {
+                const state = skill.agents[a.id] ?? 'none';
                 return (
                   <div
                     key={a.id}
@@ -306,8 +340,39 @@ export default function SkillDetailDrawer({
                     </div>
                   </div>
                 );
-              })}
-            </div>
+              };
+              return (
+                <div className="space-y-1">
+                  {deployed.map(renderRow)}
+                  {undeployed.length > 0 && !expandNone && (
+                    <button
+                      type="button"
+                      onClick={() => setShowUndeployed(true)}
+                      className="flex w-full items-center gap-1.5 rounded-md border border-dashed px-2 py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    >
+                      <ChevronDown className="h-3 w-3" />
+                      展开未部署的 {undeployed.length} 个 Agent
+                    </button>
+                  )}
+                  {expandNone && undeployed.map(renderRow)}
+                  {expandNone && undeployed.length > 8 && !agentQuery.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => setShowUndeployed(false)}
+                      className="flex w-full items-center gap-1.5 rounded-md border border-dashed px-2 py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    >
+                      <ChevronUp className="h-3 w-3" />
+                      收起未部署的 {undeployed.length} 个 Agent
+                    </button>
+                  )}
+                  {matched.length === 0 && (
+                    <div className="rounded-md border border-dashed px-2 py-4 text-center text-[11px] text-muted-foreground">
+                      没有匹配的 Agent
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           <div className="mt-3 border-t pt-3">

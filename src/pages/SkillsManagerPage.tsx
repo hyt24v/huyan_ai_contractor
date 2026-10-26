@@ -26,6 +26,7 @@ import {
 import { SegmentedControl, ToolbarButton } from '../components/Toolbar';
 import SkillAuditDrawer from '../components/SkillAuditDrawer';
 import AddSkillsPicker from '../components/skills/AddSkillsPicker';
+import AgentPickerPopover from '../components/skills/AgentPickerPopover';
 import AgentBadge, { agentName } from '../components/skills/AgentBadge';
 import SkillCard, { TagPill } from '../components/skills/SkillCard';
 import SkillDetailDrawer from '../components/skills/SkillDetailDrawer';
@@ -290,7 +291,9 @@ export default function SkillsManagerPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
 
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
-  const [batchAgent, setBatchAgent] = useState<AgentId | 'all'>('all');
+  // 批量操作目标：默认全部可见 agent
+  // null = 未手动选择过（按全部可见 agent 处理）；空 Set = 用户显式清空（此时禁止批量操作）
+  const [batchAgents, setBatchAgents] = useState<Set<AgentId> | null>(null);
   const [detailName, setDetailName] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerAgents, setPickerAgents] = useState<AgentId[]>(['claude']);
@@ -557,7 +560,13 @@ export default function SkillsManagerPage() {
 
   const batchApply = (mode: 'enable' | 'disable') => {
     if (selected.size === 0) return;
-    const targets: AgentId[] = batchAgent === 'all' ? agentIds : [batchAgent];
+    // null = 未手动选择过，按「全部可见 agent」处理；同时过滤设置里已隐藏的 agent
+    const pool = batchAgents === null ? agentIds : [...batchAgents];
+    const targets: AgentId[] = pool.filter((id) => agentIds.includes(id));
+    if (targets.length === 0) {
+      showToast('请先选择至少一个目标 Agent', 'err');
+      return;
+    }
     void run(async () => {
       let ok = 0;
       const failed: string[] = [];
@@ -1402,80 +1411,95 @@ export default function SkillsManagerPage() {
     <div className="flex h-full">
       {/* 页内二级导航（桌面） */}
       <aside className="hidden w-[190px] shrink-0 flex-col border-r bg-card/50 md:flex">
-        <div className="p-2">
-          <NavItem
-            icon={<Library />}
-            label="中央库"
-            count={libraryCount}
-            active={nav === 'library'}
-            onClick={() => selectNav('library')}
-          />
-          <NavItem
-            icon={<Globe2 />}
-            label="全部 Agent"
-            count={agents.length}
-            active={nav === 'agents'}
-            onClick={() => selectNav('agents')}
-          />
-        </div>
-
-        <div className="border-t px-2 pb-1">
-          <SectionLabel>Agent 工作区</SectionLabel>
-          {agents.map((agent) => (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="p-2">
             <NavItem
-              key={agent.id}
-              icon={<AgentBadge agent={agent.id} state="linked" />}
-              label={agent.name}
-              count={stats?.byAgent[agent.id].total ?? 0}
-              active={nav === agent.id}
-              onClick={() => selectNav(agent.id)}
+              icon={<Library />}
+              label="中央库"
+              count={libraryCount}
+              active={nav === 'library'}
+              onClick={() => selectNav('library')}
             />
-          ))}
-        </div>
-
-        {/* 项目工作区（复刻 skills-manager：项目库与中央库双向同步） */}
-        <div className="border-t px-2 pb-1">
-          <SectionLabel>项目工作区</SectionLabel>
-          <NavItem
-            icon={<FolderGit2 />}
-            label="全部项目"
-            count={projects.length}
-            active={nav === 'projects'}
-            onClick={() => selectNav('projects')}
-          />
-          {projects.map((p) => (
             <NavItem
-              key={p.path}
-              icon={<Folder />}
-              label={baseName(p.path)}
-              active={nav === `proj:${p.path}`}
-              onClick={() => selectNav(`proj:${p.path}`)}
+              icon={<Globe2 />}
+              label="全部 Agent"
+              count={agents.length}
+              active={nav === 'agents'}
+              onClick={() => selectNav('agents')}
             />
-          ))}
-          <NavItem
-            icon={<Plus />}
-            label="关联项目…"
-            onClick={() => setLinkOpen(true)}
-          />
-        </div>
+          </div>
 
-        {profiles.length > 0 && (
           <div className="border-t px-2 pb-1">
-            <SectionLabel>预设</SectionLabel>
-            {profiles.map((p) => (
+            <SectionLabel>Agent 工作区</SectionLabel>
+            {/* 只平铺有 skill 的 agent；其余收进「全部 Agent」页，避免几十个 agent 刷屏 */}
+            {agents
+              .filter(
+                (agent) =>
+                  (stats?.byAgent[agent.id]?.total ?? 0) > 0 || nav === agent.id,
+              )
+              .map((agent) => (
+                <NavItem
+                  key={agent.id}
+                  icon={<AgentBadge agent={agent.id} state="linked" />}
+                  label={agent.name}
+                  count={stats?.byAgent[agent.id]?.total ?? 0}
+                  active={nav === agent.id}
+                  onClick={() => selectNav(agent.id)}
+                />
+              ))}
+            {agents.some((a) => (stats?.byAgent[a.id]?.total ?? 0) === 0 && nav !== a.id) && (
               <NavItem
-                key={p.id}
-                icon={<Layers />}
-                label={p.name}
-                count={p.skills.length}
-                active={presetId === p.id}
-                onClick={() => togglePreset(p.id)}
+                icon={<ChevronRight />}
+                label="更多 Agent…"
+                onClick={() => selectNav('agents')}
+              />
+            )}
+          </div>
+
+          {/* 项目工作区（复刻 skills-manager：项目库与中央库双向同步） */}
+          <div className="border-t px-2 pb-1">
+            <SectionLabel>项目工作区</SectionLabel>
+            <NavItem
+              icon={<FolderGit2 />}
+              label="全部项目"
+              count={projects.length}
+              active={nav === 'projects'}
+              onClick={() => selectNav('projects')}
+            />
+            {projects.map((p) => (
+              <NavItem
+                key={p.path}
+                icon={<Folder />}
+                label={baseName(p.path)}
+                active={nav === `proj:${p.path}`}
+                onClick={() => selectNav(`proj:${p.path}`)}
               />
             ))}
+            <NavItem
+              icon={<Plus />}
+              label="关联项目…"
+              onClick={() => setLinkOpen(true)}
+            />
           </div>
-        )}
 
-        <div className="mt-auto border-t p-2">
+          {profiles.length > 0 && (
+            <div className="border-t px-2 pb-1">
+              <SectionLabel>预设</SectionLabel>
+              {profiles.map((p) => (
+                <NavItem
+                  key={p.id}
+                  icon={<Layers />}
+                  label={p.name}
+                  count={p.skills.length}
+                  active={presetId === p.id}
+                  onClick={() => togglePreset(p.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="shrink-0 border-t p-2">
           <NavItem
             icon={<Download />}
             label="安装 Skills"
@@ -1492,22 +1516,33 @@ export default function SkillsManagerPage() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* 小屏：横向滚动 tabs */}
-        <div className="flex shrink-0 gap-1 overflow-x-auto border-b bg-card px-2 py-1.5 md:hidden">
+        {/* 小屏：固定入口 chips + Agent 下拉（几十个 agent 不再横滚刷屏） */}
+        <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b bg-card px-2 py-1.5 md:hidden">
           <Chip label="中央库" active={nav === 'library'} onClick={() => selectNav('library')} />
           <Chip
             label="全部 Agent"
             active={nav === 'agents'}
             onClick={() => selectNav('agents')}
           />
-          {agents.map((agent) => (
-            <Chip
-              key={agent.id}
-              label={agent.name}
-              active={nav === agent.id}
-              onClick={() => selectNav(agent.id)}
-            />
-          ))}
+          <select
+            value={activeAgent ?? ''}
+            onChange={(e) => {
+              if (e.target.value) selectNav(e.target.value as AgentId);
+            }}
+            title="选择 Agent 工作区"
+            className={`h-6 max-w-[140px] rounded-full border px-2 text-[11px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${
+              activeAgent
+                ? 'border-primary/40 bg-primary/10 text-foreground'
+                : 'border-border bg-card text-muted-foreground'
+            }`}
+          >
+            <option value="">Agent 工作区…</option>
+            {agents.map((agent) => (
+              <option key={agent.id} value={agent.id}>
+                {agent.name}
+              </option>
+            ))}
+          </select>
           <Chip
             label="安装 Skills"
             active={nav === 'install'}
@@ -1637,21 +1672,14 @@ export default function SkillsManagerPage() {
           <span className="whitespace-nowrap text-xs font-medium">
             已选 {selected.size} 个
           </span>
-          <select
-            value={batchAgent}
-            onChange={(e) =>
-              setBatchAgent(e.target.value === 'all' ? 'all' : (e.target.value as AgentId))
-            }
-            className="h-7 rounded-md border border-input bg-card px-1.5 text-[11px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            title="批量操作目标 Agent"
-          >
-            <option value="all">全部 Agent</option>
-            {agents.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
+          <AgentPickerPopover
+            agents={agents}
+            selected={batchAgents === null ? new Set(agentIds) : batchAgents}
+            onChange={(next: Set<AgentId>) => setBatchAgents(next)}
+            align="up"
+            label="目标 Agent"
+            disabled={busy}
+          />
           <button
             type="button"
             disabled={busy}
