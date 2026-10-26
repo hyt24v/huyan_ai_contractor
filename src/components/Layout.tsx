@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { PanelLeftClose, PanelLeftOpen, Settings, Sparkles } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, Settings, Sparkles, ArrowUpCircle, Search } from 'lucide-react';
 import type { Update } from '@tauri-apps/plugin-updater';
 import AiDock from './AiDock';
-import CommandPalette from './CommandPalette';
+import CommandPalette, { TOGGLE_COMMAND_PALETTE_EVENT } from './CommandPalette';
 import UpdateDialog from './UpdateDialog';
 import WhatsNewDialog from './WhatsNewDialog';
 import { useAutoBackup } from '../hooks/useAutoBackup';
@@ -118,8 +118,11 @@ export default function Layout() {
   return (
     // dbx 范式：chrome 外壳底色 + gap-1 p-1 留缝，各面板为独立圆角描边卡片
     <div className="flex h-full gap-1 bg-chrome p-1">
-      {/* Activity Bar（图标条） */}
-      <div className="flex w-12 shrink-0 flex-col items-center rounded-lg border border-border/40 bg-activitybar py-2">
+      {/* Activity Bar（图标条）；顶部为 macOS Overlay 红绿灯预留空间（可作拖拽区） */}
+      <div
+        data-tauri-drag-region
+        className="flex w-12 shrink-0 flex-col items-center rounded-lg border border-border/40 bg-activitybar pb-2 pt-9"
+      >
         <img
           src={logo}
           alt="AI包工头"
@@ -222,7 +225,11 @@ export default function Layout() {
       {/* 主区域：内容面板（浮在 chrome 外壳上，无阴影） */}
       <div className="min-w-0 flex-1">
         <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-border/40 bg-content">
-          <header className="flex h-10 shrink-0 items-center justify-between border-b border-border/40 px-3">
+          {/* 顶栏兼 Tauri 拖拽区（dbx 范式 U8）：右侧收命令面板/更新入口 */}
+          <header
+            data-tauri-drag-region
+            className="flex h-10 shrink-0 items-center justify-between border-b border-border/40 pl-3 pr-2"
+          >
             <div className="flex min-w-0 items-center gap-2">
               <button
                 onClick={() => setCollapsed((c) => !c)}
@@ -244,7 +251,31 @@ export default function Layout() {
                 </span>
               </span>
             </div>
-            <span className="text-[11px] text-muted-foreground">⌘K 命令面板</span>
+            <div className="flex items-center gap-1">
+              {hasUpdate && (
+                <button
+                  onClick={() => navigate('/settings/updates')}
+                  title="发现新版本，点击查看"
+                  aria-label="有新版本可用"
+                  className="relative flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <ArrowUpCircle className="h-4 w-4" />
+                  <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-destructive" />
+                </button>
+              )}
+              <button
+                onClick={() =>
+                  window.dispatchEvent(new Event(TOGGLE_COMMAND_PALETTE_EVENT))
+                }
+                className="flex h-7 items-center gap-1.5 rounded-md px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                title="命令面板"
+              >
+                <Search className="h-3.5 w-3.5" />
+                <kbd className="rounded border border-border/60 bg-muted/50 px-1 font-sans text-[10px]">
+                  ⌘K
+                </kbd>
+              </button>
+            </div>
           </header>
           <main className="min-h-0 flex-1">
             <Outlet />

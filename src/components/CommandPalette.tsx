@@ -19,6 +19,9 @@ import {
   setThemeMode,
 } from '../hooks/useThemeSettings';
 
+/** 顶栏按钮等外部入口触发命令面板开关的自定义事件 */
+export const TOGGLE_COMMAND_PALETTE_EVENT = 'huyan:toggle-command-palette';
+
 interface PaletteItem {
   id: string;
   title: string;
@@ -222,7 +225,7 @@ export default function CommandPalette() {
       .map((entry) => entry.item);
   }, [items, query]);
 
-  // 全局快捷键：⌘K / Ctrl+K 开关，Esc 关闭
+  // 全局快捷键：⌘K / Ctrl+K 开关，Esc 关闭；自定义事件供顶栏按钮触发
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -232,8 +235,13 @@ export default function CommandPalette() {
       }
       if (e.key === 'Escape') setOpen(false);
     };
+    const onExternal = () => setOpen((prev) => !prev);
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener(TOGGLE_COMMAND_PALETTE_EVENT, onExternal);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener(TOGGLE_COMMAND_PALETTE_EVENT, onExternal);
+    };
   }, []);
 
   // 打开时重置输入与选中项
