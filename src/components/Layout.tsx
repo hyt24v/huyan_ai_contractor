@@ -118,109 +118,126 @@ export default function Layout() {
   return (
     // dbx 范式：chrome 外壳底色 + gap-1 p-1 留缝，各面板为独立圆角描边卡片
     <div className="flex h-full gap-1 bg-chrome p-1">
-      {/* Activity Bar（图标条）；顶部为 macOS Overlay 红绿灯预留空间（可作拖拽区） */}
-      <div
-        data-tauri-drag-region
-        className="flex w-12 shrink-0 flex-col items-center rounded-lg border border-border/40 bg-activitybar pb-2 pt-9"
+      {/* 单一侧栏：展开 w-52（图标+文字），折叠 w-12（纯图标条）；顶部避让 macOS 红绿灯（兼拖拽区） */}
+      <aside
+        className={`flex shrink-0 flex-col rounded-lg border border-border/40 bg-sidebar transition-[width] duration-200 ${
+          collapsed ? 'w-12' : 'w-52'
+        }`}
       >
-        <img
-          src={logo}
-          alt="AI包工头"
-          className="mb-2 h-7 w-7 shrink-0 rounded-[7px] object-cover shadow-sm"
-        />
-        <nav className="flex w-full flex-1 flex-col items-center gap-1 overflow-y-auto">
-          {TOOLS.map((t) => (
-            <NavLink
-              key={t.path}
-              to={t.path}
-              title={t.name}
-              aria-label={t.name}
-              className={({ isActive }) =>
-                `relative flex h-9 w-9 items-center justify-center rounded-md transition-colors ${
-                  isActive
-                    ? 'bg-accent text-foreground'
-                    : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  {isActive && (
-                    <span className="absolute left-[-6px] top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-full bg-primary" />
-                  )}
-                  <t.icon className="h-4 w-4" />
-                </>
-              )}
-            </NavLink>
-          ))}
-        </nav>
-        <button
-          onClick={() => setAiDockOpen((v) => !v)}
-          title="AI 助手"
-          aria-label="AI 助手"
-          className={`mb-1 flex h-9 w-9 items-center justify-center rounded-md transition-colors ${
-            aiDockOpen
-              ? 'bg-accent text-foreground'
-              : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+        {/* Logo 区：展开时位于红绿灯右侧，折叠时居中于红绿灯下方 */}
+        <div
+          data-tauri-drag-region
+          className={`flex shrink-0 items-center ${
+            collapsed ? 'justify-center pb-2 pt-9' : 'gap-2.5 pb-2 pl-[84px] pr-3 pt-2.5'
           }`}
         >
-          <Sparkles className="h-4 w-4" />
-        </button>
-        <NavLink
-          to="/settings"
-          title="设置 (⌘,)"
-          aria-label="设置"
-          className={({ isActive }) =>
-            `relative flex h-9 w-9 items-center justify-center rounded-md transition-colors ${
-              isActive
-                ? 'bg-accent text-foreground'
-                : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
-            }`
-          }
-        >
-          <Settings className="h-4 w-4" />
-          {hasUpdate && (
-            <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-destructive" />
+          <img
+            src={logo}
+            alt="AI包工头"
+            className="h-7 w-7 shrink-0 rounded-[7px] object-cover"
+          />
+          {!collapsed && (
+            <span className="truncate text-sm font-semibold tracking-tight">
+              AI包工头
+            </span>
           )}
-        </NavLink>
-      </div>
+        </div>
 
-      {/* 导航面板（可收起）：纯文字，图标由左侧 activitybar 承担，避免同一工具出现两个图标 */}
-      {!collapsed && (
-        <aside className="flex w-48 shrink-0 flex-col rounded-lg border border-border/40 bg-sidebar">
-          <nav className="flex-1 overflow-y-auto px-2.5 pb-2 pt-2">
-            {TOOL_GROUPS.map((group) => (
-              <div key={group}>
-                <div className="px-2 pb-1.5 pt-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70 first:pt-0">
+        {/* 工具导航：分组列表；折叠时分组标题退化为分隔线、文字退化为 tooltip */}
+        <nav className="flex-1 overflow-y-auto px-2 pb-2">
+          {TOOL_GROUPS.map((group) => (
+            <div key={group}>
+              {collapsed ? (
+                <div className="mx-1 my-2 border-t border-border/40" />
+              ) : (
+                <div className="px-2 pb-1.5 pt-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70 first:pt-1">
                   {group}
                 </div>
-                {TOOLS.flatMap((t) =>
-                  t.group !== group
-                    ? []
-                    : [
-                        <NavLink
-                          key={t.path}
-                          to={t.path}
-                          className={({ isActive }) =>
-                            `mb-0.5 flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-all duration-150 ${
-                              isActive
-                                ? 'bg-accent font-medium text-accent-foreground shadow-sm'
-                                : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
-                            }`
-                          }
-                        >
+              )}
+              {TOOLS.flatMap((t) =>
+                t.group !== group
+                  ? []
+                  : [
+                      <NavLink
+                        key={t.path}
+                        to={t.path}
+                        title={collapsed ? t.name : undefined}
+                        aria-label={t.name}
+                        className={({ isActive }) =>
+                          `mb-0.5 flex items-center rounded-md transition-colors ${
+                            collapsed
+                              ? 'h-9 justify-center'
+                              : 'gap-2.5 px-2.5 py-2 text-[13px]'
+                          } ${
+                            isActive
+                              ? 'bg-accent font-medium text-accent-foreground'
+                              : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+                          }`
+                        }
+                      >
+                        <t.icon className="h-4 w-4 shrink-0" />
+                        {!collapsed && (
                           <span className="truncate">{t.name}</span>
-                        </NavLink>,
-                      ],
-                )}
-              </div>
-            ))}
-          </nav>
-          <div className="shrink-0 border-t border-border/40 p-3 text-[11px] text-muted-foreground">
-            纯本地 · 数据不出本机
-          </div>
-        </aside>
-      )}
+                        )}
+                      </NavLink>,
+                    ],
+              )}
+            </div>
+          ))}
+        </nav>
+
+        {/* 底部：AI 助手 + 设置（更新红点），展开时附「纯本地」注脚 */}
+        <div
+          className={`shrink-0 border-t border-border/40 ${
+            collapsed ? 'flex flex-col items-center gap-1 py-2' : 'space-y-0.5 p-2'
+          }`}
+        >
+          <button
+            onClick={() => setAiDockOpen((v) => !v)}
+            title={collapsed ? 'AI 助手' : undefined}
+            aria-label="AI 助手"
+            className={`flex items-center rounded-md transition-colors ${
+              collapsed
+                ? 'h-9 w-9 justify-center'
+                : 'w-full gap-2.5 px-2.5 py-2 text-[13px]'
+            } ${
+              aiDockOpen
+                ? 'bg-accent text-foreground'
+                : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+            }`}
+          >
+            <Sparkles className="h-4 w-4 shrink-0" />
+            {!collapsed && <span>AI 助手</span>}
+          </button>
+          <NavLink
+            to="/settings"
+            title={collapsed ? '设置 (⌘,)' : undefined}
+            aria-label="设置"
+            className={({ isActive }) =>
+              `relative flex items-center rounded-md transition-colors ${
+                collapsed
+                  ? 'h-9 w-9 justify-center'
+                  : 'w-full gap-2.5 px-2.5 py-2 text-[13px]'
+              } ${
+                isActive
+                  ? 'bg-accent font-medium text-accent-foreground'
+                  : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+              }`
+            }
+          >
+            <Settings className="h-4 w-4 shrink-0" />
+            {!collapsed && <span>设置</span>}
+            {hasUpdate && (
+              <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-destructive" />
+            )}
+          </NavLink>
+          {!collapsed && (
+            <div className="px-2.5 pt-1.5 text-[11px] text-muted-foreground">
+              纯本地 · 数据不出本机
+            </div>
+          )}
+        </div>
+      </aside>
 
       {/* 主区域：内容面板（浮在 chrome 外壳上，无阴影） */}
       <div className="min-w-0 flex-1">
@@ -244,11 +261,7 @@ export default function Layout() {
                 )}
               </button>
               <span className="truncate text-sm font-semibold tracking-tight">
-                AI包工头
-                <span className="mx-1.5 text-muted-foreground/40">/</span>
-                <span className="text-muted-foreground">
-                  {isSettings ? '设置' : (currentTool?.name ?? '工具')}
-                </span>
+                {isSettings ? '设置' : (currentTool?.name ?? '工具')}
               </span>
             </div>
             <div className="flex items-center gap-1">
