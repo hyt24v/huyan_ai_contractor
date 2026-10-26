@@ -231,22 +231,23 @@ fn http_request(
         .http_status_as_error(false)
         .build()
         .into();
-    let mut resp = match method.as_deref().unwrap_or("GET").to_ascii_uppercase().as_str() {
+    let mut resp = match method
+        .as_deref()
+        .unwrap_or("GET")
+        .to_ascii_uppercase()
+        .as_str()
+    {
         "POST" => {
             let req = apply_auth(agent.post(&url), &authorization, &headers);
             match body {
-                Some(b) if !b.is_empty() => req
-                    .header("Content-Type", "application/json")
-                    .send(b),
+                Some(b) if !b.is_empty() => req.header("Content-Type", "application/json").send(b),
                 _ => req.send(""),
             }
         }
         "PUT" => {
             let req = apply_auth(agent.put(&url), &authorization, &headers);
             match body {
-                Some(b) if !b.is_empty() => req
-                    .header("Content-Type", "application/json")
-                    .send(b),
+                Some(b) if !b.is_empty() => req.header("Content-Type", "application/json").send(b),
                 _ => req.send(""),
             }
         }
@@ -255,7 +256,10 @@ fn http_request(
     }
     .map_err(|e| e.to_string())?;
     let status = resp.status().as_u16();
-    let body = resp.body_mut().read_to_string().map_err(|e| e.to_string())?;
+    let body = resp
+        .body_mut()
+        .read_to_string()
+        .map_err(|e| e.to_string())?;
     Ok(serde_json::json!({
         "status": status,
         "elapsed_ms": start.elapsed().as_millis(),
@@ -295,7 +299,9 @@ fn watch_state() -> &'static Mutex<WatchState> {
 
 fn handle_fs_event(event: Event) {
     let Some(app) = APP.get() else { return };
-    let Ok(mut st) = watch_state().lock() else { return };
+    let Ok(mut st) = watch_state().lock() else {
+        return;
+    };
     let now = Instant::now();
     for p in &event.paths {
         // 监听的是父目录，同目录其它文件的事件直接丢弃；原子写入(rename)的 to 路径恰好是目标
@@ -321,7 +327,9 @@ fn handle_fs_event(event: Event) {
 #[tauri::command]
 fn watch_path(path: String) -> Result<(), String> {
     let target = PathBuf::from(&path);
-    let Some(parent) = target.parent() else { return Ok(()) };
+    let Some(parent) = target.parent() else {
+        return Ok(());
+    };
     if !parent.is_dir() {
         return Ok(());
     }
