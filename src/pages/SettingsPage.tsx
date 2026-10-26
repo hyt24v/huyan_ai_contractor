@@ -7,11 +7,13 @@ import {
   Database,
   Info,
   Palette,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import AppearanceSection from '../components/settings/AppearanceSection';
 import UpdatesSection from '../components/settings/UpdatesSection';
 import AgentsSection from '../components/settings/AgentsSection';
+import AiSection from '../components/settings/AiSection';
 import DataSection from '../components/settings/DataSection';
 import AboutSection from '../components/settings/AboutSection';
 
@@ -26,6 +28,7 @@ const SECTIONS: SectionDef[] = [
   { id: 'appearance', name: '外观', icon: Palette, element: AppearanceSection },
   { id: 'updates', name: '软件更新', icon: ArrowUpCircle, element: UpdatesSection },
   { id: 'agents', name: 'Agent 管理', icon: Bot, element: AgentsSection },
+  { id: 'ai', name: 'AI 助手', icon: Sparkles, element: AiSection },
   { id: 'data', name: '数据与备份', icon: Database, element: DataSection },
   { id: 'about', name: '关于', icon: Info, element: AboutSection },
 ];

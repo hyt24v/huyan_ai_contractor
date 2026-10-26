@@ -2,7 +2,7 @@
 
 > 参照 [t8y2/dbx](https://github.com/t8y2/dbx)（Tauri 2 + Vue3 + shadcn-vue + Tailwind 4 数据库工具）的设计语言，
 > 为「AI包工头」做整体视觉重塑，并新增 AI 助手能力（复用现有「模型服务」配置）。
-> 状态：**待用户确认**。确认后按本文档分期实施。
+> 状态：**UI-P0 / AI-P0 已落地**（test 分支）。UI-P1/P2、AI-P1~P3 待后续分期。
 
 ---
 

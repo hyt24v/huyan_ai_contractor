@@ -192,25 +192,68 @@ fn read_text(path: String) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
-// ---------- HTTP 转发（测速 / 拉模型列表；webview fetch 有 CORS 限制） ----------
+// ---------- HTTP 转发（测速 / 拉模型列表 / AI 聊天；webview fetch 有 CORS 限制） ----------
 
-/// GET 一个 URL（可带 Bearer token），返回状态码/耗时/响应体。
+/// 为请求加 Bearer 鉴权头（泛型兼容 ureq 3 的 WithoutBody/WithBody 类型态）
+fn apply_auth<B>(
+    req: ureq::RequestBuilder<B>,
+    authorization: &Option<String>,
+    headers: &Option<std::collections::HashMap<String, String>>,
+) -> ureq::RequestBuilder<B> {
+    let mut req = match authorization {
+        Some(auth) if !auth.is_empty() => req.header("Authorization", format!("Bearer {auth}")),
+        _ => req,
+    };
+    // 自定义头（如 Anthropic 的 x-api-key / anthropic-version），优先级高于 Bearer
+    if let Some(map) = headers {
+        for (k, v) in map {
+            req = req.header(k, v);
+        }
+    }
+    req
+}
+
+/// 发起 HTTP 请求，返回状态码/耗时/响应体。
+/// 默认 GET；method=POST/PUT 时以 application/json 发送 body；timeout_ms 默认 15s（AI 长生成可调大）。
 /// 4xx/5xx 不视为错误（401 = Key 无效也是有效测试结果），网络层失败才返回 Err。
 #[tauri::command]
-fn http_request(url: String, authorization: Option<String>) -> Result<serde_json::Value, String> {
+fn http_request(
+    url: String,
+    authorization: Option<String>,
+    method: Option<String>,
+    body: Option<String>,
+    timeout_ms: Option<u64>,
+    headers: Option<std::collections::HashMap<String, String>>,
+) -> Result<serde_json::Value, String> {
     let start = Instant::now();
     let agent: ureq::Agent = ureq::Agent::config_builder()
-        .timeout_global(Some(Duration::from_secs(15)))
+        .timeout_global(Some(Duration::from_millis(timeout_ms.unwrap_or(15_000))))
         .http_status_as_error(false)
         .build()
         .into();
-    let mut req = agent.get(&url);
-    if let Some(auth) = authorization {
-        if !auth.is_empty() {
-            req = req.header("Authorization", format!("Bearer {auth}"));
+    let mut resp = match method.as_deref().unwrap_or("GET").to_ascii_uppercase().as_str() {
+        "POST" => {
+            let req = apply_auth(agent.post(&url), &authorization, &headers);
+            match body {
+                Some(b) if !b.is_empty() => req
+                    .header("Content-Type", "application/json")
+                    .send(b),
+                _ => req.send(""),
+            }
         }
+        "PUT" => {
+            let req = apply_auth(agent.put(&url), &authorization, &headers);
+            match body {
+                Some(b) if !b.is_empty() => req
+                    .header("Content-Type", "application/json")
+                    .send(b),
+                _ => req.send(""),
+            }
+        }
+        "DELETE" => apply_auth(agent.delete(&url), &authorization, &headers).call(),
+        _ => apply_auth(agent.get(&url), &authorization, &headers).call(),
     }
-    let mut resp = req.call().map_err(|e| e.to_string())?;
+    .map_err(|e| e.to_string())?;
     let status = resp.status().as_u16();
     let body = resp.body_mut().read_to_string().map_err(|e| e.to_string())?;
     Ok(serde_json::json!({

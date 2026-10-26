@@ -10,11 +10,39 @@ interface HttpResponse {
   body: string;
 }
 
-async function httpGet(url: string, apiKey?: string): Promise<HttpResponse> {
+/** 通用 HTTP 转发：默认 GET；body 非空时 POST JSON；AI 长生成用 timeoutMs 调大超时 */
+async function httpRequest(
+  url: string,
+  opts?: {
+    apiKey?: string;
+    method?: string;
+    body?: string;
+    timeoutMs?: number;
+    /** 额外请求头（如 Anthropic 的 x-api-key / anthropic-version），优先级高于 Bearer */
+    headers?: Record<string, string>;
+  },
+): Promise<HttpResponse> {
   return invoke<HttpResponse>('http_request', {
     url,
-    authorization: apiKey || null,
+    authorization: opts?.apiKey || null,
+    method: opts?.method ?? null,
+    body: opts?.body ?? null,
+    timeout_ms: opts?.timeoutMs ?? null,
+    headers: opts?.headers ?? null,
   });
+}
+
+async function httpGet(url: string, apiKey?: string): Promise<HttpResponse> {
+  return httpRequest(url, { apiKey });
+}
+
+/** POST JSON 并读取响应（AI 聊天等），timeoutMs 默认 120s */
+export async function httpPost(
+  url: string,
+  body: string,
+  opts?: { apiKey?: string; timeoutMs?: number; headers?: Record<string, string> },
+): Promise<HttpResponse> {
+  return httpRequest(url, { ...opts, method: 'POST', body });
 }
 
 /** 由 baseUrl 推导 /models 地址：已含版本段（/v1、/v4…）则直接拼，否则补 /v1 */

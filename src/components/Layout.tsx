@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { PanelLeftClose, PanelLeftOpen, Settings } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, Settings, Sparkles } from 'lucide-react';
 import type { Update } from '@tauri-apps/plugin-updater';
+import AiDock from './AiDock';
 import CommandPalette from './CommandPalette';
 import UpdateDialog from './UpdateDialog';
 import WhatsNewDialog from './WhatsNewDialog';
@@ -32,6 +33,7 @@ export default function Layout() {
   const [whatsNew, setWhatsNew] = useState<{ version: string; body: string } | null>(null);
   const [appVersion, setAppVersion] = useState('');
   const [autoBackup, setAutoBackup] = useState(getAutoBackupEnabled);
+  const [aiDockOpen, setAiDockOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const currentTool = TOOLS.find((t) => location.pathname.startsWith(t.path));
@@ -149,6 +151,18 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
+        <button
+          onClick={() => setAiDockOpen((v) => !v)}
+          title="AI 助手"
+          aria-label="AI 助手"
+          className={`mb-1 flex h-9 w-9 items-center justify-center rounded-md transition-colors ${
+            aiDockOpen
+              ? 'bg-accent text-foreground'
+              : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+          }`}
+        >
+          <Sparkles className="h-4 w-4" />
+        </button>
         <NavLink
           to="/settings"
           title="设置 (⌘,)"
@@ -237,6 +251,12 @@ export default function Layout() {
           </main>
         </div>
       </div>
+      {/* AI 助手 dock：右侧浮起面板（AI-P0 对话骨架） */}
+      <AiDock
+        open={aiDockOpen}
+        onClose={() => setAiDockOpen(false)}
+        scope={isSettings ? '设置' : (currentTool?.name ?? '工具')}
+      />
       <CommandPalette />
       {whatsNew && !pendingUpdate && (
         <WhatsNewDialog

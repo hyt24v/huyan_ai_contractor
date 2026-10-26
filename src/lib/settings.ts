@@ -68,3 +68,38 @@ export function onSettingsChanged(listener: () => void): () => void {
   window.addEventListener(SETTINGS_CHANGED_EVENT, listener);
   return () => window.removeEventListener(SETTINGS_CHANGED_EVENT, listener);
 }
+
+// ---------- AI 助手设置 ----------
+
+const AI_SETTINGS_KEY = 'huyan_tool:ai_settings';
+
+/** AI 助手使用的服务商与模型（引用模型服务页维护的 provider id） */
+export interface AiSettings {
+  providerId?: string;
+  model?: string;
+}
+
+export function getAiSettings(): AiSettings {
+  try {
+    const raw = window.localStorage.getItem(AI_SETTINGS_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return {};
+    const o = parsed as Record<string, unknown>;
+    return {
+      providerId: typeof o.providerId === 'string' ? o.providerId : undefined,
+      model: typeof o.model === 'string' ? o.model : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+export function setAiSettings(s: AiSettings): void {
+  try {
+    window.localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(s));
+  } catch {
+    // localStorage 不可用时忽略
+  }
+  window.dispatchEvent(new Event(SETTINGS_CHANGED_EVENT));
+}
