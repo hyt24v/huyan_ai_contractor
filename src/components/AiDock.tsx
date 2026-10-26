@@ -183,10 +183,16 @@ export default function AiDock({ open, onClose, scope }: AiDockProps) {
         data-tauri-drag-region
         className="flex h-10 shrink-0 items-center gap-2 border-b border-border/40 px-3"
       >
-        <span className="flex min-w-0 flex-1 items-center truncate text-xs font-medium">
+        <span
+          data-tauri-drag-region
+          className="flex min-w-0 flex-1 items-center truncate text-xs font-medium"
+        >
           AI 助手
           {provider && effectiveModel && (
-            <span className="ml-1.5 truncate font-normal text-muted-foreground">
+            <span
+              data-tauri-drag-region
+              className="ml-1.5 truncate font-normal text-muted-foreground"
+            >
               · {provider.name}/{effectiveModel}
             </span>
           )}

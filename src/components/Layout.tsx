@@ -154,12 +154,16 @@ export default function Layout() {
           }`}
         >
           <img
+            data-tauri-drag-region
             src={logo}
             alt="AI包工头"
             className="h-7 w-7 shrink-0 rounded-[7px] object-cover"
           />
           {!collapsed && (
-            <span className="truncate text-sm font-semibold tracking-tight">
+            <span
+              data-tauri-drag-region
+              className="truncate text-sm font-semibold tracking-tight"
+            >
               AI包工头
             </span>
           )}
@@ -254,7 +258,7 @@ export default function Layout() {
               collapsed ? 'pl-8' : 'pl-3'
             }`}
           >
-            <div className="flex min-w-0 items-center gap-2">
+            <div data-tauri-drag-region className="flex min-w-0 items-center gap-2">
               <button
                 onClick={() => setCollapsed((c) => !c)}
                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
@@ -267,11 +271,14 @@ export default function Layout() {
                   <PanelLeftClose className="h-4 w-4" />
                 )}
               </button>
-              <span className="truncate text-sm font-semibold tracking-tight">
+              <span
+                data-tauri-drag-region
+                className="truncate text-sm font-semibold tracking-tight"
+              >
                 {isSettings ? '设置' : (currentTool?.name ?? '工具')}
               </span>
             </div>
-            <div className="flex items-center gap-1">
+            <div data-tauri-drag-region className="flex items-center gap-1">
               <button
                 onClick={() => setAiDockOpen((v) => !v)}
                 title="AI 助手"
