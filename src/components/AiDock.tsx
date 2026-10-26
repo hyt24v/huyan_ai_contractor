@@ -178,8 +178,11 @@ export default function AiDock({ open, onClose, scope }: AiDockProps) {
         />
       )}
 
-      {/* 顶栏（dbx：h-10 border-b px-3 + h-6 ghost 按钮排） */}
-      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border/40 px-3">
+      {/* 顶栏（dbx：h-10 border-b px-3 + h-6 ghost 按钮排）；标题区兼窗口拖拽区 */}
+      <div
+        data-tauri-drag-region
+        className="flex h-10 shrink-0 items-center gap-2 border-b border-border/40 px-3"
+      >
         <span className="flex min-w-0 flex-1 items-center truncate text-xs font-medium">
           AI 助手
           {provider && effectiveModel && (

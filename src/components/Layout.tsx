@@ -10,6 +10,7 @@ import { useAutoBackup } from '../hooks/useAutoBackup';
 import { TOOLS, TOOL_GROUPS } from '../lib/tools';
 import { checkForUpdate, currentVersion } from '../lib/updater';
 import { isTauri } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
   dismissUpdate,
   getAutoBackupEnabled,
@@ -45,6 +46,27 @@ export default function Layout() {
   // 启动时刷新 agent 检测缓存(自动模式下「检测到的」才显示)
   useEffect(() => {
     refreshAgentVisibility().catch(() => undefined);
+  }, []);
+
+  // 窗口拖拽兜底：原生 data-tauri-drag-region 只认精确点击目标，
+  // 子元素（标题文字、按钮间空隙容器）会挡住导致「拖不动」。
+  // 这里用 closest 兜底：拖拽区内的非交互子元素按下左键时手动 startDragging。
+  useEffect(() => {
+    if (!isTauri()) return;
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      const target = e.target as HTMLElement | null;
+      if (!target?.closest) return;
+      if (!target.closest('[data-tauri-drag-region]')) return;
+      // 精确目标交给原生脚本处理，避免重复 startDragging
+      if (target.hasAttribute('data-tauri-drag-region')) return;
+      // 交互元素（按钮/链接/输入框）保持原行为
+      if (target.closest('button, a, input, textarea, select, [role="button"]')) return;
+      e.preventDefault();
+      void getCurrentWindow().startDragging().catch(() => undefined);
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
   }, []);
 
   // 设置项变更即时生效(自动备份开关等)
