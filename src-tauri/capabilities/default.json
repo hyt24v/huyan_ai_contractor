@@ -679,22 +679,43 @@
       "identifier": "fs:allow-read-dir",
       "allow": [
         {
+          "path": "$HOME/.claude"
+        },
+        {
           "path": "$HOME/.claude/**"
+        },
+        {
+          "path": "$HOME/.ai-baogongtou"
         },
         {
           "path": "$HOME/.ai-baogongtou/**"
         },
         {
+          "path": "$HOME/.codex"
+        },
+        {
           "path": "$HOME/.codex/**"
+        },
+        {
+          "path": "$HOME/.pi"
         },
         {
           "path": "$HOME/.pi/**"
         },
         {
+          "path": "$HOME/.cursor"
+        },
+        {
           "path": "$HOME/.cursor/**"
         },
         {
+          "path": "$HOME/.gemini"
+        },
+        {
           "path": "$HOME/.gemini/**"
+        },
+        {
+          "path": "$HOME/ai-skills"
         },
         {
           "path": "$HOME/ai-skills/**"
@@ -1005,6 +1026,9 @@
           "path": "$HOME/.claude.json.*"
         },
         {
+          "path": "$HOME/.claude"
+        },
+        {
           "path": "$HOME/.claude/**"
         },
         {
@@ -1014,19 +1038,37 @@
           "path": "$HOME/.ai-baogongtou/**"
         },
         {
+          "path": "$HOME/.codex"
+        },
+        {
           "path": "$HOME/.codex/**"
+        },
+        {
+          "path": "$HOME/.pi"
         },
         {
           "path": "$HOME/.pi/**"
         },
         {
+          "path": "$HOME/.cursor"
+        },
+        {
           "path": "$HOME/.cursor/**"
+        },
+        {
+          "path": "$HOME/.gemini"
         },
         {
           "path": "$HOME/.gemini/**"
         },
         {
+          "path": "$HOME/ai-skills"
+        },
+        {
           "path": "$HOME/ai-skills/**"
+        },
+        {
+          "path": "$APPCONFIG"
         },
         {
           "path": "$APPCONFIG/**"
@@ -1331,25 +1373,49 @@
       "identifier": "fs:allow-mkdir",
       "allow": [
         {
+          "path": "$HOME/.claude"
+        },
+        {
           "path": "$HOME/.claude/**"
+        },
+        {
+          "path": "$HOME/.ai-baogongtou"
         },
         {
           "path": "$HOME/.ai-baogongtou/**"
         },
         {
+          "path": "$HOME/.codex"
+        },
+        {
           "path": "$HOME/.codex/**"
+        },
+        {
+          "path": "$HOME/.pi"
         },
         {
           "path": "$HOME/.pi/**"
         },
         {
+          "path": "$HOME/.cursor"
+        },
+        {
           "path": "$HOME/.cursor/**"
+        },
+        {
+          "path": "$HOME/.gemini"
         },
         {
           "path": "$HOME/.gemini/**"
         },
         {
+          "path": "$HOME/ai-skills"
+        },
+        {
           "path": "$HOME/ai-skills/**"
+        },
+        {
+          "path": "$APPCONFIG"
         },
         {
           "path": "$APPCONFIG/**"
