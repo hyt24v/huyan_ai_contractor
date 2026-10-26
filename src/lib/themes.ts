@@ -41,6 +41,14 @@ export interface ThemeDefinition {
     chromeMuted: string;
     /** 内容面板底色 */
     content: string;
+    /** JSON 树类型色：字符串 */
+    jsonString: string;
+    /** JSON 树类型色：数字 */
+    jsonNumber: string;
+    /** JSON 树类型色：布尔 */
+    jsonBoolean: string;
+    /** JSON 树类型色：null */
+    jsonNull: string;
   };
 }
 
@@ -76,6 +84,10 @@ export const THEMES: ThemeDefinition[] = [
       chrome: '#0c0c18',
       chromeMuted: '#565670',
       content: '#12121f',
+      jsonString: '#c3e88d',
+      jsonNumber: '#f78c6c',
+      jsonBoolean: '#c792ea',
+      jsonNull: '#676e95',
     },
   },
   {
@@ -109,6 +121,10 @@ export const THEMES: ThemeDefinition[] = [
       chrome: '#1b2026',
       chromeMuted: '#5c6370',
       content: '#21252b',
+      jsonString: '#98c379',
+      jsonNumber: '#d19a66',
+      jsonBoolean: '#c678dd',
+      jsonNull: '#7f848e',
     },
   },
   {
@@ -142,6 +158,10 @@ export const THEMES: ThemeDefinition[] = [
       chrome: '#14141f',
       chromeMuted: '#6c7086',
       content: '#181825',
+      jsonString: '#a6e3a1',
+      jsonNumber: '#fab387',
+      jsonBoolean: '#cba6f7',
+      jsonNull: '#6c7086',
     },
   },
   {
@@ -175,6 +195,10 @@ export const THEMES: ThemeDefinition[] = [
       chrome: '#232a2e',
       chromeMuted: '#56635f',
       content: '#343f44',
+      jsonString: '#a7c080',
+      jsonNumber: '#e69875',
+      jsonBoolean: '#d699b6',
+      jsonNull: '#859289',
     },
   },
   {
@@ -208,6 +232,10 @@ export const THEMES: ThemeDefinition[] = [
       chrome: '#f6dfe8',
       chromeMuted: '#c49aa8',
       content: '#ffffff',
+      jsonString: '#3f8a5f',
+      jsonNumber: '#c2613a',
+      jsonBoolean: '#8f6fb8',
+      jsonNull: '#a08c98',
     },
   },
   {
@@ -241,6 +269,10 @@ export const THEMES: ThemeDefinition[] = [
       chrome: '#ebebef',
       chromeMuted: '#a1a1aa',
       content: '#ffffff',
+      jsonString: '#2e7d4f',
+      jsonNumber: '#b45309',
+      jsonBoolean: '#7c3aed',
+      jsonNull: '#71717a',
     },
   },
 ];
@@ -301,6 +333,10 @@ const TOKEN_CSS_VAR: Record<keyof ThemeDefinition['tokens'], string> = {
   chrome: '--chrome',
   chromeMuted: '--chrome-muted',
   content: '--content',
+  jsonString: '--json-string',
+  jsonNumber: '--json-number',
+  jsonBoolean: '--json-boolean',
+  jsonNull: '--json-null',
 };
 
 /** 把主题注入到 <html>：CSS 变量 + data-theme + dark class（兼容既有 dark: 变体） */

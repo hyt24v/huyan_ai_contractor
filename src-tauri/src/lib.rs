@@ -1,7 +1,7 @@
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 use std::io::BufRead;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -307,8 +307,15 @@ async fn ai_sse_request(
         .insert(stream_id.clone(), abort.clone());
     let sid = stream_id.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        if let Err(e) = run_sse(&window, &stream_id, &url, &authorization, body, &headers, &abort)
-        {
+        if let Err(e) = run_sse(
+            &window,
+            &stream_id,
+            &url,
+            &authorization,
+            body,
+            &headers,
+            &abort,
+        ) {
             let _ = window.emit(
                 AI_SSE_EVENT,
                 serde_json::json!({"id": stream_id, "kind": "error", "message": e}),
@@ -337,7 +344,9 @@ fn run_sse(
     let req = apply_auth(agent.post(url), authorization, headers)
         .header("Content-Type", "application/json")
         .header("Accept", "text/event-stream");
-    let mut resp = req.send(body.unwrap_or_default()).map_err(|e| e.to_string())?;
+    let mut resp = req
+        .send(body.unwrap_or_default())
+        .map_err(|e| e.to_string())?;
     let status = resp.status().as_u16();
     let is_sse = resp
         .headers()

@@ -217,4 +217,32 @@ describe('buildJsonTree', () => {
     expect(tree.childCount).toBe(3);
     expect(tree.children![2].type).toBe('null');
   });
+
+  it('容器摘要带子项预览（一眼看出内容）', () => {
+    const tree = buildJsonTree({
+      name: 'n',
+      age: 1,
+      tags: ['a', 'b', 'c', 'd'],
+      extra: true,
+      empty: {},
+      emptyArr: [],
+      nested: { x: [1, 2] },
+    });
+    expect(tree.preview).toBe('{7} name, age, tags, …');
+    const tags = tree.children!.find((n) => n.key === 'tags')!;
+    expect(tags.preview).toBe('[4] "a", "b", "c", …');
+    const empty = tree.children!.find((n) => n.key === 'empty')!;
+    expect(empty.preview).toBe('{}');
+    const emptyArr = tree.children!.find((n) => n.key === 'emptyArr')!;
+    expect(emptyArr.preview).toBe('[]');
+    const nested = tree.children!.find((n) => n.key === 'nested')!;
+    expect(nested.preview).toBe('{1} x');
+  });
+
+  it('字符串摘要超 80 字符截断', () => {
+    const tree = buildJsonTree({ s: 'x'.repeat(100) });
+    const s = tree.children![0];
+    expect(s.preview).toBe(`"${'x'.repeat(80)}…"`);
+    expect(s.value).toBe('x'.repeat(100));
+  });
 });

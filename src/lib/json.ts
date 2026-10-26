@@ -381,6 +381,26 @@ export function valueType(value: unknown): JsonValueType {
   return 'boolean';
 }
 
+/** 容器摘要里的子项内联预览（不递归：嵌套容器只报数量） */
+function inlinePreview(value: unknown): string {
+  const t = valueType(value);
+  switch (t) {
+    case 'string': {
+      const s = value as string;
+      return `"${s.length > 20 ? `${s.slice(0, 20)}…` : s}"`;
+    }
+    case 'number':
+    case 'boolean':
+      return String(value);
+    case 'null':
+      return 'null';
+    case 'array':
+      return `[${(value as unknown[]).length}]`;
+    case 'object':
+      return `{${Object.keys(value as object).length}}`;
+  }
+}
+
 function preview(value: unknown, type: JsonValueType): string {
   switch (type) {
     case 'string': {
@@ -393,10 +413,18 @@ function preview(value: unknown, type: JsonValueType): string {
       return String(value);
     case 'null':
       return 'null';
-    case 'array':
-      return `Array(${(value as unknown[]).length})`;
-    case 'object':
-      return `Object{${Object.keys(value as object).length}}`;
+    case 'array': {
+      const arr = value as unknown[];
+      if (arr.length === 0) return '[]';
+      const head = arr.slice(0, 3).map(inlinePreview).join(', ');
+      return `[${arr.length}] ${head}${arr.length > 3 ? ', …' : ''}`;
+    }
+    case 'object': {
+      const keys = Object.keys(value as object);
+      if (keys.length === 0) return '{}';
+      const head = keys.slice(0, 3).join(', ');
+      return `{${keys.length}} ${head}${keys.length > 3 ? ', …' : ''}`;
+    }
   }
 }
 

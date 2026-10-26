@@ -46,6 +46,12 @@ export default {
           muted: 'hsl(var(--chrome-muted))',
         },
         content: 'hsl(var(--content))',
+        json: {
+          string: 'hsl(var(--json-string))',
+          number: 'hsl(var(--json-number))',
+          boolean: 'hsl(var(--json-boolean))',
+          null: 'hsl(var(--json-null))',
+        },
       },
       borderRadius: {
         lg: 'var(--radius-outer)',

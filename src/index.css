@@ -28,6 +28,11 @@
     --chrome: 240 6% 92%;
     --chrome-muted: 240 4% 64%;
     --content: 0 0% 100%;
+    /* JSON 树类型色（minimal-light 默认值） */
+    --json-string: 145 46% 34%;
+    --json-number: 26 90% 37%;
+    --json-boolean: 262 83% 58%;
+    --json-null: 240 3% 46%;
     /* 分级圆角（Otty/VS Code 范式：control/inner/outer）；加大后更贴近 macOS 原生质感 */
     --radius-control: 6px;
     --radius-inner: 10px;

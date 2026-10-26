@@ -17,11 +17,12 @@ import {
 } from '../lib/json';
 import { inferStringKind, type StringKind } from '../lib/toolkit';
 
+/** 类型色走主题 token（themes.ts 注入 --json-*，6 套主题各配对比度合格的颜色） */
 const TYPE_COLOR: Record<JsonTreeNode['type'], string> = {
-  string: 'text-emerald-600 dark:text-emerald-400',
-  number: 'text-amber-600 dark:text-amber-400',
-  boolean: 'text-violet-600 dark:text-violet-400',
-  null: 'text-muted-foreground',
+  string: 'text-json-string',
+  number: 'text-json-number',
+  boolean: 'text-json-boolean',
+  null: 'text-json-null',
   object: 'text-muted-foreground',
   array: 'text-muted-foreground',
 };
@@ -58,14 +59,85 @@ function KindBadge({ node }: { node: JsonTreeNode }) {
   );
 }
 
+/** 搜索关键词高亮：命中片段包 <mark>（大小写不敏感，多处命中全部标记） */
+function Highlight({ text, query }: { text: string; query: string }) {
+  if (!query) return <>{text}</>;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="rounded-[2px] bg-warning/40 text-inherit">
+        {text.slice(idx, idx + query.length)}
+      </mark>
+      <Highlight text={text.slice(idx + query.length)} query={query} />
+    </>
+  );
+}
+
+/** 弱值（null / false / 0 / 空串）加 pill 底色，避免淹没在行里 */
+function weakPillClass(node: JsonTreeNode): string {
+  if (node.type === 'null') return 'rounded-sm bg-muted px-1 italic';
+  if (node.type === 'boolean' && node.value === false)
+    return 'rounded-sm bg-json-boolean/10 px-1';
+  if (node.type === 'number' && node.value === 0)
+    return 'rounded-sm bg-json-number/10 px-1';
+  if (node.type === 'string' && node.value === '')
+    return 'rounded-sm bg-muted px-1';
+  return '';
+}
+
+/** 字符串值：超 80 字符截断 + 行内展开/收起；截断时 title 悬浮全文 */
+function StringValue({
+  node,
+  query,
+}: {
+  node: JsonTreeNode;
+  query: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const full = typeof node.value === 'string' ? node.value : '';
+  const truncated = full.length > 80;
+  if (!truncated) {
+    return (
+      <span className={`truncate ${TYPE_COLOR.string}`} title={`"${full}"`}>
+        &quot;
+        <Highlight text={full} query={query} />
+        &quot;
+      </span>
+    );
+  }
+  return (
+    <span
+      className={`${TYPE_COLOR.string} ${expanded ? 'whitespace-pre-wrap break-all' : 'truncate'}`}
+      title={expanded ? undefined : `"${full}"`}
+    >
+      &quot;
+      <Highlight text={expanded ? full : `${full.slice(0, 80)}…`} query={query} />
+      &quot;
+      <button
+        className="ml-1 shrink-0 rounded-sm bg-muted px-1 text-[10px] text-muted-foreground hover:text-foreground"
+        onClick={(e) => {
+          e.stopPropagation();
+          setExpanded((v) => !v);
+        }}
+      >
+        {expanded ? '收起' : `展开（共 ${full.length} 字符）`}
+      </button>
+    </span>
+  );
+}
+
 function TreeNode({
   node,
   depth,
   forceOpen,
+  query,
 }: {
   node: JsonTreeNode;
   depth: number;
   forceOpen: boolean;
+  query: string;
 }) {
   const [open, setOpen] = useState(depth < 2);
   const [copied, setCopied] = useState<'value' | 'path' | null>(null);
@@ -86,14 +158,16 @@ function TreeNode({
     }
   };
 
+  const pill = weakPillClass(node);
+
   return (
     <div>
       <div
-        className="group flex h-6 items-center gap-1 rounded-sm pr-2 font-mono text-xs hover:bg-accent/60"
+        className="group flex h-7 items-center gap-1 rounded-sm pr-2 font-mono text-[13px] hover:bg-accent/60"
         style={{ paddingLeft: `${depth * 14 + 4}px` }}
       >
         <button
-          className={`flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground ${expandable ? '' : 'invisible'}`}
+          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${expandable ? '' : 'invisible'}`}
           onClick={() => setOpen((o) => !o)}
         >
           {expanded ? (
@@ -103,12 +177,19 @@ function TreeNode({
           )}
         </button>
         <span className="shrink-0 text-sky-600 dark:text-sky-400">
-          {node.key}
+          <Highlight text={node.key} query={query} />
         </span>
         <span className="shrink-0 text-muted-foreground">:</span>
-        <span className={`truncate ${TYPE_COLOR[node.type]}`}>
-          {node.preview}
-        </span>
+        {node.type === 'string' && typeof node.value === 'string' ? (
+          <StringValue node={node} query={query} />
+        ) : (
+          <span
+            className={`truncate ${TYPE_COLOR[node.type]} ${pill}`}
+            title={node.preview}
+          >
+            <Highlight text={node.preview} query={query} />
+          </span>
+        )}
         <KindBadge node={node} />
         <span className="ml-auto hidden shrink-0 gap-1 group-hover:flex">
           <button
@@ -135,15 +216,25 @@ function TreeNode({
           </button>
         </span>
       </div>
-      {expanded &&
-        node.children?.map((child) => (
-          <TreeNode
-            key={child.key}
-            node={child}
-            depth={depth + 1}
-            forceOpen={forceOpen}
+      {expanded && node.children && (
+        /* 缩进参考线：每层一条 1px 竖线（对齐父行 chevron 中心），hover 该层任意行时加深 */
+        <div className="group/level relative">
+          <span
+            aria-hidden
+            className="absolute bottom-0 top-0 border-l border-border/40 transition-colors group-hover/level:border-border"
+            style={{ left: `${depth * 14 + 12}px` }}
           />
-        ))}
+          {node.children.map((child) => (
+            <TreeNode
+              key={child.key}
+              node={child}
+              depth={depth + 1}
+              forceOpen={forceOpen}
+              query={query}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -211,7 +302,12 @@ export default function JsonTreeView({ root }: { root: JsonTreeNode | null }) {
       {/* 树 */}
       <div className="min-h-0 flex-1 overflow-auto py-1">
         {filtered ? (
-          <TreeNode node={filtered} depth={0} forceOpen={searching} />
+          <TreeNode
+            node={filtered}
+            depth={0}
+            forceOpen={searching}
+            query={searching ? search.trim() : ''}
+          />
         ) : (
           <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
             没有匹配的节点
