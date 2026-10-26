@@ -186,29 +186,12 @@ export default function Layout() {
           ))}
         </nav>
 
-        {/* 底部：AI 助手 + 设置（更新红点），展开时附「纯本地」注脚 */}
+        {/* 底部：设置（更新红点），展开时附「纯本地」注脚 */}
         <div
           className={`shrink-0 border-t border-border/40 ${
             collapsed ? 'flex flex-col items-center gap-1 py-2' : 'space-y-0.5 p-2'
           }`}
         >
-          <button
-            onClick={() => setAiDockOpen((v) => !v)}
-            title={collapsed ? 'AI 助手' : undefined}
-            aria-label="AI 助手"
-            className={`flex items-center rounded-md transition-colors ${
-              collapsed
-                ? 'h-9 w-9 justify-center'
-                : 'w-full gap-2.5 px-2.5 py-2 text-[13px]'
-            } ${
-              aiDockOpen
-                ? 'bg-accent text-foreground'
-                : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
-            }`}
-          >
-            <Sparkles className="h-4 w-4 shrink-0" />
-            {!collapsed && <span>AI 助手</span>}
-          </button>
           <NavLink
             to="/settings"
             title={collapsed ? '设置 (⌘,)' : undefined}
@@ -265,6 +248,18 @@ export default function Layout() {
               </span>
             </div>
             <div className="flex items-center gap-1">
+              <button
+                onClick={() => setAiDockOpen((v) => !v)}
+                title="AI 助手"
+                aria-label="AI 助手"
+                className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
+                  aiDockOpen
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                }`}
+              >
+                <Sparkles className="h-4 w-4" />
+              </button>
               {hasUpdate && (
                 <button
                   onClick={() => navigate('/settings/updates')}
