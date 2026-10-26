@@ -44,8 +44,8 @@
 
 ## 功能
 
-- **JSON 编辑器**（对标 json.cn）：校验、格式化、压缩、转义/去转义、Unicode 转中文、复制、下载、打开本地文件/拖拽载入；右侧树形视图（展开/收起、复制值/路径）；错误行列定位跳转
-- **JSONL 编辑器**：逐行校验（错误行红标 + 状态栏统计）、格式化/压缩（空行可选保留）、代码/表格双视图（表格取字段并集，非法行单独列出）、行级操作（跳转/删除/复制/下个错误）
+- **JSON 编辑器**（对标 json.cn）：校验、格式化、压缩、转义/去转义、Unicode 转中文、复制、下载、打开本地文件/拖拽载入；右侧树形视图（展开/收起、复制值/路径）；错误行列定位跳转；「保留转义」对齐 json.cn 语义——勾选时 `\n` `\uXXXX` 按字面原样保留（非 ASCII 不会被强制转义），不勾选时才解释转义
+- **JSONL 编辑器**：逐行校验（错误行红标 + 状态栏统计）、格式化/压缩（空行可选保留）、代码/表格双视图（表格取字段并集，非法行单独列出）、行级操作（跳转/删除/复制/下个错误）；多行美化的 JSON 对象连写也能自动识别为 JSONL 记录
 - **Skills 管理**（Skills Manager 风格）：
   - `~/ai-skills` 中央库卡片网格
   - 按 Agent 的 Global Workspace：Claude Code / Codex / Pi / Cursor / Gemini
@@ -56,7 +56,8 @@
 - **配置套餐**：把 Skills + MCP + 提示词 + 模型服务打包成套餐，一键应用
 - **模型服务**：Provider 预设与切换，支持 Claude Code / Codex / Pi，写入前自动备份
 - **提示词**：维护 `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` 等提示词库，按 Agent 写入并保留备份
-- **界面**：Otty 式布局（activity bar + 主角卡片）、⌘K 命令面板、导航面板收起/展开（⌘B / Ctrl+B）、6 套主题 + 跟随系统自动明暗
+- **AI 助手**：顶栏 ✨ 呼出右侧对话面板，直接复用「模型服务」里配置的 Provider（OpenAI Responses / Chat Completions / Anthropic Messages 三协议自适应）；建议问题快捷发起、会话按页面隔离、面板可拖宽/最大化；API key 只在 Rust 侧拼请求头，不出本机不进日志
+- **界面**：dbx 式单一可折叠侧栏（图标+文字，⌘B / Ctrl+B 收起为纯图标）、顶栏融合 macOS 悬浮红绿灯并兼作窗口拖拽区（AI / 更新 / ⌘K 命令面板入口收进顶栏右侧）、6 套主题 + 跟随系统自动明暗
 - **安全**：所有配置写入前自动备份；MCP 每 6 小时自动快照（应用打开期间）
 
 ## 版本策略
@@ -125,7 +126,7 @@ npm run tauri:build  # 打包 AI包工头.app + .dmg
 - Monaco Editor（本地打包，不走 CDN）
 - HashRouter
 - Tauri 2（桌面壳）
-- Rust 自定义命令：软链、目录复制、git 更新、路径检查
+- Rust 自定义命令：软链、目录复制、git 更新、路径检查、通用 HTTP 代理（GET/POST、自定义头、可调超时）
 
 ## 目录结构
 
@@ -134,7 +135,7 @@ src/
   components/        通用组件 + skills/ 卡片、详情抽屉、Agent 徽章
   lib/               纯逻辑（JSON/JSONL、MCP、Skills、套餐、Provider）
   pages/             JSON、Skills、MCP、配置套餐、模型服务、提示词
-  services/          与 Tauri / 文件系统交互的粘合层
+  services/          与 Tauri / 文件系统交互的粘合层（含 ai/ 对话客户端与会话）
 src-tauri/
   capabilities/      Tauri FS 权限
   icons/             全平台 App 图标

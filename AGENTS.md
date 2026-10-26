@@ -5,7 +5,7 @@
 ## 项目速览
 
 - Tauri 桌面应用「AI包工头」：React 18 + TS + Vite 前端，Rust 后端（`src-tauri/`）
-- 纯本地工具集：JSON 编辑器、Markdown 编辑器、Skills/MCP/提示词/配置套餐/模型服务管理
+- 纯本地工具集：JSON/JSONL 编辑器、Markdown 编辑器、Skills/MCP/提示词/配置套餐/模型服务管理、AI 助手对话面板（AiDock）
 - 测试：`npm test`（Vitest）；类型：`npx tsc -b --force`；后端：`cd src-tauri && cargo check`
 
 ## 分支与发布规则（重要）
@@ -50,10 +50,15 @@ cd src-tauri && cargo check   # 改 Rust 时
 - **文件系统**：前端只通过 `src/lib/fsPort.ts`（FsPort）访问 fs，不直接调 invoke；新增路径要同步加 `src-tauri/capabilities/default.json` 对应命令的 allow 列表。fs:scope 里**禁止**重新引入 `$HOME/**` 这种宽泛授权。
 - **用户数据安全**：任何批量/套餐操作**禁止**删除用户本地的真实目录（skill 目录等）；对真实目录只能报错提示用户处理，只有软链可以直接删。
 - **编辑器防抖快照**：`editorHistory.ts` 配额写满时自动减半重试，单条 >512KB 不存，最多 50 条。
+- **AI 模块**：服务层在 `src/services/ai/`（`client.ts` 适配 openai-responses / openai-completions / anthropic-messages 三协议，`prompts.ts` 系统提示词，`session.ts` 内存会话 Map<scope>）；UI 为 `src/components/AiDock.tsx` + 设置页 `AiSection`。网络一律走 Rust `http_request`（支持 method/body/headers/timeout_ms，POST 自动带 `Content-Type: application/json`）；API key 只在 Rust 侧拼 Authorization / x-api-key 头，**不进前端日志、不写 localStorage**；当前非流式。
+- **窗口拖拽**（macOS Overlay 隐藏标题栏）：`start_dragging` 不在 `core:default` 默认权限集，必须显式加 `core:window:allow-start-dragging`（缺失时原生 drag-region 和 JS 都被 ACL 静默拦截）；可拖区域元素标 `data-tauri-drag-region`，Layout.tsx 另有 document mousedown `closest()` 兜底覆盖未标记的子元素。
+- **JSON 保留转义语义**（对齐 json.cn）：`formatJson/minifyJson` 的 keepEscape=true 走 `formatPreservingStrings`——字符串 token 逐字复制（`\n`/`\uXXXX` 原样保留、非 ASCII 不转义），只重排结构空白；**禁止**恢复「所有非 ASCII 强制转 \uXXXX」的旧行为。keepEscape=false 才走 `decodeStringEscapes` 解码。
 - **Agent 注册表与可见性**：`src/lib/agents.ts` 注册 56 个 agent（id 兼容：原有 5 个 claude/codex/pi/cursor/gemini 勿改）。可见性走 `src/lib/agentVisibility.ts`：默认显示「检测到的」（detectDir/skillsDir 存在），用户在 设置→Agent 管理 用开关自定义；组件用 `useAgents()` hook，服务层用 `effectiveAgents()`，MCP/提示词等只对有配置路径的 agent 开放（`hasMcpSupport`/`PROMPT_TARGETS`）。agents 记录只含可见 agent，读 `skill.agents[x]` 必须 `(… ?? 'none')` 兜底。新增 agent 目录时同步跑 `default.json` 的 fs allow 追加（见 git 历史中的生成脚本）。
 
 ## 已知工具坑（不是代码 bug）
 
-- **pi-lens 编辑后诊断陈旧**：edit 后常报「Cannot find name X」「module not found」等假错误（LSP 快照滞后）。以 `npx tsc -b --force` 为准，0 错误即通过，**不要**为让门禁变绿改代码。
+- **pi-lens 编辑后诊断陈旧**：edit 后常报「Cannot find name X」「module not found」等假错误（LSP 快照滞后），还会**反复重放陈旧快照**（如 Layout.tsx「Duplicate identifier refreshAgentVisibility」——实际 grep 导入仅 1 处；jsonl.ts「orphaned JsonlStats」——L150 接口完整）。以 `npx tsc -b --force` 为准，0 错误即通过，**不要**为让门禁变绿改代码。
+- **context-mode hook 拦截裸 curl**：直接 `curl URL` 会被拦，用 `curl -s -o /tmp/xx URL` 落盘再读文件。
+- **useSyncExternalStore 的 getSnapshot 必须返回缓存引用**：返回新数组/新对象字面量会导致无限重渲染白屏（session.ts 用模块级冻结常量 `EMPTY_MESSAGES` 兜底空会话）。
 - **playwright run-code 不回传 console.log**：断言式验证用「失败即 throw」+ 返回值，不要靠 console.log。
 - **git push 偶发 git-lfs locks/verify 网络 EOF**：仓库级 `git config lfs.locksverify false` 后重推（已配置）。
