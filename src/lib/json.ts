@@ -95,18 +95,143 @@ export type TransformResult =
   | { ok: true; text: string }
   | { ok: false; error: JsonError };
 
-/** 把字符串中的非 ASCII 字符转为 \uXXXX 转义（处理代理对） */
-export function escapeNonAscii(text: string): string {
+/**
+ * 保留转义模式（对齐 json.cn「保留转义」）：合法 JSON 仅重排结构空白，
+ * 字符串 token 逐字复制——\n、\uXXXX、\\ 等原样保留，中文等非 ASCII 不转义。
+ * 输入不合法、字符串含原始控制字符或有尾部多余内容时返回 null，由调用方回退到宽容解析。
+ */
+function formatPreservingStrings(
+  text: string,
+  indent: number,
+  minify = false,
+): string | null {
+  const unit = ' '.repeat(indent);
+  const n = text.length;
+  let i = 0;
+  let depth = 0;
   let out = '';
-  for (let i = 0; i < text.length; i++) {
-    const code = text.charCodeAt(i);
-    if (code < 0x80) {
-      out += text[i];
-    } else {
-      out += '\\u' + code.toString(16).padStart(4, '0');
+
+  const fail = (): never => {
+    throw new Error('preserve-format fallback');
+  };
+  const skipWs = () => {
+    while (
+      i < n &&
+      (text[i] === ' ' || text[i] === '\t' || text[i] === '\r' || text[i] === '\n')
+    )
+      i++;
+  };
+  /** 复制完整字符串 token（含首尾引号），遇原始控制字符或未闭合则 fail */
+  const readStringToken = (): string => {
+    let j = i + 1; // text[i] === '"'
+    while (j < n) {
+      const c = text[j];
+      if (c === '\\') {
+        j += 2;
+        continue;
+      }
+      if (c === '"') break;
+      if (c < ' ') fail(); // 原始控制字符 → 回退
+      j++;
     }
+    if (j >= n) fail();
+    const tok = text.slice(i, j + 1);
+    i = j + 1;
+    return tok;
+  };
+  const PRIMITIVE_RE = /^(?:-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null)$/;
+  const readPrimitive = (): string => {
+    let j = i;
+    while (j < n && !' \t\r\n,{]}:'.includes(text[j])) j++;
+    const tok = text.slice(i, j);
+    if (!PRIMITIVE_RE.test(tok)) fail();
+    i = j;
+    return tok;
+  };
+  const pad = () => (minify ? '' : '\n' + unit.repeat(depth));
+  const colon = minify ? ':' : ': ';
+
+  const readValue = (): void => {
+    skipWs();
+    if (i >= n) fail();
+    const c = text[i];
+    if (c === '"') {
+      out += readStringToken();
+      return;
+    }
+    if (c === '{') {
+      i++;
+      skipWs();
+      if (text[i] === '}') {
+        i++;
+        out += '{}';
+        return;
+      }
+      depth++;
+      out += '{';
+      for (;;) {
+        skipWs();
+        if (text[i] !== '"') fail();
+        out += pad() + readStringToken();
+        skipWs();
+        if (text[i] !== ':') fail();
+        i++;
+        out += colon;
+        readValue();
+        skipWs();
+        if (text[i] === ',') {
+          i++;
+          out += ',';
+          continue;
+        }
+        if (text[i] === '}') {
+          i++;
+          depth--;
+          out += pad() + '}';
+          return;
+        }
+        fail();
+      }
+    } else if (c === '[') {
+      i++;
+      skipWs();
+      if (text[i] === ']') {
+        i++;
+        out += '[]';
+        return;
+      }
+      depth++;
+      out += '[';
+      for (;;) {
+        out += pad();
+        readValue();
+        skipWs();
+        if (text[i] === ',') {
+          i++;
+          out += ',';
+          continue;
+        }
+        if (text[i] === ']') {
+          i++;
+          depth--;
+          out += pad() + ']';
+          return;
+        }
+        fail();
+      }
+    } else {
+      out += readPrimitive();
+    }
+  };
+
+  try {
+    readValue();
+    skipWs();
+    if (i !== n) fail(); // 尾部多余内容
+    return out;
+  } catch {
+    return null;
   }
-  return out;
 }
 
 /**
@@ -162,29 +287,42 @@ export function decodeStringEscapes(text: string): string {
   return out;
 }
 
-/** 格式化（默认 2 空格缩进）；keepEscape 时非 ASCII 字符输出为 \uXXXX（参考 json.cn 保留转义），否则解码 \n/\t/\uXXXX 为真实字符 */
+/**
+ * 格式化（默认 2 空格缩进）。
+ * keepEscape（保留转义，对齐 json.cn）：字符串中的转义序列 \n、\uXXXX、\\ 等原样保留，
+ *   中文等非 ASCII 不转义；输入不合法时回退到宽容解析 + 标准序列化。
+ * 否则（不保留转义）：解码 \n/\t/\r/\uXXXX 为真实字符（\\ 和 \" 保持转义以维持结构）。
+ */
 export function formatJson(
   text: string,
   indent = 2,
   keepEscape = false,
 ): TransformResult {
+  if (keepEscape) {
+    const preserved = formatPreservingStrings(text, indent);
+    if (preserved !== null) return { ok: true, text: preserved };
+  }
   const r = parseJsonTolerant(text);
   if (!r.ok) return r;
   const out = JSON.stringify(r.value, null, indent);
   return {
     ok: true,
-    text: keepEscape ? escapeNonAscii(out) : decodeStringEscapes(out),
+    text: keepEscape ? out : decodeStringEscapes(out),
   };
 }
 
-/** 压缩为单行；keepEscape 同上 */
+/** 压缩为单行；keepEscape 同上（字符串 token 逐字保留） */
 export function minifyJson(text: string, keepEscape = false): TransformResult {
+  if (keepEscape) {
+    const preserved = formatPreservingStrings(text, 0, true);
+    if (preserved !== null) return { ok: true, text: preserved };
+  }
   const r = parseJsonTolerant(text);
   if (!r.ok) return r;
   const out = JSON.stringify(r.value);
   return {
     ok: true,
-    text: keepEscape ? escapeNonAscii(out) : decodeStringEscapes(out),
+    text: keepEscape ? out : decodeStringEscapes(out),
   };
 }
 

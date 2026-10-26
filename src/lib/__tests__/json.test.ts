@@ -69,23 +69,42 @@ describe('formatJson / minifyJson', () => {
     if (m.ok) expect(m.text).toBe(original);
   });
 
-  it('keepEscape：非 ASCII 输出为 \\uXXXX 转义', () => {
-    const src = '{"name":"中文","emoji":"😀","plain":"abc"}';
+  it('keepEscape：转义序列原样保留、非 ASCII 不转义（对齐 json.cn）', () => {
+    const src =
+      '{"name":"中文","esc":"\\u4e2d\\u6587","nl":"a\\nb","bs":"p\\\\q","emoji":"😀","plain":"abc"}';
     const r = formatJson(src, 2, true);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.text).toContain('\\u4e2d\\u6587');
-    expect(r.text).toContain('\\ud83d\\ude00'); // emoji 代理对
-    expect(r.text).toContain('"plain"');
-    // 转义结果仍可被 JSON.parse 还原
+    // 直接输入的非 ASCII 原样保留，不转 \\uXXXX
+    expect(r.text).toContain('"中文"');
+    expect(r.text).toContain('😀');
+    // 源文本中的转义序列逐字保留
+    expect(r.text).toContain('"\\u4e2d\\u6587"');
+    expect(r.text).toContain('"a\\nb"');
+    expect(r.text).toContain('"p\\\\q"');
+    // 结构被重排（2 空格缩进）
+    expect(r.text).toContain('{\n  "name": "中文"');
+    // 往返：解析后与源等价
     expect(JSON.parse(r.text)).toEqual(JSON.parse(src));
-    // 压缩同样支持
+    // 压缩同样逐字保留（源已是单行，压缩后等于原文）
     const m = minifyJson(src, true);
     expect(m.ok).toBe(true);
     if (m.ok) {
-      expect(m.text).not.toContain('中');
+      expect(m.text).toBe(src);
       expect(JSON.parse(m.text)).toEqual(JSON.parse(src));
     }
+  });
+
+  it('keepEscape 回退：字符串含原始控制字符时走宽容解析，非 ASCII 仍不转义', () => {
+    const src = '{"a":"中\n文"}'; // 字符串内是真实换行
+    const r = formatJson(src, 2, true);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // 控制字符被重新转义为 \\n
+    expect(r.text).toContain('\\n');
+    // 中文保持原文，不转 \\uXXXX
+    expect(r.text).toContain('中');
+    expect(JSON.parse(r.text)).toEqual({ a: '中\n文' });
   });
 
   it('不保留转义（默认）：\\n/\\t/\\uXXXX 解码为真实字符', () => {
@@ -127,7 +146,8 @@ describe('parseJsonTolerant / escapeRawControlChars', () => {
     const esc = formatJson(src, 2, true);
     expect(esc.ok).toBe(true);
     if (!esc.ok) return;
-    expect(esc.text).toContain('\\u4f60\\u597d');
+    // 保留转义：中文不转 \\uXXXX，\\n 原样保留
+    expect(esc.text).toContain('你好\\n世界');
     const dec = formatJson(esc.text, 2, false);
     expect(dec.ok).toBe(true);
     if (!dec.ok) return;
