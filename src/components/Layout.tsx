@@ -228,7 +228,9 @@ export default function Layout() {
           {/* 顶栏兼 Tauri 拖拽区（dbx 范式 U8）：右侧收命令面板/更新入口 */}
           <header
             data-tauri-drag-region
-            className="flex h-10 shrink-0 items-center justify-between border-b border-border/40 pl-3 pr-2"
+            className={`flex h-10 shrink-0 items-center justify-between border-b border-border/40 pr-2 ${
+              collapsed ? 'pl-8' : 'pl-3'
+            }`}
           >
             <div className="flex min-w-0 items-center gap-2">
               <button
