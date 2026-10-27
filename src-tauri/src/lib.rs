@@ -9,8 +9,30 @@ use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{Emitter, Manager};
 
+/// 自定义 fs 命令的安全兜底（前端业务层约定之外的最后一道防线）：
+/// 拒绝操作关键系统路径 / $HOME 根；递归删除时额外拒绝 $HOME 的直接子目录（如 ~/.claude）。
+fn fs_guard(path: &str, recursive_delete: bool) -> Result<(), String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let normalized = path.trim_end_matches('/');
+    const CRITICAL: [&str; 11] = [
+        "/", "/System", "/usr", "/bin", "/sbin", "/etc", "/var", "/Library",
+        "/Applications", "/Users", "/private",
+    ];
+    if CRITICAL.contains(&normalized) || (!home.is_empty() && normalized == home) {
+        return Err(format!("拒绝操作系统关键路径: {path}"));
+    }
+    if recursive_delete && !home.is_empty()
+        && let Some(rest) = normalized.strip_prefix(&format!("{home}/"))
+        && !rest.contains('/')
+    {
+        return Err(format!("拒绝递归删除用户根目录的直接子目录: {path}"));
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn create_symlink(target: String, link: String) -> Result<(), String> {
+    fs_guard(&link, false)?;
     #[cfg(unix)]
     {
         std::os::unix::fs::symlink(&target, &link).map_err(|e| e.to_string())
@@ -91,12 +113,14 @@ fn copy_dir_inner(src: &Path, dest: &Path, depth: usize) -> std::io::Result<()> 
 
 #[tauri::command]
 fn copy_dir(src: String, dest: String) -> Result<(), String> {
+    fs_guard(&dest, false)?;
     copy_dir_inner(Path::new(&src), Path::new(&dest), 0).map_err(|e| e.to_string())
 }
 
 /// 删除路径；软链只删链接本身，不跟随到目标目录。
 #[tauri::command]
 fn remove_path(path: String, recursive: bool) -> Result<(), String> {
+    fs_guard(&path, recursive)?;
     let p = Path::new(&path);
     let meta = std::fs::symlink_metadata(p).map_err(|e| e.to_string())?;
     let ft = meta.file_type();
@@ -185,6 +209,7 @@ fn read_dir(path: String) -> Result<Vec<DirEntry>, String> {
 /// 递归创建目录（mkdir -p）
 #[tauri::command]
 fn mkdir_p(path: String) -> Result<(), String> {
+    fs_guard(&path, false)?;
     std::fs::create_dir_all(&path).map_err(|e| e.to_string())
 }
 
@@ -335,9 +360,10 @@ fn run_sse(
     headers: &Option<HashMap<String, String>>,
     abort: &Arc<AtomicBool>,
 ) -> Result<(), String> {
-    // 流式长生成不设整体超时，由前端「停止」按钮中止
+    // 流式长生成不设整体超时；timeout_per_read 让停滞的流能被中止/看门狗发现
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .timeout_global(None)
+        .timeout_per_read(Some(Duration::from_secs(15)))
         .http_status_as_error(false)
         .build()
         .into();
@@ -369,6 +395,10 @@ fn run_sse(
     }
     let mut reader = std::io::BufReader::new(resp.body_mut().as_reader());
     let mut line = String::new();
+    // 同一 SSE 事件的多行 data: 按规范拼接，遇空行才派发
+    let mut data_buf = String::new();
+    // 连续读超时计数：超过阈值视为停滞流，主动结束
+    let mut stalled = 0u32;
     loop {
         if abort.load(Ordering::Relaxed) {
             let _ = window.emit(
@@ -378,17 +408,51 @@ fn run_sse(
             return Ok(());
         }
         line.clear();
-        let n = reader.read_line(&mut line).map_err(|e| e.to_string())?;
+        let n = match reader.read_line(&mut line) {
+            Ok(n) => n,
+            Err(e) if e.kind() == std::io::ErrorKind::TimedOut => {
+                stalled += 1;
+                if stalled >= 4 {
+                    let _ = window.emit(
+                        AI_SSE_EVENT,
+                        serde_json::json!({"id": stream_id, "kind": "error", "message": "响应停滞超时（60 秒无数据）"}),
+                    );
+                    return Ok(());
+                }
+                continue;
+            }
+            Err(e) => return Err(e.to_string()),
+        };
         if n == 0 {
             break; // EOF
         }
-        // 只透传 data: 载荷；event:/注释/空行由前端按载荷里的 type 自行分流
-        if let Some(data) = line.trim_end().strip_prefix("data:") {
-            let _ = window.emit(
-                AI_SSE_EVENT,
-                serde_json::json!({"id": stream_id, "kind": "data", "data": data.trim()}),
-            );
+        stalled = 0;
+        let trimmed = line.trim_end_matches(['\r', '\n']);
+        if trimmed.is_empty() {
+            if !data_buf.is_empty() {
+                let _ = window.emit(
+                    AI_SSE_EVENT,
+                    serde_json::json!({"id": stream_id, "kind": "data", "data": data_buf.clone()}),
+                );
+                data_buf.clear();
+            }
+            continue;
         }
+        // 只透传 data: 载荷（只剥分隔用的单个空格）；event:/注释行由前端按载荷里的 type 自行分流
+        if let Some(data) = trimmed.strip_prefix("data:") {
+            let payload = data.strip_prefix(' ').unwrap_or(data);
+            if !data_buf.is_empty() {
+                data_buf.push('\n');
+            }
+            data_buf.push_str(payload);
+        }
+    }
+    // EOF 时冲掉未以空行结尾的残余 data
+    if !data_buf.is_empty() {
+        let _ = window.emit(
+            AI_SSE_EVENT,
+            serde_json::json!({"id": stream_id, "kind": "data", "data": data_buf}),
+        );
     }
     window
         .emit(

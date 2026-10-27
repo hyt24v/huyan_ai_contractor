@@ -28,6 +28,12 @@ export function hasMcpSupport(agent: AgentDef): boolean {
   return !!agent.mcpFile;
 }
 
+/** 统一的 agent 显示名：查注册表 name，未知 id 兜底返回 id 本身。
+ * 禁止再在各页面硬编码 AGENT_SHORT 映射表（56 个 agent 只有 5 个键会渲染空白）。 */
+export function agentShortName(id: AgentId): string {
+  return AGENTS.find((a) => a.id === id)?.name ?? id;
+}
+
 export const AGENTS: AgentDef[] = [
   // —— 原有 5 个(id 与数据兼容,勿改 id)——
   {
