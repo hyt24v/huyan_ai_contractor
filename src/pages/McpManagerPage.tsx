@@ -97,6 +97,7 @@ export default function McpManagerPage() {
   const mcpAgents = useAgents().filter(hasMcpSupport);
   const [manifest, setManifest] = useState<CentralManifest | null>(null);
   const [error, setError] = useState('');
+  const [scanErrors, setScanErrors] = useState<Record<string, string>>({});
   const { toast, showToast } = useToast(2500);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<EditDraft | null>(null);
@@ -137,6 +138,7 @@ export default function McpManagerPage() {
       setManifest({ servers: pageServers });
       setCurrent(snap.current ?? {});
       setInstalled(snap.installed ?? []);
+      setScanErrors(snap.errors ?? {});
       const installedDefs = mcpAgents.filter((a) => snap.installed?.includes(a.id));
       setDriftCount(
         persisted.servers.length > 0
@@ -420,6 +422,15 @@ export default function McpManagerPage() {
         <div className="shrink-0 border-b bg-destructive/10 px-4 py-1.5 text-xs text-destructive">
           {error}
           {!isTauri() && '（此功能仅在桌面 App 中可用）'}
+        </div>
+      )}
+
+      {Object.keys(scanErrors).length > 0 && (
+        <div className="shrink-0 border-b bg-warning/10 px-4 py-1.5 text-xs text-warning">
+          部分 agent 扫描失败：
+          {Object.entries(scanErrors)
+            .map(([id, msg]) => `${id}（${msg}）`)
+            .join('；')}
         </div>
       )}
 

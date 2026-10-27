@@ -40,6 +40,8 @@ export interface McpSnapshot {
   current: Partial<Record<AgentId, Record<string, McpServerSpec>>>;
   /** 已安装（配置目录或配置文件存在）的 agent；未安装的不参与漂移/分发 */
   installed: AgentId[];
+  /** 扫描失败的 agent → 原因（权限拒绝/读取失败等），不阻塞其它 agent */
+  errors: Record<string, string>;
 }
 
 /** 参与 MCP 管理的 agent:可见性开启且已知 MCP 配置路径 */
@@ -47,14 +49,19 @@ function mcpAgents(): AgentDef[] {
   return effectiveAgents().filter(hasMcpSupport);
 }
 
-/** 判断 agent 是否已安装：配置文件存在，或其配置目录（skillsDir 的父级）存在 */
+/** 判断 agent 是否已安装：配置文件存在，或其配置目录（skillsDir 的父级）存在。
+ * 路径被 fs 权限拒绝时按「未安装」降级，不冲垮整体扫描。 */
 async function isAgentInstalled(agent: AgentDef, fs: FsPort): Promise<boolean> {
-  if (agent.mcpFile) {
-    const cfg = await absPath(agent.mcpFile);
-    if (await fs.exists(cfg)) return true;
+  try {
+    if (agent.mcpFile) {
+      const cfg = await absPath(agent.mcpFile);
+      if (await fs.exists(cfg)) return true;
+    }
+    const dir = await absPath(agent.skillsDir.split('/').slice(0, -1).join('/'));
+    return await fs.exists(dir);
+  } catch {
+    return false;
   }
-  const dir = await absPath(agent.skillsDir.split('/').slice(0, -1).join('/'));
-  return fs.exists(dir);
 }
 
 /** 检测本机已安装的 agent(只含支持 MCP 管理的可见 agent) */
@@ -98,10 +105,11 @@ export async function scanMcp(fs: FsPort = tauriFs): Promise<McpSnapshot> {
   const manifest = await loadManifest(fs);
   const scans: Partial<Record<AgentId, { servers: Record<string, McpServerSpec>; enabled: Record<string, boolean> }>> = {};
   const current: Partial<Record<AgentId, Record<string, McpServerSpec>>> = {};
+  const errors: Record<string, string> = {};
   for (const agent of mcpAgents()) {
-    const p = await absPath(agent.mcpFile!);
-    if (!(await fs.exists(p))) continue;
     try {
+      const p = await absPath(agent.mcpFile!);
+      if (!(await fs.exists(p))) continue;
       const text = await fs.readText(p);
       if (agent.mcpFormat === 'json') {
         scans[agent.id] = parseMcpServersJson(text, {
@@ -112,8 +120,9 @@ export async function scanMcp(fs: FsPort = tauriFs): Promise<McpSnapshot> {
         scans[agent.id] = parseTomlMcpServers(text);
       }
       current[agent.id] = scans[agent.id]!.servers;
-    } catch {
-      // 单个 agent 配置坏了不影响整体
+    } catch (e) {
+      // 单个 agent 坏了（权限拒绝/配置损坏）不影响整体，记入 errors 供页面提示
+      errors[agent.id] = e instanceof Error ? e.message : String(e);
     }
   }
   // 合并：扫描结果补齐清单缺失的 server，保留清单中的勾选状态
@@ -125,7 +134,7 @@ export async function scanMcp(fs: FsPort = tauriFs): Promise<McpSnapshot> {
       ? { ...s, agents: { ...s.agents, ...existing.agents } }
       : s;
   });
-  return { manifest: { servers }, current, installed: await detectInstalledAgents(fs) };
+  return { manifest: { servers }, current, installed: await detectInstalledAgents(fs), errors };
 }
 
 /** 每个配置文件最多保留的 .bak 份数（快照体系之外的轻量兜底，防只增不减） */
