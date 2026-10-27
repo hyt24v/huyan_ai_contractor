@@ -138,11 +138,11 @@ export default function Layout() {
   }, [navigate]);
 
   return (
-    // dbx 范式：chrome 外壳底色 + gap-1 p-1 留缝，各面板为独立圆角描边卡片
-    <div className="flex h-full gap-1 bg-chrome p-1">
+    // 岛式布局（VS Code 新版风格）：chrome 外壳底色 + gap-2 p-2 留缝，各面板为悬浮圆角卡片
+    <div className="flex h-full gap-2 bg-chrome p-2">
       {/* 单一侧栏：展开 w-52（图标+文字），折叠 w-12（纯图标条）；顶部避让 macOS 红绿灯（兼拖拽区） */}
       <aside
-        className={`flex shrink-0 flex-col rounded-lg border border-border/40 bg-sidebar transition-[width] duration-200 ${
+        className={`flex shrink-0 flex-col rounded-xl border border-border/40 bg-sidebar transition-[width] duration-200 ${
           collapsed ? 'w-12' : 'w-52'
         }`}
       >
@@ -250,7 +250,7 @@ export default function Layout() {
 
       {/* 主区域：内容面板（浮在 chrome 外壳上，无阴影） */}
       <div className="min-w-0 flex-1">
-        <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-border/40 bg-content">
+        <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-border/40 bg-content">
           {/* 顶栏兼 Tauri 拖拽区（dbx 范式 U8）：右侧收命令面板/更新入口 */}
           <header
             data-tauri-drag-region

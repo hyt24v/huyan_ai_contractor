@@ -254,7 +254,7 @@ export default function AiDock({ open, onClose, scope }: AiDockProps) {
 
   return (
     <aside
-      className={`relative flex shrink-0 flex-col overflow-hidden rounded-lg border border-border/40 bg-content ${
+      className={`relative flex shrink-0 flex-col overflow-hidden rounded-xl border border-border/40 bg-content ${
         maximized ? 'min-w-0 flex-1' : ''
       }`}
       style={maximized ? undefined : { width }}
