@@ -1,7 +1,15 @@
-/** 设置-Agent 管理:56 个 agent 全量列表,自由选择哪些在工具中显示;检测到的排前面 */
+/** 设置-Agent 管理:56 个 agent 全量列表,自由选择哪些在工具中显示;支持紧凑卡片/高密度列表两种视图 */
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, CircleOff, Loader2, RotateCcw, Search } from 'lucide-react';
+import {
+  CheckCircle2,
+  CircleOff,
+  LayoutGrid,
+  List,
+  Loader2,
+  RotateCcw,
+  Search,
+} from 'lucide-react';
 import { AGENTS, hasMcpSupport, type AgentDef } from '../../lib/agents';
 import { PROMPT_TARGETS } from '../../lib/agentTargets';
 import {
@@ -18,6 +26,70 @@ import { Toggle } from './ui';
 
 const homeTilde = (p: string) => `~/${p}`;
 
+const VIEW_KEY = 'huyan_tool:agents_view';
+type ViewMode = 'cards' | 'list';
+function loadView(): ViewMode {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'cards';
+  } catch {
+    return 'cards';
+  }
+}
+
+/** 能力项:Skills 所有 agent 都支持;MCP/提示词按注册表 */
+function capabilitiesOf(a: AgentDef): Array<{ key: string; label: string; to: string; ok: boolean }> {
+  return [
+    { key: 'skills', label: 'Skills', to: '/skills', ok: true },
+    { key: 'mcp', label: 'MCP', to: '/mcp', ok: hasMcpSupport(a) },
+    { key: 'prompt', label: '提示词', to: '/prompts', ok: PROMPT_TARGETS.some((t) => t.agent === a.id) },
+  ];
+}
+
+function pathsTitle(a: AgentDef): string {
+  const promptTarget = PROMPT_TARGETS.find((t) => t.agent === a.id);
+  return [
+    `Skills: ${homeTilde(a.skillsDir)}`,
+    `MCP: ${a.mcpFile ? homeTilde(a.mcpFile) : '暂不支持(配置路径未知)'}`,
+    `提示词: ${promptTarget?.file ? homeTilde(promptTarget.file) : promptTarget ? '不落盘,需在应用内设置' : '暂不支持'}`,
+  ].join('\n');
+}
+
+function StatusDot({ detected }: { detected: boolean }) {
+  return (
+    <span
+      title={detected ? '已检测到' : '未检测到'}
+      className={`h-1.5 w-1.5 shrink-0 rounded-full ${detected ? 'bg-primary' : 'bg-muted-foreground/40'}`}
+    />
+  );
+}
+
+/** 能力 chips:支持且已启用 → 可点击直达;支持但未启用 → 静态;不支持 → 更淡 */
+function CapabilityChips({ agent, enabled, dense }: { agent: AgentDef; enabled: boolean; dense?: boolean }) {
+  const cls = (ok: boolean) =>
+    `inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] transition-colors ${
+      ok
+        ? enabled
+          ? 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
+          : 'bg-muted text-muted-foreground'
+        : 'bg-muted/40 text-muted-foreground/40'
+    }`;
+  return (
+    <div className={`flex items-center ${dense ? 'gap-0.5' : 'gap-1'}`}>
+      {capabilitiesOf(agent).map((c) =>
+        c.ok && enabled ? (
+          <Link key={c.key} to={c.to} className={cls(true)} title={`前往${c.label}管理`}>
+            {dense ? c.label.slice(0, 1) : c.label}
+          </Link>
+        ) : (
+          <span key={c.key} className={cls(c.ok)} title={c.ok ? c.label : `${c.label}暂不支持`}>
+            {dense ? c.label.slice(0, 1) : c.label}
+          </span>
+        ),
+      )}
+    </div>
+  );
+}
+
 export default function AgentsSection() {
   const [detected, setDetected] = useState<string[]>(() => detectedAgentIds());
   const [enabledIds, setEnabledIds] = useState<string[]>(() =>
@@ -26,6 +98,7 @@ export default function AgentsSection() {
   const [customized, setCustomized] = useState(() => isAgentVisibilityCustomized());
   const [query, setQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [view, setView] = useState<ViewMode>(loadView);
   const { toast, showToast } = useToast();
 
   // 打开时重新检测一次本机 agent
@@ -68,6 +141,15 @@ export default function AgentsSection() {
       .finally(() => setRefreshing(false));
   }, [showToast]);
 
+  const switchView = useCallback((v: ViewMode) => {
+    setView(v);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const q = query.trim().toLowerCase();
   const detectedSet = new Set(detected);
   const enabledSet = new Set(enabledIds);
@@ -80,12 +162,10 @@ export default function AgentsSection() {
     return score(b) - score(a);
   });
 
-  const promptAgents = new Set(PROMPT_TARGETS.map((t) => t.agent));
-
   return (
     <div className="space-y-3">
       <p className="text-[11px] leading-relaxed text-muted-foreground">
-        共支持 {AGENTS.length} 个 agent。默认显示「检测到的」;用右侧开关自由选择哪些出现在
+        共支持 {AGENTS.length} 个 agent。默认显示「检测到的」;用开关自由选择哪些出现在
         Skills/MCP/提示词等管理页。
         {!customized && '当前为自动模式。'}
       </p>
@@ -122,90 +202,110 @@ export default function AgentsSection() {
             恢复自动
           </button>
         )}
-      </div>
-
-      <div className="space-y-2">
-        {list.map((a) => {
-          const isDetected = detectedSet.has(a.id);
-          const isEnabled = enabledSet.has(a.id);
-          const promptTarget = PROMPT_TARGETS.find((t) => t.agent === a.id);
-          return (
-            <div
-              key={a.id}
-              className={`rounded-lg border px-4 py-3 transition-colors ${
-                isEnabled ? 'border-border/60 bg-card' : 'border-border/40 bg-card/50 opacity-75'
+        {/* 卡片/列表切换 */}
+        <div className="flex overflow-hidden rounded-md border border-border/60">
+          {(
+            [
+              { v: 'cards' as const, icon: LayoutGrid, label: '卡片视图' },
+              { v: 'list' as ViewMode, icon: List, label: '列表视图' },
+            ] as const
+          ).map(({ v, icon: Icon, label }) => (
+            <button
+              key={v}
+              type="button"
+              title={label}
+              onClick={() => switchView(v)}
+              className={`flex h-8 w-8 items-center justify-center transition-colors ${
+                view === v
+                  ? 'bg-accent text-foreground'
+                  : 'text-muted-foreground hover:bg-accent/50'
               }`}
             >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="text-[13px] font-medium text-foreground">{a.name}</span>
-                  {isDetected ? (
-                    <span className="inline-flex items-center gap-1 rounded-sm bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
-                      <CheckCircle2 className="h-3 w-3" />
-                      已检测到
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                      <CircleOff className="h-3 w-3" />
-                      未检测到
-                    </span>
-                  )}
+              <Icon className="h-3.5 w-3.5" />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {view === 'cards' ? (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {list.map((a) => {
+            const isEnabled = enabledSet.has(a.id);
+            return (
+              <div
+                key={a.id}
+                title={pathsTitle(a)}
+                className={`rounded-lg border px-3 py-2 transition-colors ${
+                  isEnabled
+                    ? 'border-border/60 bg-card'
+                    : 'border-border/40 bg-card/50 opacity-75'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <StatusDot detected={detectedSet.has(a.id)} />
+                  <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
+                    {a.name}
+                  </span>
+                  <Toggle
+                    checked={isEnabled}
+                    onChange={(on) => onToggle(a.id, on)}
+                    label={`显示 ${a.name}`}
+                  />
                 </div>
+                <div className="mt-1.5">
+                  <CapabilityChips agent={a} enabled={isEnabled} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {list.map((a) => {
+            const isEnabled = enabledSet.has(a.id);
+            return (
+              <div
+                key={a.id}
+                title={pathsTitle(a)}
+                className={`flex h-9 items-center gap-2 rounded-md border px-3 transition-colors ${
+                  isEnabled
+                    ? 'border-border/60 bg-card'
+                    : 'border-border/40 bg-card/50 opacity-75'
+                }`}
+              >
+                <StatusDot detected={detectedSet.has(a.id)} />
+                <span className="w-36 shrink-0 truncate text-xs font-medium text-foreground">
+                  {a.name}
+                </span>
+                <CapabilityChips agent={a} enabled={isEnabled} dense />
+                <span className="min-w-0 flex-1 truncate text-right font-mono text-[10px] text-muted-foreground">
+                  {homeTilde(a.skillsDir)}
+                </span>
                 <Toggle
                   checked={isEnabled}
                   onChange={(on) => onToggle(a.id, on)}
                   label={`显示 ${a.name}`}
                 />
               </div>
-              <div className="mt-2 space-y-0.5 font-mono text-[11px] text-muted-foreground">
-                <div className="truncate">Skills:{homeTilde(a.skillsDir)}</div>
-                <div className="truncate">
-                  MCP:{a.mcpFile ? homeTilde(a.mcpFile) : '暂不支持(配置路径未知)'}
-                </div>
-                <div className="truncate">
-                  提示词:
-                  {promptTarget?.file
-                    ? homeTilde(promptTarget.file)
-                    : promptTarget
-                      ? '不落盘,需在应用内设置'
-                      : '暂不支持'}
-                </div>
-              </div>
-              {isEnabled && (
-                <div className="mt-2 flex items-center gap-1 text-[11px]">
-                  <Link
-                    to="/skills"
-                    className="flex items-center gap-0.5 rounded-sm px-1.5 py-1 text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
-                  >
-                    Skills <ArrowRight className="h-3 w-3" />
-                  </Link>
-                  {hasMcpSupport(a) && (
-                    <Link
-                      to="/mcp"
-                      className="flex items-center gap-0.5 rounded-sm px-1.5 py-1 text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
-                    >
-                      MCP <ArrowRight className="h-3 w-3" />
-                    </Link>
-                  )}
-                  {promptAgents.has(a.id) && (
-                    <Link
-                      to="/prompts"
-                      className="flex items-center gap-0.5 rounded-sm px-1.5 py-1 text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
-                    >
-                      提示词 <ArrowRight className="h-3 w-3" />
-                    </Link>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {list.length === 0 && (
-          <div className="rounded-lg border border-dashed px-3 py-8 text-center text-xs text-muted-foreground">
-            没有匹配的 agent
-          </div>
-        )}
-      </div>
+            );
+          })}
+        </div>
+      )}
+      {list.length === 0 && (
+        <div className="rounded-lg border border-dashed px-3 py-8 text-center text-xs text-muted-foreground">
+          没有匹配的 agent
+        </div>
+      )}
+
+      <p className="flex items-center gap-3 text-[10px] text-muted-foreground/70">
+        <span className="inline-flex items-center gap-1">
+          <CheckCircle2 className="h-3 w-3 text-primary" /> 圆点亮=本机已检测到
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <CircleOff className="h-3 w-3" /> 圆点灰=未检测到
+        </span>
+        <span>悬停查看各配置路径</span>
+      </p>
 
       {toast && (
         <div
