@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../hooks/useToast';
 import { useFileWatch } from '../hooks/useFileWatch';
 import {
@@ -54,8 +54,11 @@ function errorText(e: unknown): string {
 
 export default function PromptsPage() {
   // 提示词只支持有落盘文件的 agent(PROMPT_TARGETS),且在可见列表内
-  const visibleAgents = useAgents().filter((a) =>
-    PROMPT_TARGETS.some((t) => t.agent === a.id),
+  // useMemo 稳定引用:inline filter 每次渲染都是新数组,喂给 hook 依赖会造成无限循环(见 MCP 页 451a043)
+  const agents = useAgents();
+  const visibleAgents = useMemo(
+    () => agents.filter((a) => PROMPT_TARGETS.some((t) => t.agent === a.id)),
+    [agents],
   );
   const [lib, setLib] = useState<PromptLibrary | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
