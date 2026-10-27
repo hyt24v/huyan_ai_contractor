@@ -10,6 +10,7 @@ import {
   parseJsonl,
   parseJsonlSmart,
   parseJsonRecords,
+  prettifyJsonl,
 } from '../jsonl';
 
 describe('parseJsonl', () => {
@@ -197,5 +198,20 @@ describe('cellPreview', () => {
     expect(cellPreview({ a: 1 })).toBe('Object{1}');
     expect(cellPreview([1, 2])).toBe('Array(2)');
     expect(cellPreview(3.14)).toBe('3.14');
+  });
+});
+
+describe('prettifyJsonl（审核 #7）', () => {
+  it('逐条美化为多行，错误行原样保留', () => {
+    const r = prettifyJsonl('{"a":1}\nNOT_JSON\n[1,2]');
+    expect(r.ok).toBe(false);
+    expect(r.errors).toHaveLength(1);
+    expect(r.text).toBe('{\n  "a": 1\n}\nNOT_JSON\n[\n  1,\n  2\n]');
+  });
+  it('已美化的多行记录幂等（≥2 条记录才走记录模式）', () => {
+    const pretty = '{\n  "a": 1\n}\n{\n  "b": 2\n}';
+    const r = prettifyJsonl(pretty);
+    expect(r.ok).toBe(true);
+    expect(r.text).toBe(pretty);
   });
 });

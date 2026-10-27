@@ -31,6 +31,7 @@ import {
   jsonlStats,
   normalizeJsonl,
   parseJsonlSmart,
+  prettifyJsonl,
   type JsonlLineResult,
   type JsonValue,
 } from '../lib/jsonl';
@@ -46,6 +47,7 @@ import {
   HISTORY_KEY,
 } from '../lib/editorHistory';
 import { useEditorHistory } from '../hooks/useEditorHistory';
+import { useToast } from '../hooks/useToast';
 import HistoryDropdown from '../components/HistoryDropdown';
 
 const STORAGE_KEY = 'huyan_tool:editor';
@@ -88,7 +90,6 @@ export default function JsonToolPage() {
   useEffect(() => {
     localStorage.setItem(KEEP_ESCAPE_KEY, keepEscape ? '1' : '0');
   }, [keepEscape]);
-  const [toast, setToast] = useState('');
   const [jumpInput, setJumpInput] = useState('');
 
   // JSON 模式状态
@@ -113,10 +114,7 @@ export default function JsonToolPage() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [leftPct, setLeftPct] = useState(55);
 
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(''), 1800);
-  }, []);
+  const { toast, showToast } = useToast(1800);
 
   // ---------- 历史记录（手动保存） ----------
   const {
@@ -258,7 +256,7 @@ export default function JsonToolPage() {
         setText(r.text);
         showToast(okMsg);
       } else if (!r.ok) {
-        showToast(`失败：${r.error?.message ?? '未知错误'}`);
+        showToast(`失败：${r.error?.message ?? '未知错误'}`, 'err');
       }
     },
     [text, showToast],
@@ -272,6 +270,21 @@ export default function JsonToolPage() {
         r.errors.length > 0
           ? `已处理，${r.errors.length} 行仍有错误（已原样保留）`
           : okMsg,
+        r.errors.length > 0 ? 'err' : 'ok',
+      );
+    },
+    [text, keepEmptyLines, showToast],
+  );
+
+  const doPrettify = useCallback(
+    (okMsg: string) => {
+      const r = prettifyJsonl(text, { keepEmptyLines });
+      setText(r.text);
+      showToast(
+        r.errors.length > 0
+          ? `已处理，${r.errors.length} 行仍有错误（已原样保留）`
+          : okMsg,
+        r.errors.length > 0 ? 'err' : 'ok',
       );
     },
     [text, keepEmptyLines, showToast],
@@ -280,7 +293,10 @@ export default function JsonToolPage() {
   const doRepair = useCallback(() => {
     const r = repairText(text, mode);
     setText(r.text);
-    showToast(r.ok ? '已修复' : `部分修复：${r.error ?? '仍有无法修复的内容'}`);
+    showToast(
+      r.ok ? '已修复' : `部分修复：${r.error ?? '仍有无法修复的内容'}`,
+      r.ok ? 'ok' : 'err',
+    );
   }, [text, mode, showToast]);
 
   const doSort = useCallback(() => {
@@ -289,7 +305,7 @@ export default function JsonToolPage() {
       setText(r.text);
       showToast('已按键排序');
     } else {
-      showToast(`排序失败：${r.error ?? '未知错误'}`);
+      showToast(`排序失败：${r.error ?? '未知错误'}`, 'err');
     }
   }, [text, mode, showToast]);
 
@@ -309,7 +325,10 @@ export default function JsonToolPage() {
         await tauriFs.writeText(path, text);
         showToast(`已保存到 ${path}`);
       } catch (e) {
-        showToast(`保存失败：${e instanceof Error ? e.message : String(e)}`);
+        showToast(
+          `保存失败：${e instanceof Error ? e.message : String(e)}`,
+          'err',
+        );
       }
     } else {
       downloadText(filename, text);
@@ -401,6 +420,18 @@ export default function JsonToolPage() {
         );
         setText(JSON.stringify(next, null, 2));
         showToast(`已删除第 ${line} 项`);
+      } else if (jsonValue !== null && typeof jsonValue === 'object') {
+        const entries = Object.entries(jsonValue as Record<string, JsonValue>);
+        const key = entries[line - 1]?.[0];
+        if (key === undefined) return;
+        setText(
+          JSON.stringify(
+            Object.fromEntries(entries.filter((_, i) => i !== line - 1)),
+            null,
+            2,
+          ),
+        );
+        showToast(`已删除字段 ${key}`);
       }
     },
     [mode, text, jsonValue, showToast],
@@ -438,13 +469,15 @@ export default function JsonToolPage() {
             validate(text, mode);
             // 重新解析一次取结果，避免读到 setState 前的旧状态
             if (mode === 'json') {
-              showToast(parseJsonTolerant(text).ok ? '✓ JSON 合法' : 'JSON 有错误');
+              const ok = parseJsonTolerant(text).ok;
+              showToast(ok ? '✓ JSON 合法' : 'JSON 有错误', ok ? 'ok' : 'err');
             } else {
               const s = jsonlStats(parseJsonlSmart(text));
               showToast(
                 s.errors === 0
                   ? `✓ ${s.valid} 行全部合法`
                   : `${s.errors} 行有错误`,
+                s.errors === 0 ? 'ok' : 'err',
               );
             }
           }}
@@ -455,7 +488,7 @@ export default function JsonToolPage() {
           onClick={() =>
             mode === 'json'
               ? applyTransform((t) => formatJson(t, 2, keepEscape), '已格式化')
-              : doNormalize('已格式化')
+              : doPrettify('已格式化')
           }
         >
           格式化
@@ -470,11 +503,18 @@ export default function JsonToolPage() {
           压缩
         </ToolbarButton>
         <label
-          className="inline-flex cursor-pointer select-none items-center gap-1 text-xs text-muted-foreground"
-          title="切换转义显示（对齐 json.cn）：勾选=字符串中的转义序列 \\n、\\uXXXX 等原样保留，中文不转义；不勾选=\\n、\\t、\\uXXXX 解码为真实字符，可自由来回切换"
+          className={`inline-flex select-none items-center gap-1 text-xs text-muted-foreground ${
+            mode === 'jsonl' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+          }`}
+          title={
+            mode === 'jsonl'
+              ? '保留转义仅 JSON 模式有效（JSONL 逐条处理，不参与转义显示切换）'
+              : '切换转义显示（对齐 json.cn）：勾选=字符串中的转义序列 \\n、\\uXXXX 等原样保留，中文不转义；不勾选=\\n、\\t、\\uXXXX 解码为真实字符，可自由来回切换'
+          }
         >
           <input
             type="checkbox"
+            disabled={mode === 'jsonl'}
             checked={keepEscape}
             onChange={(e) => {
               const next = e.target.checked;
@@ -532,16 +572,41 @@ export default function JsonToolPage() {
             </ToolbarButton>
             <ToolbarButton
               onClick={() => {
-                setText(deleteLine(text, currentLine()));
-                showToast('已删除当前行');
+                // 光标落在多行记录中间时删除整条记录
+                const cur = currentLine();
+                const rec = parseJsonlSmart(text).find(
+                  (r) =>
+                    !r.empty && cur >= r.line && cur <= (r.endLine ?? r.line),
+                );
+                const start = rec ? rec.line : cur;
+                const end =
+                  rec && rec.endLine && rec.endLine > rec.line
+                    ? rec.endLine
+                    : undefined;
+                setText(deleteLine(text, start, end));
+                showToast(
+                  end ? `已删除第 ${start}–${end} 行` : '已删除当前行',
+                );
               }}
             >
               删除行
             </ToolbarButton>
             <ToolbarButton
               onClick={() => {
-                setText(duplicateLine(text, currentLine()));
-                showToast('已复制当前行');
+                const cur = currentLine();
+                const rec = parseJsonlSmart(text).find(
+                  (r) =>
+                    !r.empty && cur >= r.line && cur <= (r.endLine ?? r.line),
+                );
+                const start = rec ? rec.line : cur;
+                const end =
+                  rec && rec.endLine && rec.endLine > rec.line
+                    ? rec.endLine
+                    : undefined;
+                setText(duplicateLine(text, start, end));
+                showToast(
+                  end ? `已复制第 ${start}–${end} 行` : '已复制当前行',
+                );
               }}
             >
               复制行
@@ -560,7 +625,7 @@ export default function JsonToolPage() {
         <ToolbarButton
           onClick={() =>
             copyToClipboard(text).then((ok) =>
-              showToast(ok ? '已复制' : '复制失败'),
+              showToast(ok ? '已复制' : '复制失败', ok ? 'ok' : 'err'),
             )
           }
         >
@@ -604,8 +669,12 @@ export default function JsonToolPage() {
           }}
         />
         {toast && (
-          <span className="ml-auto text-xs font-medium text-success">
-            {toast}
+          <span
+            className={`ml-auto text-xs font-medium ${
+              toast.tone === 'err' ? 'text-destructive' : 'text-success'
+            }`}
+          >
+            {toast.msg}
           </span>
         )}
       </Toolbar>
@@ -749,7 +818,10 @@ export default function JsonToolPage() {
                         className="rounded px-1.5 py-0.5 hover:bg-accent hover:text-foreground"
                         onClick={() =>
                           copyToClipboard(queryResult.text).then((ok) =>
-                            showToast(ok ? '结果已复制' : '复制失败'),
+                            showToast(
+                              ok ? '结果已复制' : '复制失败',
+                              ok ? 'ok' : 'err',
+                            ),
                           )
                         }
                       >

@@ -148,8 +148,8 @@ function TreeNode({
     const text =
       what === 'path'
         ? node.path || '(root)'
-        : node.type === 'object' || node.type === 'array'
-          ? node.preview
+        : node.raw !== undefined
+          ? JSON.stringify(node.raw, null, 2)
           : String(node.value ?? node.preview);
     const ok = await copyToClipboard(text);
     if (ok) {

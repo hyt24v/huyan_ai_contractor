@@ -198,6 +198,29 @@ export function normalizeJsonl(
   return { ok: errors.length === 0, text: out.join('\n'), errors };
 }
 
+/** 逐条美化（多行缩进），错误行原样保留 */
+export function prettifyJsonl(
+  text: string,
+  opts?: { keepEmptyLines?: boolean; indent?: number },
+): JsonlTransformResult {
+  const results = parseJsonlSmart(text);
+  const errors: { line: number; error: string }[] = [];
+  const out: string[] = [];
+  for (const r of results) {
+    if (r.empty) {
+      if (opts?.keepEmptyLines) out.push('');
+      continue;
+    }
+    if (r.ok) {
+      out.push(JSON.stringify(r.value, null, opts?.indent ?? 2));
+    } else {
+      out.push(r.raw);
+      errors.push({ line: r.line, error: r.error ?? '解析失败' });
+    }
+  }
+  return { ok: errors.length === 0, text: out.join('\n'), errors };
+}
+
 /** 删除指定行（1-based），endLine 可删除多行记录，返回新文本 */
 export function deleteLine(text: string, line: number, endLine?: number): string {
   const lines = text.split('\n');

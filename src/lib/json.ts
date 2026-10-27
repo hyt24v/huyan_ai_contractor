@@ -346,8 +346,12 @@ export function unescapeJson(text: string): TransformResult {
 
 /** Unicode 转中文：\uXXXX 解码 */
 export function unicodeToChinese(text: string): string {
-  return text.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex: string) =>
-    String.fromCharCode(parseInt(hex, 16)),
+  // 只转换真正的 \uXXXX 转义（前导反斜杠为奇数个）；
+  // \\uXXXX（转义反斜杠 + 字面 u）是用户刻意保留的字面文本，必须原样不动
+  return text.replace(/(\\+)u([0-9a-fA-F]{4})/g, (m, bs: string, hex: string) =>
+    bs.length % 2 === 0
+      ? m
+      : bs.slice(0, -1) + String.fromCharCode(parseInt(hex, 16)),
   );
 }
 
@@ -368,6 +372,7 @@ export interface JsonTreeNode {
   preview: string; // 值摘要
   childCount: number;
   value?: string | number | boolean | null; // 原始值（仅叶子类型有）
+  raw?: unknown; // 原始值引用（仅容器有，用于复制完整值）
   children?: JsonTreeNode[];
 }
 
@@ -453,12 +458,14 @@ export function buildJsonTree(value: unknown): JsonTreeNode {
     }
     if (type === 'array') {
       const arr = val as unknown[];
+      node.raw = val;
       node.childCount = arr.length;
       node.children = arr.map((item, i) =>
         build(String(i), childPath(path, String(i), true), item),
       );
     } else if (type === 'object') {
       const entries = Object.entries(val as Record<string, unknown>);
+      node.raw = val;
       node.childCount = entries.length;
       node.children = entries.map(([k, v]) =>
         build(k, childPath(path, k, false), v),

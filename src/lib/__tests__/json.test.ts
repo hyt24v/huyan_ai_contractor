@@ -246,3 +246,27 @@ describe('buildJsonTree', () => {
     expect(s.value).toBe('x'.repeat(100));
   });
 });
+
+describe('unicodeToChinese 反斜杠奇偶（审核 #6）', () => {
+  it('只转换真正的 \\uXXXX 转义；\\\\uXXXX 字面文本原样保留', () => {
+    expect(unicodeToChinese('"\\u4e2d\\u6587"')).toBe('"中文"');
+    // 字面 \u0041（转义反斜杠 + 字面 u）不动
+    expect(unicodeToChinese('"\\\\u0041"')).toBe('"\\\\u0041"');
+    // 3 个反斜杠 = 字面 \\ + 真转义 \u0041 → \\ + A
+    expect(unicodeToChinese('"\\\\\\u0041"')).toBe('"\\\\A"');
+  });
+});
+
+describe('buildJsonTree raw（审核 #5）', () => {
+  it('容器节点携带原始值引用，叶子没有', () => {
+    const tree = buildJsonTree({ a: { b: [1, 2] } });
+    expect(tree.raw).toEqual({ a: { b: [1, 2] } });
+    const a = tree.children![0];
+    expect(a.raw).toEqual({ b: [1, 2] });
+    const b = a.children![0];
+    expect(b.raw).toEqual([1, 2]);
+    const leaf = b.children![0];
+    expect(leaf.raw).toBeUndefined();
+    expect(leaf.value).toBe(1);
+  });
+});

@@ -3,7 +3,7 @@
 
 import { jsonrepair } from 'jsonrepair';
 import { JSONPath } from 'jsonpath-plus';
-import { parseJson } from './json';
+import { parseJson, parseJsonTolerant } from './json';
 import {
   parseJsonlSmart,
   parseJsonRecords,
@@ -49,7 +49,7 @@ export function repairText(text: string, mode: EditorMode): RepairResult {
   if (mode === 'json') {
     try {
       const repaired = jsonrepair(text);
-      const r = parseJson(repaired);
+      const r = parseJsonTolerant(repaired);
       if (r.ok) return { ok: true, text: repaired };
       return { ok: false, text: repaired, error: r.error.message };
     } catch (e) {
@@ -100,7 +100,8 @@ function sortValue(value: JsonValue): JsonValue {
 /** 对象 key 递归排序（数组顺序保持不变），JSONL 逐行排序 */
 export function sortJsonKeys(text: string, mode: EditorMode): RepairResult {
   if (mode === 'json') {
-    const r = parseJson(text);
+    // 宽容解析：与页面校验口径一致（「不保留转义」显示态含真实换行也算合法）
+    const r = parseJsonTolerant(text);
     if (!r.ok) return { ok: false, text, error: r.error.message };
     return { ok: true, text: JSON.stringify(sortValue(asJsonValue(r.value)), null, 2) };
   }
@@ -139,7 +140,7 @@ export function queryJsonPath(
   if (p === '') return { ok: false, error: '请输入 JSONPath 表达式' };
   let doc: unknown;
   if (mode === 'json') {
-    const r = parseJson(text);
+    const r = parseJsonTolerant(text);
     if (!r.ok) return { ok: false, error: `JSON 解析失败：${r.error.message}` };
     doc = r.value;
   } else {
