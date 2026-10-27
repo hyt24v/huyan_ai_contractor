@@ -111,6 +111,23 @@ export async function buildSkillCatalog(
     }),
   );
 
+  // 最后修改时间（「最近更新」排序用）：一次性批量查询，失败/不支持时静默降级
+  if (fs.mtimeMs) {
+    try {
+      const dirs = skills
+        .map((s) => skillDirOf(s))
+        .filter((p): p is string => Boolean(p));
+      const mtimes = await fs.mtimeMs(dirs);
+      for (const skill of skills) {
+        const dir = skillDirOf(skill);
+        const mtime = dir ? mtimes[dir] : undefined;
+        if (typeof mtime === 'number') skill.mtimeMs = mtime;
+      }
+    } catch {
+      // 非 Tauri 环境 / 命令不可用：目录照常返回，只是没有 mtime
+    }
+  }
+
   return {
     libraryAbs: snapshot.libraryAbs,
     skills,

@@ -180,6 +180,31 @@ fn git_head(path: String) -> Result<String, String> {
     run_git(&["-C", path.as_str(), "rev-parse", "--short", "HEAD"])
 }
 
+/// 批量读取路径的最后修改时间（Unix 毫秒）。
+/// 目录优先取其 SKILL.md / skill.md 的 mtime（skill 内容更新时间），其次目录本身；
+/// 跟随软链（linked skill 指向中央库同一份内容）。读不到的路径不出现在结果里。
+/// 只读操作，与 read_dir 等先例一样不走 fs_guard。
+#[tauri::command]
+fn path_mtimes(paths: Vec<String>) -> HashMap<String, u64> {
+    let mut out = HashMap::new();
+    for p in paths {
+        let dir = PathBuf::from(&p);
+        let candidates = [dir.join("SKILL.md"), dir.join("skill.md"), dir.clone()];
+        for cand in &candidates {
+            let Ok(meta) = std::fs::metadata(cand) else {
+                continue;
+            };
+            let Ok(mtime) = meta.modified() else { continue };
+            let Ok(d) = mtime.duration_since(std::time::UNIX_EPOCH) else {
+                continue;
+            };
+            out.insert(p.clone(), d.as_millis() as u64);
+            break;
+        }
+    }
+    out
+}
+
 // ---------- 项目工作区专用：绕过 plugin-fs scope 的自定义命令 ----------
 // 项目目录由用户显式关联，可能在 $HOME 的 agent 目录授权之外，
 // 与 copy_dir / remove_path / create_symlink 一样走自定义命令（现状先例）。
@@ -661,7 +686,8 @@ pub fn run() {
             ai_sse_request,
             ai_sse_abort,
             watch_path,
-            unwatch_path
+            unwatch_path,
+            path_mtimes
         ])
         .setup(|app| {
             let _ = APP.set(app.handle().clone());

@@ -17,6 +17,8 @@ export interface CatalogSkill {
   agents: Record<AgentId, SkillAgentState>;
   /** 中央库中的目录（绝对路径） */
   libraryPath?: string;
+  /** skill 目录（优先 SKILL.md）最后修改时间，Unix 毫秒；读取失败时缺省 */
+  mtimeMs?: number;
   /** 各 agent skills 目录下的绝对路径（含软链） */
   agentPaths: Partial<Record<AgentId, string>>;
 }

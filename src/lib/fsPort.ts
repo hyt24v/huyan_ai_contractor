@@ -31,6 +31,8 @@ export interface FsPort {
   copyDir(src: string, dst: string): Promise<void>;
   /** 不跟随软链判断路径是否为软链（坏软链也返回 true）。可选：mock 可不实现 */
   isSymlink?(path: string): Promise<boolean>;
+  /** 批量读取路径 mtime（Unix 毫秒；目录优先取其 SKILL.md）。可选：mock 可不实现 */
+  mtimeMs?(paths: string[]): Promise<Record<string, number>>;
   readLink(path: string): Promise<string>;
   symlink(target: string, link: string): Promise<void>;
   gitClone(url: string, dest: string): Promise<void>;
@@ -76,6 +78,7 @@ export const tauriFs: FsPort = {
   rename: (from, to) => rename(from, to),
   copyDir: (src, dst) => copyDirRecursive(src, dst),
   isSymlink: (p) => invoke<boolean>('is_symlink', { path: p }),
+  mtimeMs: (paths) => invoke<Record<string, number>>('path_mtimes', { paths }),
   readLink: (p) => invoke<string>('read_symlink', { path: p }),
   symlink: (target, link) =>
     invoke<void>('create_symlink', { target, link }),
@@ -108,6 +111,7 @@ export const rawFs: FsPort = {
   rename: () => Promise.reject(new Error('rawFs 不支持 rename')),
   copyDir: (src, dst) => copyDirRecursive(src, dst),
   isSymlink: (p) => invoke<boolean>('is_symlink', { path: p }),
+  mtimeMs: (paths) => invoke<Record<string, number>>('path_mtimes', { paths }),
   readLink: (p) => invoke<string>('read_symlink', { path: p }),
   symlink: (target, link) =>
     invoke<void>('create_symlink', { target, link }),

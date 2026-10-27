@@ -10,6 +10,7 @@ import {
   Globe2,
   MoreHorizontal,
   Square,
+  Star,
   Cable,
   Trash2,
 } from 'lucide-react';
@@ -152,6 +153,9 @@ export interface SkillCardProps {
   busy?: boolean;
   /** Agent 工作区视角：只关心该 agent 的状态 */
   focusAgent?: AgentId;
+  /** 置顶（星标）状态；不传 onTogglePin 则不渲染星标按钮 */
+  pinned?: boolean;
+  onTogglePin?: () => void;
   onOpen: () => void;
   onToggleSelect: () => void;
   onToggleAll: () => void;
@@ -167,6 +171,8 @@ export default function SkillCard({
   selected,
   busy,
   focusAgent,
+  pinned,
+  onTogglePin,
   onOpen,
   onToggleSelect,
   onToggleAll,
@@ -271,6 +277,26 @@ export default function SkillCard({
     </button>
   );
 
+  /** 置顶星标：未置顶时 hover 才显示，已置顶常显实心星 */
+  const pinButton = onTogglePin ? (
+    <button
+      type="button"
+      aria-label={pinned ? '取消置顶' : '置顶'}
+      title={pinned ? '取消置顶' : '置顶'}
+      onClick={(e) => {
+        e.stopPropagation();
+        onTogglePin();
+      }}
+      className={`shrink-0 rounded p-0.5 transition ${
+        pinned
+          ? 'text-warning'
+          : 'text-muted-foreground/60 opacity-0 hover:text-foreground focus:opacity-100 group-hover:opacity-100'
+      }`}
+    >
+      <Star className={`h-3.5 w-3.5 ${pinned ? 'fill-current' : ''}`} />
+    </button>
+  ) : null;
+
   const switchEl = (
     <Switch
       on={switchOn}
@@ -324,6 +350,8 @@ export default function SkillCard({
   );
 
   if (layout === 'list') {
+    // 高密度单行：名称 + 标签(+N) + agent 状态点 + 开关/操作（操作 hover 才显示）
+    const deployed = agents.filter((a) => (skill.agents[a.id] ?? 'none') !== 'none');
     return (
       <div
         role="button"
@@ -335,53 +363,97 @@ export default function SkillCard({
             onOpen();
           }
         }}
-        className={`group flex cursor-pointer items-center gap-2 rounded-md border bg-card px-2.5 py-2 text-left shadow-sm transition hover:border-ring/60 hover:bg-accent/30 ${
+        className={`group flex h-9 cursor-pointer items-center gap-2 rounded-md border bg-card px-2 text-left transition hover:border-ring/60 hover:bg-accent/30 ${
           selected ? 'border-primary/50 ring-1 ring-primary/30' : ''
         }`}
       >
         {checkbox}
+        {pinButton}
         <span
           className={`h-1.5 w-1.5 shrink-0 rounded-full ${
             enabledAnywhere ? 'bg-success' : 'bg-muted-foreground/30'
           }`}
+          title={enabledAnywhere ? '已部署到某个 Agent' : '未部署'}
         />
-        <span className="w-48 shrink-0 truncate font-mono text-[13px] font-medium">
+        <span
+          className="w-44 shrink-0 truncate font-mono text-xs font-medium"
+          title={skill.description || skill.name}
+        >
           {skill.name}
         </span>
-        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-          {skill.description || '暂无描述'}
-        </span>
-        <span className="hidden shrink-0 items-center gap-1 lg:flex">
-          {skill.tags.slice(0, 2).map((tag) => (
+        <span className="hidden min-w-0 flex-1 items-center gap-1 overflow-hidden md:flex">
+          {skill.tags.slice(0, 3).map((tag) => (
             <TagPill key={tag} tag={tag} />
           ))}
+          {skill.tags.length > 3 && (
+            <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              +{skill.tags.length - 3}
+            </span>
+          )}
         </span>
-        {focusAgent ? (
-          <span className="shrink-0">
+        <span className="ml-auto flex shrink-0 items-center gap-1.5">
+          {focusAgent ? (
             <AgentBadge
               agent={focusAgent}
               state={skill.agents[focusAgent]}
               onClick={() => onToggleAgent(focusAgent)}
             />
+          ) : (
+            <span
+              className="flex items-center gap-1"
+              title={
+                deployed.length > 0
+                  ? deployed
+                      .map(
+                        (a) =>
+                          `${a.name}：${skill.agents[a.id] === 'linked' ? '已同步' : '本地副本'}`,
+                      )
+                      .join('、')
+                  : '未部署到任何 Agent'
+              }
+            >
+              {deployed.slice(0, 6).map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  disabled={busy}
+                  title={`${a.name}：${
+                    skill.agents[a.id] === 'linked' ? '已同步（点击移除）' : '本地副本（点击收编）'
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePress(a.id, skill.agents[a.id] ?? 'none');
+                  }}
+                  className={`h-2 w-2 rounded-full transition hover:scale-125 disabled:opacity-40 ${
+                    skill.agents[a.id] === 'linked' ? 'bg-success' : 'bg-warning'
+                  }`}
+                />
+              ))}
+              {deployed.length > 6 && (
+                <span className="text-[10px] tabular-nums text-muted-foreground">
+                  +{deployed.length - 6}
+                </span>
+              )}
+            </span>
+          )}
+          <span className="flex items-center gap-1 opacity-0 transition focus-within:opacity-100 group-hover:opacity-100">
+            {skill.gitRemote && (
+              <button
+                type="button"
+                title={`从 Git 更新（${skill.gitRemote}）`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdate();
+                }}
+                className="shrink-0 rounded p-1 text-muted-foreground/70 hover:text-foreground"
+              >
+                <ArrowUpCircle className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {menuButton}
           </span>
-        ) : (
-          <span className="shrink-0">{agentBadges}</span>
-        )}
-        {skill.gitRemote && (
-          <button
-            type="button"
-            title={`从 Git 更新（${skill.gitRemote}）`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onUpdate();
-            }}
-            className="shrink-0 rounded p-1 text-muted-foreground/70 hover:text-foreground"
-          >
-            <ArrowUpCircle className="h-3.5 w-3.5" />
-          </button>
-        )}
-        {switchEl}
-        {menuButton}
+          {switchEl}
+        </span>
       </div>
     );
   }
@@ -403,6 +475,7 @@ export default function SkillCard({
     >
       <div className="flex items-center gap-1.5">
         {checkbox}
+        {pinButton}
         <span
           className={`h-2 w-2 shrink-0 rounded-full ${
             enabledAnywhere ? 'bg-success' : 'bg-muted-foreground/30'

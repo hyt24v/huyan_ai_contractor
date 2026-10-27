@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useToast } from '../hooks/useToast';
 import {
   ArrowUpCircle,
   Check,
   ChevronRight,
+  Crosshair,
   Download,
   ExternalLink,
   Folder,
@@ -57,6 +58,21 @@ import {
   toggleInList,
   toggleTag,
 } from '../lib/skillCatalog';
+import {
+  buildLibrarySections,
+  isSectionCollapsed,
+  loadCollapsedSkillGroups,
+  loadPinnedSkills,
+  loadSkillsViewPrefs,
+  saveCollapsedSkillGroups,
+  savePinnedSkills,
+  saveSkillsViewPrefs,
+  toggleSectionCollapsed,
+  type SkillGroupBy,
+  type SkillSection,
+  type SkillSortKey,
+  type SkillsViewPrefs,
+} from '../lib/skillGrouping';
 import type { Profile } from '../lib/profiles';
 import type { AuditReport } from '../lib/skillAudit';
 import type { SkillRepo } from '../lib/skillRegistry';
@@ -112,6 +128,9 @@ const VIEW_OPTIONS: { value: CatalogView; label: string }[] = [
 ];
 
 const errMsg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
+/** 分批渲染：每批追加的卡片数（配合 IntersectionObserver 哨兵） */
+const RENDER_BATCH_SIZE = 50;
 
 function NavItem({
   icon,
@@ -293,6 +312,17 @@ export default function SkillsManagerPage() {
   const [presetId, setPresetId] = useState('all');
   const [profiles, setProfiles] = useState<Profile[]>([]);
 
+  // 技能库浏览偏好：分组 / 排序 / 聚焦视图（持久化到 localStorage）
+  const [viewPrefs, setViewPrefs] = useState<SkillsViewPrefs>(() => loadSkillsViewPrefs());
+  const [pinnedNames, setPinnedNames] = useState<string[]>(() => loadPinnedSkills());
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string> | null>(() => {
+    const ids = loadCollapsedSkillGroups();
+    return ids ? new Set(ids) : null;
+  });
+  // 分批渲染窗口（数量大时只渲染可视区附近，滚动到底再追加）
+  const [renderLimit, setRenderLimit] = useState(RENDER_BATCH_SIZE);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   // 批量操作目标：默认全部可见 agent
   // null = 未手动选择过（按全部可见 agent 处理）；空 Set = 用户显式清空（此时禁止批量操作）
@@ -435,6 +465,79 @@ export default function SkillsManagerPage() {
   const detail = detailName && catalog
     ? catalog.skills.find((s) => s.name === detailName) ?? null
     : null;
+
+  const pinnedSet = useMemo(() => new Set(pinnedNames), [pinnedNames]);
+
+  // 技能库视图的分组结果（置顶组 → 聚焦/分组 → 「其他」默认折叠组）
+  const librarySections = useMemo<SkillSection[]>(() => {
+    if (nav !== 'library') return [];
+    return buildLibrarySections(visible, {
+      pinned: pinnedSet,
+      focus: viewPrefs.focus,
+      groupBy: viewPrefs.groupBy,
+      sortKey: viewPrefs.sortKey,
+    });
+  }, [nav, visible, pinnedSet, viewPrefs]);
+
+  const updateViewPrefs = useCallback((patch: Partial<SkillsViewPrefs>) => {
+    setViewPrefs((prev) => {
+      const next = { ...prev, ...patch };
+      saveSkillsViewPrefs(next);
+      return next;
+    });
+  }, []);
+
+  const togglePin = useCallback((name: string) => {
+    setPinnedNames((prev) => {
+      const next = toggleInList(prev, name);
+      savePinnedSkills(next);
+      return next;
+    });
+  }, []);
+
+  const toggleSection = useCallback(
+    (section: SkillSection) => {
+      setCollapsedGroups((prev) => {
+        const next = toggleSectionCollapsed(prev, librarySections, section.id);
+        saveCollapsedSkillGroups([...next]);
+        return next;
+      });
+    },
+    [librarySections],
+  );
+
+  // 筛选 / 视图变化时重置分批渲染窗口
+  useEffect(() => {
+    setRenderLimit(RENDER_BATCH_SIZE);
+  }, [nav, query, view, sourceFilter, tags, presetId, viewPrefs]);
+
+  // 当前视图去掉折叠组后的卡片总数（分批渲染的上限）
+  const renderedTotal = useMemo(
+    () =>
+      nav === 'library'
+        ? librarySections.reduce(
+            (n, s) => n + (isSectionCollapsed(collapsedGroups, s) ? 0 : s.skills.length),
+            0,
+          )
+        : visible.length,
+    [nav, librarySections, collapsedGroups, visible],
+  );
+
+  // 哨兵进入视口附近时追加一批；若渲染后哨兵仍在视口内（内容不足一屏 / 组多折叠）继续追加
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || renderLimit >= renderedTotal) return;
+    const grow = () => setRenderLimit((n) => n + RENDER_BATCH_SIZE);
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) grow();
+      },
+      { rootMargin: '600px' },
+    );
+    io.observe(el);
+    if (el.getBoundingClientRect().top < window.innerHeight + 600) grow();
+    return () => io.disconnect();
+  }, [nav, renderLimit, renderedTotal]);
 
   const findSkill = useCallback(
     (name: string): CatalogSkill | undefined => catalog?.skills.find((s) => s.name === name),
@@ -1369,61 +1472,125 @@ export default function SkillsManagerPage() {
       );
     }
 
-    return (
-      <SkillGrid
+    const renderSkillCard = (skill: CatalogSkill) => (
+      <SkillCard
+        key={skill.name}
+        skill={skill}
         layout={layout}
-        isEmpty={visible.length === 0}
-        empty={
-          <div className="mx-auto mt-12 max-w-md rounded-xl border border-dashed bg-card/40 px-6 py-10 text-center">
-            <Package className="mx-auto h-10 w-10 text-muted-foreground/30" />
-            <h3 className="mt-3 text-sm font-semibold">
-              {filtersActive ? '没有匹配的 skill' : '这里还没有 skill'}
-            </h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {filtersActive
-                ? '换个关键词、标签或来源试试，也可以清除全部筛选。'
-                : activeAgent
-                  ? '去中央库挑选已有 skill，或先从 GitHub 安装。'
-                  : '从 GitHub / 内置精选安装 skill 到中央库。'}
-            </p>
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
-              {filtersActive && (
-                <GhostButton onClick={clearFilters} icon={<X className="h-3.5 w-3.5" />}>
-                  清除筛选
-                </GhostButton>
-              )}
-              <PrimaryButton
-                onClick={() => selectNav('install')}
-                icon={<Download className="h-3.5 w-3.5" />}
-              >
-                安装 Skills
-              </PrimaryButton>
-            </div>
-          </div>
+        selected={selected.has(skill.name)}
+        busy={busy}
+        pinned={pinnedSet.has(skill.name)}
+        onTogglePin={() => togglePin(skill.name)}
+        {...(activeAgent ? { focusAgent: activeAgent } : {})}
+        onOpen={() => setDetailName(skill.name)}
+        onToggleSelect={() =>
+          setSelected((prev) => new Set(toggleInList([...prev], skill.name)))
         }
+        onToggleAll={() => toggleAllAgents(skill.name)}
+        onToggleAgent={(agent) =>
+          setAgentState(skill.name, agent, skill.agents[agent] !== 'linked')
+        }
+        onAdopt={(agent) => adoptOne(skill.name, agent)}
+        onSyncAll={() => syncAll(skill.name)}
+        onUpdate={() => void updateOne(skill.name)}
+      />
+    );
+
+    const emptyBlock = (
+      <div className="mx-auto mt-12 max-w-md rounded-xl border border-dashed bg-card/40 px-6 py-10 text-center">
+        <Package className="mx-auto h-10 w-10 text-muted-foreground/30" />
+        <h3 className="mt-3 text-sm font-semibold">
+          {filtersActive ? '没有匹配的 skill' : '这里还没有 skill'}
+        </h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {filtersActive
+            ? '换个关键词、标签或来源试试，也可以清除全部筛选。'
+            : activeAgent
+              ? '去中央库挑选已有 skill，或先从 GitHub 安装。'
+              : '从 GitHub / 内置精选安装 skill 到中央库。'}
+        </p>
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
+          {filtersActive && (
+            <GhostButton onClick={clearFilters} icon={<X className="h-3.5 w-3.5" />}>
+              清除筛选
+            </GhostButton>
+          )}
+          <PrimaryButton
+            onClick={() => selectNav('install')}
+            icon={<Download className="h-3.5 w-3.5" />}
+          >
+            安装 Skills
+          </PrimaryButton>
+        </div>
+      </div>
+    );
+
+    if (visible.length === 0) return emptyBlock;
+
+    const sentinel = renderLimit < renderedTotal && (
+      <div
+        ref={sentinelRef}
+        className="flex justify-center py-3 text-[11px] text-muted-foreground"
       >
-        {visible.map((skill) => (
-          <SkillCard
-            key={skill.name}
-            skill={skill}
-            layout={layout}
-            selected={selected.has(skill.name)}
-            busy={busy}
-            {...(activeAgent ? { focusAgent: activeAgent } : {})}
-            onOpen={() => setDetailName(skill.name)}
-            onToggleSelect={() =>
-              setSelected((prev) => new Set(toggleInList([...prev], skill.name)))
-            }
-            onToggleAll={() => toggleAllAgents(skill.name)}
-            onToggleAgent={(agent) =>
-              setAgentState(skill.name, agent, skill.agents[agent] !== 'linked')
-            }
-            onAdopt={(agent) => adoptOne(skill.name, agent)}
-            onSyncAll={() => syncAll(skill.name)}
-            onUpdate={() => void updateOne(skill.name)}
-          />
-        ))}
-      </SkillGrid>
+        下滑加载更多（{Math.min(renderLimit, renderedTotal)}/{renderedTotal}）
+      </div>
+    );
+
+    // 技能库：置顶组 / 分组 / 聚焦视图，分组可折叠
+    if (nav === 'library') {
+      const showHeaders = librarySections.some((s) => s.label);
+      let budget = renderLimit;
+      return (
+        <div className="space-y-4">
+          {librarySections.map((section) => {
+            if (budget <= 0) return null;
+            const collapsed = isSectionCollapsed(collapsedGroups, section);
+            const shown = collapsed ? [] : section.skills.slice(0, budget);
+            if (!collapsed) budget -= section.skills.length;
+            return (
+              <section key={section.id}>
+                {showHeaders && section.label && (
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(section)}
+                    aria-expanded={!collapsed}
+                    className="mb-1.5 flex w-full items-center gap-1.5 rounded-md px-1 py-1 text-left text-xs font-semibold text-muted-foreground transition hover:bg-accent/60 hover:text-foreground"
+                  >
+                    <ChevronRight
+                      className={`h-3.5 w-3.5 shrink-0 transition-transform ${
+                        collapsed ? '' : 'rotate-90'
+                      }`}
+                    />
+                    {section.id === 'pinned' && (
+                      <Star className="h-3 w-3 shrink-0 fill-current text-warning" />
+                    )}
+                    <span className="truncate">{section.label}</span>
+                    <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">
+                      {section.skills.length}
+                    </span>
+                  </button>
+                )}
+                {!collapsed && (
+                  <SkillGrid layout={layout} isEmpty={false}>
+                    {shown.map(renderSkillCard)}
+                  </SkillGrid>
+                )}
+              </section>
+            );
+          })}
+          {sentinel}
+        </div>
+      );
+    }
+
+    // Agent 工作区视图：平铺 + 分批渲染
+    return (
+      <>
+        <SkillGrid layout={layout} isEmpty={false}>
+          {visible.slice(0, renderLimit).map(renderSkillCard)}
+        </SkillGrid>
+        {sentinel}
+      </>
     );
   };
 
@@ -1615,6 +1782,46 @@ export default function SkillsManagerPage() {
                       <List className="h-3.5 w-3.5" />
                     </button>
                   </div>
+                  {nav === 'library' && (
+                    <>
+                      <select
+                        value={viewPrefs.groupBy}
+                        onChange={(e) =>
+                          updateViewPrefs({ groupBy: e.target.value as SkillGroupBy })
+                        }
+                        title="分组方式"
+                        aria-label="分组方式"
+                        className="h-8 rounded-md border border-input bg-transparent px-1.5 text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        <option value="none">不分组</option>
+                        <option value="tag">按标签分组</option>
+                        <option value="source">按来源分组</option>
+                      </select>
+                      <select
+                        value={viewPrefs.sortKey}
+                        onChange={(e) =>
+                          updateViewPrefs({ sortKey: e.target.value as SkillSortKey })
+                        }
+                        title="组内排序"
+                        aria-label="组内排序"
+                        className="h-8 rounded-md border border-input bg-transparent px-1.5 text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        <option value="name">按名称</option>
+                        <option value="updated">最近更新</option>
+                      </select>
+                      <IconButton
+                        title={
+                          viewPrefs.focus
+                            ? '退出聚焦视图（显示全部）'
+                            : '聚焦视图：只看置顶和已部署的 skill'
+                        }
+                        active={viewPrefs.focus}
+                        onClick={() => updateViewPrefs({ focus: !viewPrefs.focus })}
+                      >
+                        <Crosshair className="h-3.5 w-3.5" />
+                      </IconButton>
+                    </>
+                  )}
                 </>
               )}
 
