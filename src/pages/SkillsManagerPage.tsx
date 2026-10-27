@@ -83,6 +83,8 @@ import {
   disableSkill,
   enableSkill,
   installFromGit,
+  listRepoSkills,
+  COLLECTION_REPO_HINT,
   skillGitStatus,
   updateSkillFromGit,
 } from '../services/agentSkills';
@@ -896,23 +898,72 @@ export default function SkillsManagerPage() {
   }, [catalog, refresh, showToast]);
 
   // ---- 安装 ----
-  const installFromUrl = () => {
-    const name = skillNameFromGitUrl(installUrl);
+  // 合集仓库（根目录无 SKILL.md）弹选择器，让用户挑具体 skill
+  const [collectionPicker, setCollectionPicker] = useState<{
+    base: string;
+    skills: string[];
+  } | null>(null);
+
+  const installWithPicker = (url: string) => {
+    const trimmed = url.trim();
+    const name = skillNameFromGitUrl(trimmed);
     if (!name) {
       showToast('无法从 URL 解析 skill 名', 'err');
       return;
     }
-    void run(() => installFromGit(installUrl.trim(), name), `已安装 ${name} 到中央库`);
+    setBusy(true);
+    void (async () => {
+      try {
+        await installFromGit(trimmed, name);
+        showToast(`已安装 ${name} 到中央库`);
+        await refresh();
+        await refreshProject();
+      } catch (e) {
+        const msg = errMsg(e);
+        if (msg.includes(COLLECTION_REPO_HINT)) {
+          try {
+            const skills = await listRepoSkills(trimmed);
+            if (skills.length > 0) {
+              const base = trimmed.replace(/\.git$/, '').replace(/\/$/, '');
+              setCollectionPicker({ base, skills });
+              return;
+            }
+          } catch (e2) {
+            showToast(`扫描合集仓库失败：${errMsg(e2)}`, 'err');
+            return;
+          }
+        }
+        showToast(`操作失败：${msg}`, 'err');
+      } finally {
+        setBusy(false);
+      }
+    })();
+  };
+
+  const installFromUrl = () => {
+    if (!skillNameFromGitUrl(installUrl)) {
+      showToast('无法从 URL 解析 skill 名', 'err');
+      return;
+    }
+    installWithPicker(installUrl);
     setInstallUrl('');
   };
 
   const installRepo = (repo: SkillRepo) => {
-    const name = skillNameFromGitUrl(repo.url);
-    if (!name) {
+    if (!skillNameFromGitUrl(repo.url)) {
       showToast('无法从仓库地址解析 skill 名', 'err');
       return;
     }
-    void run(() => installFromGit(repo.url, name), `已安装 ${name} 到中央库`);
+    installWithPicker(repo.url);
+  };
+
+  // 从合集仓库安装选中的 skill（tree 链接的 branch 段不参与克隆，填 main 占位即可）
+  const installFromCollection = (sub: string) => {
+    if (!collectionPicker) return;
+    const name = sub.split('/').pop() ?? sub;
+    const url = `${collectionPicker.base}/tree/main/${sub}`;
+    setCollectionPicker(null);
+    void run(() => installFromGit(url, name), `已安装 ${name} 到中央库`);
   };
 
   const doSearch = useCallback(async () => {
@@ -1997,6 +2048,43 @@ export default function SkillsManagerPage() {
         onDeploy={deployFromPicker}
       />
 
+      {/* 合集仓库 skill 选择器 */}
+      {collectionPicker && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setCollectionPicker(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="选择要安装的 skill"
+            className="w-full max-w-md rounded-lg border bg-card p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-sm font-semibold">这是一个 skill 合集仓库</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              共发现 {collectionPicker.skills.length} 个 skill，选择要安装的一个：
+            </p>
+            <div className="mt-3 max-h-72 space-y-1 overflow-y-auto">
+              {collectionPicker.skills.map((sub) => (
+                <button
+                  key={sub}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => installFromCollection(sub)}
+                  className="flex w-full items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-left text-xs transition hover:bg-accent disabled:opacity-40"
+                >
+                  <span className="truncate font-mono">{sub.split('/').pop()}</span>
+                  <span className="shrink-0 text-[10px] text-muted-foreground">{sub}</span>
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 flex justify-end">
+              <GhostButton onClick={() => setCollectionPicker(null)}>取消</GhostButton>
+            </div>
+          </div>
+        </div>
+      )}
       {/* 关联项目对话框 */}
       {linkOpen && (
         <div

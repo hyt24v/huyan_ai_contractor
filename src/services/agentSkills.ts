@@ -189,21 +189,69 @@ export async function installFromGit(
   await fs.gitClone(url, dest);
   // 校验必须有 SKILL.md
   if (await fs.exists(`${dest}/SKILL.md`)) return;
-  // 根目录没有：看看是不是合集仓库（skill 在一层子目录里）
-  const subdirs = (await fs.readDir(dest)).filter((e) => e.isDirectory);
-  const withSkill: string[] = [];
-  for (const d of subdirs) {
-    if (await fs.exists(`${dest}/${d.name}/SKILL.md`)) withSkill.push(d.name);
-  }
+  // 根目录没有：扫合集仓库（SKILL.md 可能在一层或两层深处，如 skills/<name>/SKILL.md）
+  const withSkill = await findSkillSubdirs(dest, fs);
   await fs.remove(dest, true);
   if (withSkill.length > 0) {
     const base = url.trim().replace(/\.git$/, '').replace(/\/$/, '');
     const more = withSkill.length > 1 ? `（还有 ${withSkill.slice(1, 5).join('、')} 等 ${withSkill.length} 个）` : '';
     throw new Error(
-      `该仓库是 skill 合集，根目录没有 SKILL.md。请改用子目录链接安装，如：${base}/tree/main/${withSkill[0]}${more}`,
+      `${COLLECTION_REPO_HINT}：${base}/tree/main/${withSkill[0]}${more}`,
     );
   }
   throw new Error('克隆成功但目录下没有 SKILL.md，不是合法 skill');
+}
+
+/** 合集仓库错误提示前缀（页面据此识别并弹出 skill 选择器） */
+export const COLLECTION_REPO_HINT = '该仓库是 skill 合集，根目录没有 SKILL.md。请选择其中一个安装，如';
+
+/**
+ * 克隆仓库到临时目录，列出其中所有 skill（含 SKILL.md 的子目录，最多扫两层）。
+ * 用于合集仓库的安装选择器。返回相对路径列表（如 ['skills/brainstorming']）；
+ * 根目录本身是 skill 时返回空数组。
+ */
+export async function listRepoSkills(
+  url: string,
+  fs: FsPort = tauriFs,
+): Promise<string[]> {
+  const tmp = await absPath(
+    `${SKILL_LIBRARY_DIR}/.tmp-preview-${Date.now().toString(36)}`,
+  );
+  await fs.remove(tmp, true).catch(() => {});
+  try {
+    await fs.gitClone(url, tmp);
+    if (await fs.exists(`${tmp}/SKILL.md`)) return [];
+    return await findSkillSubdirs(tmp, fs);
+  } finally {
+    await fs.remove(tmp, true).catch(() => {});
+  }
+}
+
+/** 扫描仓库内最多两层深、含 SKILL.md 的子目录，返回排序后的相对路径 */
+async function findSkillSubdirs(root: string, fs: FsPort): Promise<string[]> {
+  const found: string[] = [];
+  const level1 = (await fs.readDir(root)).filter((e) => e.isDirectory);
+  for (const d1 of level1) {
+    if (d1.name.startsWith('.') || d1.name === 'node_modules') continue;
+    if (await fs.exists(`${root}/${d1.name}/SKILL.md`)) {
+      found.push(d1.name);
+      continue;
+    }
+    // 第二层：合集仓库常见的 skills/<name>/ 结构
+    let level2: Awaited<ReturnType<FsPort['readDir']>> = [];
+    try {
+      level2 = (await fs.readDir(`${root}/${d1.name}`)).filter((e) => e.isDirectory);
+    } catch {
+      continue;
+    }
+    for (const d2 of level2) {
+      if (d2.name.startsWith('.')) continue;
+      if (await fs.exists(`${root}/${d1.name}/${d2.name}/SKILL.md`)) {
+        found.push(`${d1.name}/${d2.name}`);
+      }
+    }
+  }
+  return found.sort();
 }
 
 /** 中央库 skill 目录（不存在则报错） */
