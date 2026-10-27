@@ -2,9 +2,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshCw, Star, X } from 'lucide-react';
 import { SettingGroup, SettingRow } from './ui';
-import { loadStore, upsertProvider } from '../../services/providers';
+import { loadStore, patchProvider } from '../../services/providers';
 import { fetchModels } from '../../lib/providerApi';
-import { getAiSettings, setAiSettings, type AiSettings } from '../../lib/settings';
+import {
+  getAiSettings,
+  onSettingsChanged,
+  setAiSettings,
+  SETTINGS_CHANGED_EVENT,
+  type AiSettings,
+} from '../../lib/settings';
 import type { ModelParams, Provider } from '../../lib/providers';
 import ModelParamsEditor from '../ModelParamsEditor';
 
@@ -16,12 +22,20 @@ export default function AiSection() {
   const [fetchMsg, setFetchMsg] = useState('');
   /** 正在编辑参数的模型名（点击模型芯片切换） */
   const [paramModel, setParamModel] = useState<string | null>(null);
+  /** 手动输入的模型名（拉取接口不兼容时的兑底入口） */
+  const [manualModel, setManualModel] = useState('');
 
-  useEffect(() => {
+  const reload = useCallback(() => {
     loadStore()
       .then((s) => setProviders(s.providers))
       .catch(() => setProviders([]));
   }, []);
+
+  // 其它视图（AiDock / 模型服务页）改了 provider 后同步刷新，避免基于过期副本操作
+  useEffect(() => {
+    reload();
+    return onSettingsChanged(reload);
+  }, [reload]);
 
   const provider = providers.find((p) => p.id === settings.providerId) ?? null;
   const models = provider
@@ -38,18 +52,23 @@ export default function AiSection() {
     setAiSettings(next);
   };
 
-  /** 模型列表改动持久化到 provider 本身（providers.json），AI 对话中的模型选择器随之更新 */
-  const persistProvider = useCallback(
-    async (next: Provider, msg: string) => {
+  /**
+   * 模型列表/参数改动补丁式持久化：基于磁盘最新 store 合并（不覆盖 AiDock 等视图的并发改动），
+   * 保存后广播设置变更让 AiDock 重新解析 provider。
+   */
+  const applyPatch = useCallback(
+    async (patch: (current: Provider) => Partial<Provider>, msg: string) => {
+      if (!provider) return;
       try {
-        const store = await upsertProvider(next);
+        const store = await patchProvider(provider.id, patch);
         setProviders(store.providers);
         setFetchMsg(msg);
+        window.dispatchEvent(new Event(SETTINGS_CHANGED_EVENT));
       } catch (e) {
         setFetchMsg(`保存失败：${e instanceof Error ? e.message : String(e)}`);
       }
     },
-    [],
+    [provider],
   );
 
   const addModel = useCallback(
@@ -57,64 +76,75 @@ export default function AiSection() {
       if (!provider) return;
       const m = name.trim();
       if (!m || models.includes(m)) return;
-      void persistProvider(
-        {
-          ...provider,
-          models: [...models, m],
-          model: provider.model ?? m,
+      void applyPatch(
+        (cur) => {
+          const curModels = cur.models?.length
+            ? cur.models
+            : cur.model
+              ? [cur.model]
+              : [];
+          if (curModels.includes(m)) return {};
+          return { models: [...curModels, m], model: cur.model ?? m };
         },
         `已添加模型 ${m}`,
       );
     },
-    [provider, models, persistProvider],
+    [provider, models, applyPatch],
   );
 
   const removeModel = useCallback(
     (name: string) => {
       if (!provider) return;
-      const rest = models.filter((m) => m !== name);
-      const modelParams = { ...(provider.modelParams ?? {}) };
-      delete modelParams[name];
       if (paramModel === name) setParamModel(null);
-      void persistProvider(
-        {
-          ...provider,
-          models: rest,
-          model: provider.model === name ? rest[0] : provider.model,
-          modelParams:
-            Object.keys(modelParams).length > 0 ? modelParams : undefined,
+      void applyPatch(
+        (cur) => {
+          const curModels = cur.models?.length
+            ? cur.models
+            : cur.model
+              ? [cur.model]
+              : [];
+          const rest = curModels.filter((x) => x !== name);
+          const modelParams = { ...(cur.modelParams ?? {}) };
+          delete modelParams[name];
+          return {
+            models: rest,
+            model: cur.model === name ? rest[0] : cur.model,
+            modelParams:
+              Object.keys(modelParams).length > 0 ? modelParams : undefined,
+          };
         },
         `已移除模型 ${name}`,
       );
     },
-    [provider, models, persistProvider, paramModel],
+    [provider, applyPatch, paramModel],
   );
 
   /** 保存某模型的参数覆盖；next=undefined 表示恢复默认 */
   const saveParams = useCallback(
     (modelName: string, next: ModelParams | undefined) => {
       if (!provider) return;
-      const modelParams = { ...(provider.modelParams ?? {}) };
-      if (next) modelParams[modelName] = next;
-      else delete modelParams[modelName];
-      void persistProvider(
-        {
-          ...provider,
-          modelParams:
-            Object.keys(modelParams).length > 0 ? modelParams : undefined,
+      void applyPatch(
+        (cur) => {
+          const modelParams = { ...(cur.modelParams ?? {}) };
+          if (next) modelParams[modelName] = next;
+          else delete modelParams[modelName];
+          return {
+            modelParams:
+              Object.keys(modelParams).length > 0 ? modelParams : undefined,
+          };
         },
         next ? `已更新 ${modelName} 的参数` : `已恢复 ${modelName} 的默认参数`,
       );
     },
-    [provider, persistProvider],
+    [provider, applyPatch],
   );
 
   const setDefaultModel = useCallback(
     (name: string) => {
       if (!provider || provider.model === name) return;
-      void persistProvider({ ...provider, model: name }, `默认模型已切换为 ${name}`);
+      void applyPatch(() => ({ model: name }), `默认模型已切换为 ${name}`);
     },
-    [provider, persistProvider],
+    [provider, applyPatch],
   );
 
   const pullModels = useCallback(async () => {
@@ -122,12 +152,12 @@ export default function AiSection() {
     setFetching(true);
     setFetchMsg('');
     try {
-      const r = await fetchModels(provider.baseUrl, provider.apiKey);
+      const r = await fetchModels(provider.baseUrl, provider.apiKey, provider.api);
       if (r.ok) {
         setFetched(r.models);
         setFetchMsg(r.message);
       } else {
-        setFetchMsg(`获取失败：${r.message}`);
+        setFetchMsg(`获取失败：${r.message}（可手动输入模型名添加）`);
       }
     } finally {
       setFetching(false);
@@ -192,7 +222,7 @@ export default function AiSection() {
 
         <SettingRow
           label="模型列表"
-          description="点击模型名编辑参数；★ 为服务商默认模型；只能从拉取的列表中添加"
+          description="点击模型名编辑参数；★ 为服务商默认模型；可从拉取列表选择或手动输入"
         >
           {provider ? (
             <div className="w-full max-w-md space-y-1.5">
@@ -269,6 +299,7 @@ export default function AiSection() {
                     </button>
                   </div>
                   <ModelParamsEditor
+                    key={paramModel}
                     params={provider.modelParams?.[paramModel]}
                     onChange={(n) => saveParams(paramModel, n)}
                   />
@@ -307,6 +338,31 @@ export default function AiSection() {
                   <RefreshCw
                     className={`h-3.5 w-3.5 ${fetching ? 'animate-spin' : ''}`}
                   />
+                </button>
+                <input
+                  value={manualModel}
+                  onChange={(e) => setManualModel(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                      e.preventDefault();
+                      addModel(manualModel);
+                      setManualModel('');
+                    }
+                  }}
+                  placeholder="手动输入模型名"
+                  spellCheck={false}
+                  className="h-8 w-40 rounded-md border border-input bg-transparent px-2 font-mono text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring dark:bg-input/30"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    addModel(manualModel);
+                    setManualModel('');
+                  }}
+                  disabled={!manualModel.trim()}
+                  className="h-8 shrink-0 rounded-md border border-input px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
+                >
+                  添加
                 </button>
               </div>
             </div>

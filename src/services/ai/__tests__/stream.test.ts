@@ -31,6 +31,15 @@ describe('parseStreamData · openai-completions', () => {
   it('非法 JSON 返回 null 而不抛异常', () => {
     expect(parseStreamData('openai-completions', '{broken')).toBeNull();
   });
+
+  it('200 + SSE 流内错误帧 → failed（不被静默丢弃）', () => {
+    expect(
+      parseStreamData('openai-completions', '{"error":{"message":"boom"}}'),
+    ).toEqual({ failed: 'boom' });
+    expect(parseStreamData('openai-completions', '{"error":"过载"}')).toEqual({
+      failed: '过载',
+    });
+  });
 });
 
 describe('parseStreamData · openai-responses', () => {

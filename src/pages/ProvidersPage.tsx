@@ -26,6 +26,7 @@ import {
   emptyStore,
   exportStoreJson,
   importStoreJson,
+  isActive,
   maskKey,
   normalizeModels,
   updateProvider,
@@ -89,6 +90,8 @@ export default function ProvidersPage() {
   const [modelsList, setModelsList] = useState<string[]>([]);
   const [modelsMsg, setModelsMsg] = useState('');
   const [fetchingModels, setFetchingModels] = useState(false);
+  /** 手动输入的模型名（拉取接口不兼容时的兑底入口） */
+  const [manualModel, setManualModel] = useState('');
   const [testing, setTesting] = useState(false);
   const [testMsg, setTestMsg] = useState<{ text: string; ok: boolean } | null>(null);
   // 行内测速结果（provider id → 结果）
@@ -99,7 +102,7 @@ export default function ProvidersPage() {
   const testOne = useCallback(async (p: Provider) => {
     setRowTestingId(p.id);
     try {
-      const r = await testEndpoint(p.baseUrl, p.apiKey);
+      const r = await testEndpoint(p.baseUrl, p.apiKey, p.api);
       setRowTestResults((prev) => ({ ...prev, [p.id]: { text: r.message, ok: r.ok } }));
     } finally {
       setRowTestingId(null);
@@ -157,6 +160,7 @@ export default function ProvidersPage() {
     setModelsList([]);
     setModelsMsg('');
     setTestMsg(null);
+    setManualModel('');
   }, []);
 
   const openEdit = useCallback((p: Provider) => {
@@ -168,6 +172,7 @@ export default function ProvidersPage() {
     setModelsList([]);
     setModelsMsg('');
     setTestMsg(null);
+    setManualModel('');
   }, []);
 
   /** 选预设：自动填名称（未填时）+ Base URL + 建议模型并入模型列表（借鉴 cc-switch 预设一键添加） */
@@ -194,7 +199,7 @@ export default function ProvidersPage() {
     setTesting(true);
     setTestMsg(null);
     try {
-      const r = await testEndpoint(draft.baseUrl, draft.apiKey);
+      const r = await testEndpoint(draft.baseUrl, draft.apiKey, draft.api);
       setTestMsg({ text: r.message, ok: r.ok });
     } finally {
       setTesting(false);
@@ -206,9 +211,9 @@ export default function ProvidersPage() {
     setFetchingModels(true);
     setModelsMsg('');
     try {
-      const r = await fetchModels(draft.baseUrl, draft.apiKey);
+      const r = await fetchModels(draft.baseUrl, draft.apiKey, draft.api);
       setModelsList(r.models);
-      setModelsMsg(r.message);
+      setModelsMsg(r.ok ? r.message : `${r.message}（可手动输入模型名添加）`);
     } finally {
       setFetchingModels(false);
     }
@@ -268,7 +273,15 @@ export default function ProvidersPage() {
       setStore(next);
       setDraft(null);
       setEditingId(null);
-      showToast(existing ? '已更新模型服务' : '已新增模型服务');
+      // 编辑的是当前生效的 provider 时提醒：agent 配置文件不会自动回写，需重新「应用」
+      const stillActive = existing && isActive(next, provider);
+      showToast(
+        existing
+          ? stillActive
+            ? '已更新模型服务；该服务正在生效中，需重新「应用」才会写入 Agent 配置'
+            : '已更新模型服务'
+          : '已新增模型服务',
+      );
       void refresh();
     } catch (e) {
       setFormError(e instanceof Error ? e.message : String(e));
@@ -711,7 +724,7 @@ export default function ProvidersPage() {
               </label>
               <div className="space-y-1.5 sm:col-span-2">
                 <span className="text-xs text-muted-foreground">
-                  模型列表（可选，一个服务可挂多个模型；★ 为默认模型；只能从拉取的列表中选择）
+                  模型列表（可选，一个服务可挂多个模型；★ 为默认模型；可从拉取列表选择或手动输入）
                 </span>
                 {(draft.models ?? []).length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -785,6 +798,32 @@ export default function ProvidersPage() {
                       <ListPlus className="h-3 w-3" />
                     )}
                     拉取
+                  </button>
+                  <input
+                    value={manualModel}
+                    onChange={(e) => setManualModel(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                        e.preventDefault();
+                        addModel(manualModel.trim());
+                        setManualModel('');
+                      }
+                    }}
+                    placeholder="手动输入模型名"
+                    spellCheck={false}
+                    className="h-8 w-36 shrink-0 rounded-md border border-input bg-transparent px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      addModel(manualModel.trim());
+                      setManualModel('');
+                    }}
+                    disabled={!manualModel.trim()}
+                    title="手动添加模型名（拉取接口不兼容时使用）"
+                    className="inline-flex h-8 shrink-0 items-center rounded-md border border-input px-2 text-[11px] transition-colors hover:bg-accent disabled:opacity-40"
+                  >
+                    添加
                   </button>
                 </div>
                 {modelsMsg && (

@@ -81,6 +81,11 @@ export function setModelOverride(scope: string, model: string): void {
   notify();
 }
 
+/** 清除会话的模型覆盖（如服务商切换后 override 的模型已不存在） */
+export function clearModelOverride(scope: string): void {
+  if (modelOverrides.delete(scope)) notify();
+}
+
 /** React hook：订阅某 scope 的模型覆盖 */
 export function useModelOverride(scope: string): string | undefined {
   return useSyncExternalStore(subscribe, () => getModelOverride(scope));

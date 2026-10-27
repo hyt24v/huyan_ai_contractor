@@ -38,20 +38,32 @@ export default function ModelParamsEditor({
   onChange,
   compact = false,
 }: ModelParamsEditorProps) {
-  // 输入中的原始文本（允许「0.」这种中间态）
+  // 输入中的原始文本（允许「0.」这种中间态；失焦才提交落库）
   const [drafts, setDrafts] = useState<Partial<Record<keyof ModelParams, string>>>({});
 
-  const commit = (key: keyof ModelParams, raw: string, integer?: boolean) => {
-    setDrafts((d) => ({ ...d, [key]: raw }));
+  const dropDraft = (key: keyof ModelParams) =>
+    setDrafts((d) => {
+      const c = { ...d };
+      delete c[key];
+      return c;
+    });
+
+  /** 失焦/回车时提交：解析草稿并 onChange；非法输入丢弃草稿还原显示 */
+  const commit = (f: FieldSpec) => {
+    const raw = drafts[f.key];
+    if (raw === undefined) return;
     const trimmed = raw.trim();
-    const next: ModelParams = { ...(params ?? {}) };
+    dropDraft(f.key);
     if (trimmed === '') {
-      delete next[key];
-    } else {
-      const n = integer ? parseInt(trimmed, 10) : parseFloat(trimmed);
-      if (!Number.isFinite(n)) return;
-      (next as Record<string, number>)[key] = n;
+      const next: ModelParams = { ...(params ?? {}) };
+      delete next[f.key];
+      onChange(normalizeModelParams(next));
+      return;
     }
+    const n = f.integer ? parseInt(trimmed, 10) : parseFloat(trimmed);
+    if (!Number.isFinite(n)) return; // 非法输入：还原为已保存值
+    const next: ModelParams = { ...(params ?? {}) };
+    (next as Record<string, number>)[f.key] = n;
     onChange(normalizeModelParams(next));
   };
 
@@ -75,7 +87,16 @@ export default function ModelParamsEditor({
               max={f.max}
               step={f.step}
               placeholder="默认"
-              onChange={(e) => commit(f.key, e.target.value, f.integer)}
+              onChange={(e) =>
+                setDrafts((d) => ({ ...d, [f.key]: e.target.value }))
+              }
+              onBlur={() => commit(f)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  e.currentTarget.blur();
+                }
+              }}
               className={`${compact ? 'h-6 w-20' : 'h-7 w-24'} rounded-md border border-input bg-transparent px-1.5 font-mono text-[11px] outline-none focus-visible:ring-1 focus-visible:ring-ring dark:bg-input/30`}
             />
             <span className="text-[10px] text-muted-foreground/70">

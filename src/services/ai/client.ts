@@ -220,6 +220,8 @@ export interface ChatOptions {
 /**
  * 发起一轮对话（非流式）。provider.api 缺省按 openai-completions 处理。
  * 失败不抛异常，返回 { ok: false, error }。
+ * 目前 UI 全走 chatStream；保留此入口作为非流式 API（与 chatStream 共用 buildRequest），
+ * 供不支持 SSE 的场景或后续回退逻辑直接调用。
  */
 export async function chat(
   provider: Provider,
@@ -369,6 +371,13 @@ export function parseStreamData(api: ProviderApi, data: string): StreamDelta | n
     }
     // openai-completions 及其它 OpenAI 兼容协议
     default: {
+      // 部分网关以 200 + SSE 发送错误帧：{"error":{"message":"..."}}
+      const err = obj.error;
+      if (typeof err === 'string' && err) return { failed: err };
+      if (err && typeof err === 'object') {
+        const msg = (err as { message?: unknown }).message;
+        return { failed: typeof msg === 'string' && msg ? msg : '供应商返回错误事件' };
+      }
       const choice = (obj.choices as { delta?: Record<string, unknown> }[] | undefined)?.[0];
       const delta = choice?.delta;
       if (!delta) return null;
@@ -387,6 +396,8 @@ interface SseEventPayload {
   status?: number;
   body?: string;
   message?: string;
+  /** 非流式回退（body）时的往返耗时 */
+  elapsedMs?: number;
 }
 
 export interface ChatStreamOptions extends ChatOptions {
@@ -427,6 +438,8 @@ export function chatStream(
   const req = buildRequest(provider, messages, opts, true);
   let text = '';
   let reasoning = '';
+  /** 本地立即中止（不等 Rust 回执，见 abort()） */
+  let abortLocal: (() => void) | undefined;
 
   const done = new Promise<ChatResult>((resolve) => {
     let unlisten: (() => void) | undefined;
@@ -437,6 +450,8 @@ export function chatStream(
       unlisten?.();
       resolve(r);
     };
+    abortLocal = () =>
+      finish({ ok: false, text, ...(reasoning ? { reasoning } : {}), aborted: true });
 
     listen<SseEventPayload>('ai-sse', (event) => {
       const p = event.payload;
@@ -461,16 +476,16 @@ export function chatStream(
           return;
         }
         case 'body': {
-          // 供应商不支持流式：整包回退到非流式解析
+          // 供应商不支持流式：整包回退到非流式解析（与 chat() 同一套 parse/extractError）
           const status = p.status ?? 0;
           const rawBody = p.body ?? '';
           if (status !== 200) {
-            finish({ ok: false, text: '', status, error: extractError(status, rawBody) });
+            finish({ ok: false, text: '', status, elapsedMs: p.elapsedMs, error: extractError(status, rawBody) });
             return;
           }
           const parsed = req.parse(rawBody);
           if (parsed === null || !parsed.text.trim()) {
-            finish({ ok: false, text: '', status, error: '响应格式无法解析（非预期结构）' });
+            finish({ ok: false, text: '', status, elapsedMs: p.elapsedMs, error: '响应格式无法解析（非预期结构）' });
             return;
           }
           opts?.onDelta?.({ text: parsed.text, ...(parsed.reasoning ? { reasoning: parsed.reasoning } : {}) });
@@ -479,6 +494,7 @@ export function chatStream(
             text: parsed.text,
             ...(parsed.reasoning ? { reasoning: parsed.reasoning } : {}),
             status,
+            elapsedMs: p.elapsedMs,
           });
           return;
         }
@@ -491,7 +507,8 @@ export function chatStream(
           return;
         }
         case 'aborted': {
-          finish({ ok: true, text, ...(reasoning ? { reasoning } : {}), aborted: true });
+          // ok:false —— AiDock 先判 aborted 分支；中止不是成功完成
+          finish({ ok: false, text, ...(reasoning ? { reasoning } : {}), aborted: true });
           return;
         }
         case 'error': {
@@ -520,6 +537,9 @@ export function chatStream(
   return {
     done,
     abort: () => {
+      // 本地立即 resolve（不等 Rust 回执）：服务商保持连接但停滞吐数据时，
+      // Rust 侧阻塞在读取上，aborted 事件可能永远不到，前端不能跟着悬挂
+      abortLocal?.();
       void aiSseAbort(streamId).catch(() => undefined);
     },
   };

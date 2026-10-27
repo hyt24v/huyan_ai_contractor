@@ -3,6 +3,7 @@
  * 用于端点测速和 /v1/models 模型列表自动获取（借鉴 cc-switch）。
  */
 import { invoke, isTauri } from '@tauri-apps/api/core';
+import type { ProviderApi } from './providers';
 
 interface HttpResponse {
   status: number;
@@ -32,8 +33,31 @@ async function httpRequest(
   });
 }
 
-async function httpGet(url: string, apiKey?: string): Promise<HttpResponse> {
-  return httpRequest(url, { apiKey });
+async function httpGet(
+  url: string,
+  opts?: { apiKey?: string; headers?: Record<string, string> },
+): Promise<HttpResponse> {
+  return httpRequest(url, opts);
+}
+
+/**
+ * 按协议构造 /models 拉取的鉴权参数：
+ * Anthropic 官方接口用 x-api-key + anthropic-version（Bearer 仅用于 OAuth，发了反而 401）；
+ * 其余按 OpenAI 兼容 Bearer。
+ */
+function modelsAuth(
+  api: ProviderApi | undefined,
+  apiKey?: string,
+): { apiKey?: string; headers?: Record<string, string> } {
+  if (api === 'anthropic-messages') {
+    return {
+      headers: {
+        'x-api-key': apiKey ?? '',
+        'anthropic-version': '2023-06-01',
+      },
+    };
+  }
+  return { apiKey };
 }
 
 /** POST JSON 并读取响应（AI 聊天等），timeoutMs 默认 120s */
@@ -82,15 +106,16 @@ export interface EndpointTestResult {
   message: string;
 }
 
-/** 端点测速：GET models 端点，测可用性和延迟 */
+/** 端点测速：GET models 端点，测可用性和延迟；api 缺省按 OpenAI 兼容 Bearer 鉴权 */
 export async function testEndpoint(
   baseUrl: string,
   apiKey?: string,
+  api?: ProviderApi,
 ): Promise<EndpointTestResult> {
   if (!isTauri()) return { ok: false, message: '仅桌面 App 可用' };
   if (!baseUrl.trim()) return { ok: false, message: 'Base URL 为空' };
   try {
-    const r = await httpGet(modelsUrl(baseUrl), apiKey);
+    const r = await httpGet(modelsUrl(baseUrl), modelsAuth(api, apiKey));
     if (r.status === 200) {
       return { ok: true, status: r.status, elapsedMs: r.elapsed_ms, message: `✓ 可用 · ${r.elapsed_ms}ms` };
     }
@@ -112,15 +137,16 @@ export interface FetchModelsResult {
   message: string;
 }
 
-/** 拉取模型列表（OpenAI 兼容 /v1/models） */
+/** 拉取模型列表（OpenAI 兼容 /v1/models；Anthropic /v1/models 同为 data[].id 结构） */
 export async function fetchModels(
   baseUrl: string,
   apiKey?: string,
+  api?: ProviderApi,
 ): Promise<FetchModelsResult> {
   if (!isTauri()) return { ok: false, models: [], message: '仅桌面 App 可用' };
   if (!baseUrl.trim()) return { ok: false, models: [], message: 'Base URL 为空' };
   try {
-    const r = await httpGet(modelsUrl(baseUrl), apiKey);
+    const r = await httpGet(modelsUrl(baseUrl), modelsAuth(api, apiKey));
     if (r.status !== 200) {
       const hint =
         r.status === 401 || r.status === 403

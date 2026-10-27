@@ -27,14 +27,15 @@ import { chatStream, type StreamHandle } from '../services/ai/client';
 import { buildSystemPrompt } from '../services/ai/prompts';
 import {
   appendMessage,
+  clearModelOverride,
   clearSession,
   setModelOverride,
   updateMessage,
   useAiMessages,
   useModelOverride,
 } from '../services/ai/session';
-import { getAiSettings, onSettingsChanged } from '../lib/settings';
-import { loadStore, upsertProvider } from '../services/providers';
+import { getAiSettings, onSettingsChanged, SETTINGS_CHANGED_EVENT } from '../lib/settings';
+import { loadStore, patchProvider } from '../services/providers';
 import type { ModelParams, Provider } from '../lib/providers';
 import ModelParamsEditor from './ModelParamsEditor';
 import { Button } from './ui/controls';
@@ -125,10 +126,21 @@ export default function AiDock({ open, onClose, scope }: AiDockProps) {
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   }, [input, open]);
 
+  // 服务商切换 / 模型列表变动后，过期的会话模型覆盖自动清除，避免向服务商发不存在的模型名
+  useEffect(() => {
+    if (!modelOverride || provider === undefined) return;
+    const opts = new Set(
+      [
+        ...(provider?.models ?? []),
+        ...(provider?.model ? [provider.model] : []),
+        ...(model ? [model] : []),
+      ].filter(Boolean),
+    );
+    if (!opts.has(modelOverride)) clearModelOverride(scope);
+  }, [modelOverride, provider, model, scope]);
+
   if (!open) return null;
 
-  // 对话内临时切换优先，其次 AI 设置默认，最后服务商默认
-  const effectiveModel = modelOverride || model || provider?.model || '';
   const modelOptions = [
     ...new Set(
       [
@@ -138,6 +150,12 @@ export default function AiDock({ open, onClose, scope }: AiDockProps) {
       ].filter(Boolean),
     ),
   ];
+  // 对话内临时切换优先（模型已不在服务商列表时忽略，由上方 effect 清除），其次 AI 设置默认，最后服务商默认
+  const effectiveModel =
+    (modelOverride && modelOptions.includes(modelOverride) ? modelOverride : '') ||
+    model ||
+    provider?.model ||
+    '';
 
   const lastMsg = messages[messages.length - 1];
   const waitingReply =
@@ -147,18 +165,28 @@ export default function AiDock({ open, onClose, scope }: AiDockProps) {
     streamRef.current?.abort();
   };
 
-  /** 保存当前模型的参数覆盖（写入 provider.modelParams，立即生效） */
+  /** 保存当前模型的参数覆盖（补丁式合并到磁盘最新 store，避免覆盖其它视图的并发改动） */
   const saveParams = (next: ModelParams | undefined) => {
     if (!provider || !effectiveModel) return;
-    const modelParams = { ...(provider.modelParams ?? {}) };
-    if (next) modelParams[effectiveModel] = next;
-    else delete modelParams[effectiveModel];
-    const updated: Provider = {
+    const modelKey = effectiveModel;
+    // 本地先更新保证 UI 即时反馈；磁盘合并后广播设置变更，驱动各视图重新解析
+    const local = { ...(provider.modelParams ?? {}) };
+    if (next) local[modelKey] = next;
+    else delete local[modelKey];
+    setProvider({
       ...provider,
-      modelParams: Object.keys(modelParams).length > 0 ? modelParams : undefined,
-    };
-    setProvider(updated);
-    void upsertProvider(updated).catch(() => undefined);
+      modelParams: Object.keys(local).length > 0 ? local : undefined,
+    });
+    void patchProvider(provider.id, (cur) => {
+      const modelParams = { ...(cur.modelParams ?? {}) };
+      if (next) modelParams[modelKey] = next;
+      else delete modelParams[modelKey];
+      return {
+        modelParams: Object.keys(modelParams).length > 0 ? modelParams : undefined,
+      };
+    })
+      .then(() => window.dispatchEvent(new Event(SETTINGS_CHANGED_EVENT)))
+      .catch(() => undefined);
   };
 
   const send = async (text: string) => {
@@ -200,16 +228,16 @@ export default function AiDock({ open, onClose, scope }: AiDockProps) {
       });
       streamRef.current = handle;
       const r = await handle.done;
-      if (r.ok) {
-        updateMessage(scope, placeholder.id, {
-          content: r.text,
-          reasoning: r.reasoning,
-          streaming: false,
-        });
-      } else if (r.aborted) {
+      if (r.aborted) {
         updateMessage(scope, placeholder.id, {
           content: textAcc || '（已停止）',
           reasoning: reasoningAcc || undefined,
+          streaming: false,
+        });
+      } else if (r.ok) {
+        updateMessage(scope, placeholder.id, {
+          content: r.text,
+          reasoning: r.reasoning,
           streaming: false,
         });
       } else {
@@ -500,6 +528,7 @@ export default function AiDock({ open, onClose, scope }: AiDockProps) {
                       </span>
                     </div>
                     <ModelParamsEditor
+                      key={effectiveModel}
                       compact
                       params={provider.modelParams?.[effectiveModel]}
                       onChange={saveParams}

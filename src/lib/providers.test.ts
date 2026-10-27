@@ -259,6 +259,20 @@ describe('export / import', () => {
     expect(result.store.active).toEqual({ claude: 'a' });
     expect(store.active.codex).toBe('ghost');
   });
+
+  it('缺 id 的导入条目撞 slug 时不覆盖现有 provider', () => {
+    const current = upsertProvider(emptyStore(), make({ id: 'corp', name: 'Corp' }));
+    const raw = JSON.stringify([
+      { name: 'Corp', agent: 'claude', baseUrl: 'https://b.example.com' },
+    ]);
+    const result = importStoreJson(raw, current, NOW);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.store.providers).toHaveLength(2);
+    // 原条目保持不动，导入条目分配新 id
+    expect(result.store.providers[0]).toEqual(current.providers[0]);
+    expect(result.store.providers[1].id).toBe('corp-2');
+  });
 });
 
 describe('normalizeStore', () => {
@@ -426,6 +440,26 @@ describe('applyCodexToml', () => {
       '[mcp_servers.a]',
     ]);
   });
+
+  it('顶层重复键只保留第一处（重复键会使 TOML 非法）', () => {
+    const out = applyCodexToml(
+      'model = "a"\nmodel = "b"\nmodel_provider = "x"\nmodel_provider = "y"\n',
+      make({ id: 'p', model: 'm' }),
+    );
+    expect(out.match(/^model =/gm)).toHaveLength(1);
+    expect(out.match(/^model_provider =/gm)).toHaveLength(1);
+    expect(out).toContain('model = "m"');
+    expect(out).toContain('model_provider = "p"');
+  });
+
+  it('未提供的键有重复时也会去重', () => {
+    const out = applyCodexToml(
+      'model = "a"\nmodel = "b"\n',
+      make({ id: 'p', model: undefined }),
+    );
+    expect(out.match(/^model =/gm)).toHaveLength(1);
+    expect(out).toContain('model = "a"');
+  });
 });
 
 describe('applyPiModels', () => {
@@ -501,6 +535,20 @@ describe('readProviderConfig', () => {
   it('codex 空 / 无关内容返回 found=false', () => {
     expect(readCodexToml('').found).toBe(false);
     expect(readCodexToml('approval_policy = "never"').found).toBe(false);
+  });
+
+  it('codex 字符串值内含「 #」不被当作注释截断', () => {
+    const c = readCodexToml(
+      [
+        'model = "a # b" # 行尾注释',
+        'model_provider = "corp"',
+        '',
+        '[model_providers.corp]',
+        'base_url = "https://x.example.com/a # b"',
+      ].join('\n'),
+    );
+    expect(c.model).toBe('a # b');
+    expect(c.baseUrl).toBe('https://x.example.com/a # b');
   });
 
   it('pi 读指定 provider，缺省取第一个', () => {

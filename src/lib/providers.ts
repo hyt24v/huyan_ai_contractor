@@ -404,7 +404,11 @@ export type ImportResult =
   | { ok: true; store: ProviderStore; imported: number }
   | { ok: false; error: string };
 
-function parseProvider(raw: unknown, now: Date): Provider | string {
+function parseProvider(
+  raw: unknown,
+  now: Date,
+  takenIds: readonly string[] = [],
+): Provider | string {
   if (typeof raw !== 'object' || raw === null) return '条目不是对象';
   const r = raw as Record<string, unknown>;
   const input: ProviderInput = {
@@ -423,7 +427,8 @@ function parseProvider(raw: unknown, now: Date): Provider | string {
   if (errors.length > 0) return errors.join('；');
   const ts = now.toISOString();
   const prov: Provider = {
-    id: input.id ?? uniqueProviderId(input.name, []),
+    // 未显式携带 id 时避开现有/同批已占用的 id，防止按 id 合并时静默覆盖无关条目
+    id: input.id ?? uniqueProviderId(input.name, takenIds),
     name: input.name.trim(),
     agent: input.agent,
     baseUrl: input.baseUrl.trim(),
@@ -469,11 +474,13 @@ export function importStoreJson(
     return { ok: false, error: '缺少 providers 数组' };
   }
   const incoming: Provider[] = [];
+  const takenIds = new Set(current.providers.map((p) => p.id));
   for (let i = 0; i < rawProviders.length; i++) {
-    const r = parseProvider(rawProviders[i], now);
+    const r = parseProvider(rawProviders[i], now, [...takenIds]);
     if (typeof r === 'string') {
       return { ok: false, error: `第 ${i + 1} 条无效：${r}` };
     }
+    takenIds.add(r.id);
     const dup = incoming.findIndex((p) => p.id === r.id);
     if (dup >= 0) incoming.splice(dup, 1);
     incoming.push(r);
@@ -527,9 +534,27 @@ export const emptyCurrent = (): CurrentConfig => ({ found: false, hasKey: false 
 
 const unquoteToml = (raw: string): string => {
   let v = raw.trim();
-  // 去掉行尾注释（仅处理引号外的情况，够用于我们生成的配置）
-  const hash = v.indexOf(' #');
-  if (hash > 0) v = v.slice(0, hash).trim();
+  // 去掉行尾注释：只处理引号外的「 #」（引号内含「 #」的字符串值不能被截断）
+  let inBasic = false;
+  let inLiteral = false;
+  for (let i = 0; i < v.length; i++) {
+    const c = v[i];
+    if (inBasic) {
+      if (c === '\\') i++; // 跳过转义字符
+      else if (c === '"') inBasic = false;
+      continue;
+    }
+    if (inLiteral) {
+      if (c === "'") inLiteral = false;
+      continue;
+    }
+    if (c === '"') inBasic = true;
+    else if (c === "'") inLiteral = true;
+    else if (c === '#' && i > 0 && v[i - 1] === ' ') {
+      v = v.slice(0, i).trimEnd();
+      break;
+    }
+  }
   if (
     (v.startsWith('"') && v.endsWith('"') && v.length >= 2) ||
     (v.startsWith("'") && v.endsWith("'") && v.length >= 2)
@@ -723,17 +748,27 @@ export function applyCodexToml(originalText: string, provider: Provider): string
   let topEnd = lines.findIndex((l) => parseTomlHeader(l) !== null);
   if (topEnd < 0) topEnd = lines.length;
 
+  const seen = new Set<string>();
   const replaced = new Set<string>();
+  const dupLines: number[] = [];
   for (let i = 0; i < topEnd; i++) {
     const m = lines[i].match(/^\s*(model_provider|model)\s*=/);
     if (!m) continue;
     const key = m[1];
-    if (replaced.has(key)) continue;
+    if (seen.has(key)) {
+      // 顶层重复键会使 TOML 非法：只保留第一处，其余删除
+      dupLines.push(i);
+      continue;
+    }
+    seen.add(key);
     if (key in wanted) {
       lines[i] = `${key} = ${wanted[key]}`;
       replaced.add(key);
     }
   }
+  for (let i = dupLines.length - 1; i >= 0; i--) lines.splice(dupLines[i], 1);
+  // 删除重复行后顶层区域同步缩短
+  topEnd -= dupLines.length;
   const missing = Object.keys(wanted).filter((k) => !replaced.has(k));
   if (missing.length > 0) {
     let at = topEnd;

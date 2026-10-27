@@ -77,6 +77,31 @@ export async function upsertProvider(
   return next;
 }
 
+/**
+ * 补丁式更新：基于磁盘最新 store 找到目标 provider，用 patch 计算增量字段后合并写回。
+ * 避免 AiDock / 设置页 / 模型服务页各自持有旧副本时整体 upsert 互相覆盖
+ * （如 AiDock 改 modelParams 时丢掉设置页刚加的 models）。
+ */
+export async function patchProvider(
+  id: string,
+  patch: (current: Provider) => Partial<Provider>,
+  fs: FsPort = tauriFs,
+): Promise<ProviderStore> {
+  const store = await loadStore(fs);
+  const current = store.providers.find((p) => p.id === id);
+  if (!current) return store;
+  const merged: Provider = {
+    ...current,
+    ...patch(current),
+    id: current.id,
+    createdAt: current.createdAt,
+    updatedAt: new Date().toISOString(),
+  };
+  const next = upsertProviderInStore(store, merged);
+  await saveStore(next, fs);
+  return next;
+}
+
 /** 从清单删除（不触碰 agent 的配置文件） */
 export async function removeProvider(
   id: string,
