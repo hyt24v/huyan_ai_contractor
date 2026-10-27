@@ -7,6 +7,7 @@ import {
   computeSkillMatrix,
   linkPointsToLibrary,
   parseGitTreeUrl,
+  isValidSkillName,
   parseSkillMdMeta,
   type AgentSkillsScan,
   type SkillRow,
@@ -115,7 +116,14 @@ export async function adoptSkill(
     throw new Error(`中央库已存在同名 skill：${dest}（请先处理中央库里的同名目录）`);
   await fs.copyDir(src, dest);
   await fs.remove(src, true);
-  await fs.symlink(dest, src);
+  try {
+    await fs.symlink(dest, src);
+  } catch (e) {
+    // 软链失败时回滚：把中央库副本拷回原位，避免用户数据只留在中央库
+    await fs.copyDir(dest, src).catch(() => {});
+    await fs.remove(dest, true).catch(() => {});
+    throw e;
+  }
 }
 
 /** 用中央库版本替换 agent 的本地副本：真实目录先自动备份（选前快照）再替换为软链 */
@@ -134,11 +142,12 @@ export async function replaceLocalWithLibrary(
     // 真实目录是用户数据：替换前自动备份到 skill-backups（借鉴 skills-manager「选前先快照」）
     const backupDir = await absPath('.ai-baogongtou/skill-backups');
     if (!(await fs.exists(backupDir))) await fs.mkdir(backupDir);
+    // 毫秒精度，避免同秒两次备份互相覆盖
     const stamp = new Date()
       .toISOString()
       .replace(/[:.]/g, '-')
       .replace('T', '_')
-      .slice(0, 19);
+      .replace('Z', '');
     await fs.copyDir(src, `${backupDir}/${skillName}-${agentId}-${stamp}`);
   }
   if (isLink || (await fs.exists(src))) await fs.remove(src, true);
@@ -151,11 +160,15 @@ export async function installFromGit(
   skillName: string,
   fs: FsPort = tauriFs,
 ): Promise<void> {
+  if (!isValidSkillName(skillName))
+    throw new Error(`不合法的 skill 名：${skillName}（仅允许字母/数字开头，含字母数字与 _ . -）`);
   const dest = await absPath(`${SKILL_LIBRARY_DIR}/${skillName}`);
   if (await fs.exists(dest))
     throw new Error(`中央库已存在同名 skill：${dest}（请先处理中央库里的同名目录）`);
 
   const tree = parseGitTreeUrl(url);
+  if (!tree && /\/tree\/[^/]+\/.+/.test(url.trim()))
+    throw new Error('子目录链接不合法：路径不允许包含 . / .. 段');
   if (tree) {
     // 合集仓库的子目录：克隆整个仓库到临时目录，再把子目录拷入中央库
     const tmp = await absPath(`${SKILL_LIBRARY_DIR}/.tmp-clone-${skillName}`);

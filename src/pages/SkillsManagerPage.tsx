@@ -69,7 +69,6 @@ import {
   installFromGit,
   skillGitStatus,
   updateSkillFromGit,
-  type SkillsSnapshot,
 } from '../services/agentSkills';
 import { scanSkillCatalog } from '../services/skillCatalog';
 import { auditSnapshot } from '../services/skillAudit';
@@ -224,17 +223,20 @@ function PrimaryButton({
   disabled,
   icon,
   children,
+  title,
 }: {
   onClick: () => void;
   disabled?: boolean;
   icon?: ReactNode;
   children: ReactNode;
+  title?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
+      title={title}
       className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
     >
       {icon}
@@ -273,7 +275,8 @@ function GhostButton({
 export default function SkillsManagerPage() {
   const agents = useAgents();
   const agentIds = agents.map((a) => a.id);
-  const [snap, setSnap] = useState<SkillsSnapshot | null>(null);
+  // 只用于审计按钮的可用性判断，不需要保留快照本体
+  const [snapReady, setSnapReady] = useState(false);
   const [catalog, setCatalog] = useState<SkillCatalog | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -323,7 +326,7 @@ export default function SkillsManagerPage() {
     setError('');
     try {
       const next = await scanSkillCatalog();
-      setSnap(next.snapshot);
+      setSnapReady(true);
       setCatalog(next.catalog);
     } catch (e) {
       setError(errMsg(e));
@@ -494,6 +497,12 @@ export default function SkillsManagerPage() {
         showToast('中央库已有同名 skill，无法收编', 'err');
         return;
       }
+      if (
+        !window.confirm(
+          `将把 ${agentName(agent)} 本地的「${name}」移入中央库，并把原位置替换为软链。继续？`,
+        )
+      )
+        return;
       void run(() => adoptSkill(name, agent), `已收编 ${name} 到中央库`);
     },
     [findSkill, run, showToast],
@@ -528,7 +537,7 @@ export default function SkillsManagerPage() {
         }
       }, enabled ? `已移除 ${name} 的全部链接` : `已将 ${name} 部署到全部 Agent`);
     },
-    [findSkill, run, showToast],
+    [agents, findSkill, run, showToast],
   );
 
   const syncAll = useCallback(
@@ -555,7 +564,7 @@ export default function SkillsManagerPage() {
         }
       }, `已将 ${name} 同步到全部 Agent`);
     },
-    [findSkill, run, showToast],
+    [agents, findSkill, run, showToast],
   );
 
   const batchApply = (mode: 'enable' | 'disable') => {
@@ -676,6 +685,12 @@ export default function SkillsManagerPage() {
   const projectAdopt = useCallback(
     (name: string, agent: AgentId) => {
       if (!activeProject) return;
+      if (
+        !window.confirm(
+          `将把项目中 ${agentName(agent)} 的「${name}」移入中央库，并把原位置替换为软链。继续？`,
+        )
+      )
+        return;
       void run(
         () => adoptFromProject(name, activeProject, agent),
         `已收编 ${name} 到中央库`,
@@ -720,10 +735,11 @@ export default function SkillsManagerPage() {
     [catalog],
   );
 
-  const baseName = (p: string) => p.split('/').filter(Boolean).pop() ?? p;
+  const baseName = (p: string) => p.split(/[\\/]/).filter(Boolean).pop() ?? p;
   const updateOne = useCallback(
     async (name: string) => {
       setUpdating(true);
+      setBusy(true);
       try {
         const before = await skillGitStatus(name);
         await updateSkillFromGit(name);
@@ -734,6 +750,7 @@ export default function SkillsManagerPage() {
         showToast(`更新 ${name} 失败：${errMsg(e)}`, 'err');
       } finally {
         setUpdating(false);
+        setBusy(false);
       }
     },
     [refresh, showToast],
@@ -747,6 +764,7 @@ export default function SkillsManagerPage() {
       return;
     }
     setUpdating(true);
+    setBusy(true);
     const changed: string[] = [];
     const failed: string[] = [];
     try {
@@ -762,6 +780,7 @@ export default function SkillsManagerPage() {
       }
     } finally {
       setUpdating(false);
+      setBusy(false);
     }
     await refresh();
     if (changed.length > 0) {
@@ -827,7 +846,7 @@ export default function SkillsManagerPage() {
     try {
       // 重扫文件系统再审计，避免用页面加载时的旧快照（重扫按钮才真的“重扫”）
       const next = await scanSkillCatalog();
-      setSnap(next.snapshot);
+      setSnapReady(true);
       setCatalog(next.catalog);
       setAuditReport(await auditSnapshot(next.snapshot));
     } catch (e) {
@@ -1048,7 +1067,8 @@ export default function SkillsManagerPage() {
                 setDeployAgent(agents[0]?.id ?? 'claude');
                 setDeployOpen(true);
               }}
-              disabled={busy || librarySkillNames.length === 0}
+              disabled={busy || librarySkillNames.length === 0 || agents.length === 0}
+              title={agents.length === 0 ? '没有可见的 Agent（请在 设置→Agent 管理 中启用）' : undefined}
               icon={<Plus className="h-3.5 w-3.5" />}
             >
               从中央库部署到项目
@@ -1617,7 +1637,7 @@ export default function SkillsManagerPage() {
               )}
               <GhostButton
                 onClick={() => void runAudit()}
-                disabled={!snap || auditLoading}
+                disabled={!snapReady || auditLoading}
                 icon={<ShieldCheck className="h-3.5 w-3.5" />}
                 title="审计 skill 库与 agent 本地 skills"
               >

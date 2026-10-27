@@ -145,11 +145,19 @@ export function skillNameFromGitUrl(url: string): string | null {
   return last && last.length > 0 ? last : null;
 }
 
-/** 解析 /tree/<branch>/<subdir> 形式的 GitHub URL，返回仓库地址与子目录；非 tree 链接返回 null */
+/** 解析 /tree/<branch>/<subdir> 形式的 GitHub URL，返回仓库地址与子目录；非 tree 链接返回 null。
+ * 子目录含 . / .. 路径段时返回 null（防路径穿越：../../.claude/skills 之类）。 */
 export function parseGitTreeUrl(url: string): { repoUrl: string; subdir: string } | null {
   const cleaned = url.trim().replace(/\.git$/, '').replace(/\/$/, '');
   const m = cleaned.match(/^(.+?)\/tree\/[^/]+\/(.+)$/);
   if (!m) return null;
   const subdir = m[2].replace(/\/+$/, '');
-  return subdir ? { repoUrl: m[1], subdir } : null;
+  if (!subdir) return null;
+  if (subdir.split('/').some((seg) => seg === '..' || seg === '.')) return null;
+  return { repoUrl: m[1], subdir };
+}
+
+/** skill 目录名校验：字母/数字开头，仅含字母数字与 _ . -；'.' / '..' 因首字符约束已被排除（显式列出防回归） */
+export function isValidSkillName(name: string): boolean {
+  return /^[A-Za-z0-9][\w.-]*$/.test(name) && name !== '.' && name !== '..';
 }

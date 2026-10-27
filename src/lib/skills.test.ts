@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   computeSkillMatrix,
+  isValidSkillName,
   linkPointsToLibrary,
+  parseGitTreeUrl,
   parseSkillMdMeta,
   projectSkillStatus,
   skillNameFromGitUrl,
@@ -86,5 +88,40 @@ describe('skillNameFromGitUrl', () => {
     expect(skillNameFromGitUrl('https://github.com/a/b')).toBe('b');
     expect(skillNameFromGitUrl('https://github.com/a/b/tree/main/skills/my-skill')).toBe('my-skill');
     expect(skillNameFromGitUrl('')).toBeNull();
+  });
+});
+
+describe('parseGitTreeUrl', () => {
+  it('解析 /tree/<branch>/<subdir> 链接', () => {
+    expect(parseGitTreeUrl('https://github.com/a/b/tree/main/skills/my-skill')).toEqual({
+      repoUrl: 'https://github.com/a/b',
+      subdir: 'skills/my-skill',
+    });
+    expect(parseGitTreeUrl('https://github.com/a/b')).toBeNull();
+  });
+
+  it('拒绝含 . / .. 路径段的子目录（防路径穿越）', () => {
+    expect(parseGitTreeUrl('https://github.com/a/b/tree/main/../../.claude/skills/x')).toBeNull();
+    expect(parseGitTreeUrl('https://github.com/a/b/tree/main/./skills/x')).toBeNull();
+    expect(parseGitTreeUrl('https://github.com/a/b/tree/main/skills/../x')).toBeNull();
+  });
+});
+
+describe('isValidSkillName', () => {
+  it('接受常规名字', () => {
+    expect(isValidSkillName('my-skill')).toBe(true);
+    expect(isValidSkillName('skill_1.2')).toBe(true);
+    expect(isValidSkillName('Skill')).toBe(true);
+  });
+
+  it('拒绝非法名字与路径段', () => {
+    expect(isValidSkillName('')).toBe(false);
+    expect(isValidSkillName('.')).toBe(false);
+    expect(isValidSkillName('..')).toBe(false);
+    expect(isValidSkillName('.hidden')).toBe(false);
+    expect(isValidSkillName('-lead')).toBe(false);
+    expect(isValidSkillName('a/b')).toBe(false);
+    expect(isValidSkillName('a b')).toBe(false);
+    expect(isValidSkillName('中文')).toBe(false);
   });
 });

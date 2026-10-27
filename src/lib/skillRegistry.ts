@@ -23,42 +23,36 @@ export const CURATED_SKILL_REPOS: SkillRepo[] = [
     url: 'https://github.com/anthropics/skills',
     description: 'Anthropic 官方 Agent Skills 示例与规范参考',
     tags: ['official', 'anthropic', 'claude'],
-    stars: 12000,
   },
   {
     name: 'obra/superpowers',
     url: 'https://github.com/obra/superpowers',
     description: '面向工程流程的 Claude Code skills 合集（规划、调试、评审）',
     tags: ['workflow', 'engineering', 'claude'],
-    stars: 8000,
   },
   {
     name: 'ComposioHQ/awesome-claude-skills',
     url: 'https://github.com/ComposioHQ/awesome-claude-skills',
     description: '社区精选 Claude skills 清单，覆盖面广',
     tags: ['awesome-list', 'collection', 'claude'],
-    stars: 6000,
   },
   {
     name: 'travisvn/awesome-claude-skills',
     url: 'https://github.com/travisvn/awesome-claude-skills',
     description: '按用途分类的 Claude skills 资源列表',
     tags: ['awesome-list', 'collection'],
-    stars: 4000,
   },
   {
     name: 'microsoft/skills',
     url: 'https://github.com/microsoft/skills',
     description: '微软出品的 Agent Skills 示例与工具集成',
     tags: ['official', 'microsoft'],
-    stars: 3000,
   },
   {
     name: 'modelcontextprotocol/servers',
     url: 'https://github.com/modelcontextprotocol/servers',
     description: 'MCP 官方 servers 合集，常与 skill 搭配使用',
     tags: ['mcp', 'tools'],
-    stars: 30000,
   },
 ];
 

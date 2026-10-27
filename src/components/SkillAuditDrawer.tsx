@@ -1,15 +1,7 @@
 import { useState } from 'react';
 import { AlertTriangle, Info, RefreshCw, ShieldCheck, X } from 'lucide-react';
-import type { AgentId } from '../lib/agents';
+import { agentShortName } from '../lib/agents';
 import type { AuditIssue, AuditReport, AuditSeverity } from '../lib/skillAudit';
-
-const AGENT_SHORT: Record<AgentId, string> = {
-  claude: 'Claude',
-  codex: 'Codex',
-  pi: 'Pi',
-  cursor: 'Cursor',
-  gemini: 'Gemini',
-};
 
 const SEVERITY_LABEL: Record<AuditSeverity, string> = {
   error: '错误',
@@ -166,7 +158,7 @@ export default function SkillAuditDrawer({
                         </p>
                       )}
                       <p className="mt-1 text-[10px] text-muted-foreground">
-                        {issue.agent ? AGENT_SHORT[issue.agent] : '中央库'}
+                        {issue.agent ? agentShortName(issue.agent) : '中央库'}
                       </p>
                     </div>
                   </div>

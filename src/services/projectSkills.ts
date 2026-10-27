@@ -6,7 +6,7 @@
  */
 import { AGENTS, SKILL_LIBRARY_DIR, type AgentId } from '../lib/agents';
 import { effectiveAgents } from '../lib/agentVisibility';
-import { absPath, rawFs, tauriFs } from '../lib/fsPort';
+import { absPath, home, rawFs, tauriFs } from '../lib/fsPort';
 import {
   linkPointsToLibrary,
   type AgentSkillsScan,
@@ -48,11 +48,21 @@ export async function saveProjects(projects: LinkedProject[]): Promise<void> {
   );
 }
 
-/** 关联项目：验证存在且是目录后追加；已关联则原样返回 */
+/** 关联项目：展开 ~、验证存在且是目录后追加；已关联则原样返回 */
 export async function addProject(path: string): Promise<LinkedProject[]> {
-  const clean = path.trim().replace(/\/+$/, '');
+  let clean = path.trim().replace(/[\\/]+$/, '');
   if (!clean) throw new Error('路径不能为空');
+  // 支持 ~ 开头（展开为家目录）
+  if (clean === '~') clean = await home();
+  else if (clean.startsWith('~/') || clean.startsWith('~\\'))
+    clean = await absPath(clean.slice(2));
   if (!(await rawFs.exists(clean))) throw new Error(`目录不存在：${clean}`);
+  // path_exists 对文件也为 true，必须用 readDir 验证确为目录
+  try {
+    await rawFs.readDir(clean);
+  } catch {
+    throw new Error(`不是目录：${clean}`);
+  }
   const projects = await loadProjects();
   if (projects.some((p) => p.path === clean)) return projects;
   const next = [...projects, { path: clean, addedAt: new Date().toISOString() }];
@@ -158,7 +168,14 @@ export async function adoptFromProject(
     throw new Error(`中央库已存在同名 skill：${dest}（请先处理中央库里的同名目录）`);
   await rawFs.copyDir(src, dest);
   await rawFs.remove(src, true);
-  await rawFs.symlink(dest, src);
+  try {
+    await rawFs.symlink(dest, src);
+  } catch (e) {
+    // 软链失败时回滚：把中央库副本拷回原位，避免用户数据只留在中央库
+    await rawFs.copyDir(dest, src).catch(() => {});
+    await tauriFs.remove(dest, true).catch(() => {});
+    throw e;
+  }
 }
 
 /** 用中央库版本替换项目里的真实目录：先备份再替换为软链（选前快照，可恢复） */
@@ -175,11 +192,12 @@ export async function replaceProjectWithLibrary(
   if (!isLink && (await rawFs.exists(src))) {
     const backupDir = await absPath('.ai-baogongtou/skill-backups');
     if (!(await tauriFs.exists(backupDir))) await tauriFs.mkdir(backupDir);
+    // 毫秒精度，避免同秒两次备份互相覆盖
     const stamp = new Date()
       .toISOString()
       .replace(/[:.]/g, '-')
       .replace('T', '_')
-      .slice(0, 19);
+      .replace('Z', '');
     await rawFs.copyDir(src, `${backupDir}/${skillName}-project-${agentId}-${stamp}`);
   }
   if (isLink || (await rawFs.exists(src))) await rawFs.remove(src, true);

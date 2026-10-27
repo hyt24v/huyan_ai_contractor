@@ -26,14 +26,14 @@ import AgentBadge from './AgentBadge';
 import AgentBadgeStrip from './AgentBadgeStrip';
 
 const TAG_TONES = [
-  'bg-sky-500/10 text-sky-700 dark:text-sky-300',
-  'bg-orange-500/10 text-orange-700 dark:text-orange-300',
-  'bg-violet-500/10 text-violet-700 dark:text-violet-300',
-  'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-  'bg-rose-500/10 text-rose-700 dark:text-rose-300',
-  'bg-amber-500/10 text-amber-700 dark:text-amber-300',
-  'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300',
-  'bg-teal-500/10 text-teal-700 dark:text-teal-300',
+  'bg-info/15 text-info',
+  'bg-json-number/15 text-json-number',
+  'bg-json-boolean/15 text-json-boolean',
+  'bg-success/15 text-success',
+  'bg-destructive/10 text-destructive',
+  'bg-warning/25 text-warning-foreground',
+  'bg-primary/10 text-primary',
+  'bg-json-string/15 text-json-string',
 ];
 
 export function tagTone(tag: string): string {

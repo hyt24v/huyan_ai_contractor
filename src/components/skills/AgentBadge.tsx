@@ -2,13 +2,13 @@
 import { AGENTS, type AgentId } from '../../lib/agents';
 import type { SkillAgentState } from '../../lib/skills';
 
-/** 已知 agent 的品牌色调;未收录的走中性色 */
+/** 已知 agent 的品牌色调（用主题 token，随主题变化）;未收录的走中性色 */
 const AGENT_TONE: Record<string, string> = {
-  claude: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
-  codex: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
-  pi: 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
-  cursor: 'bg-slate-500/15 text-slate-600 dark:text-slate-300',
-  gemini: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+  claude: 'bg-json-number/15 text-json-number',
+  codex: 'bg-json-boolean/15 text-json-boolean',
+  pi: 'bg-info/15 text-info',
+  cursor: 'bg-muted text-muted-foreground',
+  gemini: 'bg-primary/10 text-primary',
 };
 
 const AGENT_LETTER: Record<string, string> = {

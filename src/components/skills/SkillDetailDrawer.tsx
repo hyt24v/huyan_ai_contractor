@@ -149,6 +149,13 @@ export default function SkillDetailDrawer({
   // 选中文件后加载内容
   useEffect(() => {
     if (!open || !skill || !selected) return;
+    // 非文本文件不读取（服务层会 throw），交给下方「不支持预览」分支展示
+    if (!isTextFileName(selected)) {
+      setFileContent('');
+      setFileError('');
+      setFileLoading(false);
+      return;
+    }
     let alive = true;
     setFileLoading(true);
     setFileContent('');
