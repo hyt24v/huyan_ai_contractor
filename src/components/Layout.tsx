@@ -8,6 +8,7 @@ import UpdateDialog from './UpdateDialog';
 import WhatsNewDialog from './WhatsNewDialog';
 import { useAutoBackup } from '../hooks/useAutoBackup';
 import { TOOLS, TOOL_GROUPS } from '../lib/tools';
+import { useNavTools } from '../lib/navConfig';
 import { checkForUpdate, currentVersion } from '../lib/updater';
 import { isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -37,6 +38,7 @@ export default function Layout() {
   const [aiDockOpen, setAiDockOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const navTools = useNavTools();
   const currentTool = TOOLS.find((t) => location.pathname.startsWith(t.path));
   const isSettings = location.pathname.startsWith('/settings');
 
@@ -220,7 +222,10 @@ export default function Layout() {
 
         {/* 工具导航：分组列表；折叠时分组标题退化为分隔线、文字退化为 tooltip */}
         <nav className="flex-1 overflow-y-auto px-2 pb-2">
-          {TOOL_GROUPS.map((group) => (
+          {TOOL_GROUPS.map((group) => {
+            const items = navTools.filter((t) => t.group === group);
+            if (items.length === 0) return null;
+            return (
             <div key={group}>
               {collapsed ? (
                 <div className="mx-1 my-2 border-t border-border/40" />
@@ -229,11 +234,8 @@ export default function Layout() {
                   {group}
                 </div>
               )}
-              {TOOLS.flatMap((t) =>
-                t.group !== group
-                  ? []
-                  : [
-                      <NavLink
+              {items.map((t) => (
+                  <NavLink
                         key={t.path}
                         to={t.path}
                         onDoubleClick={() => setCollapsed((c) => !c)}
@@ -250,16 +252,16 @@ export default function Layout() {
                               : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
                           }`
                         }
-                      >
-                        <t.icon className="h-4 w-4 shrink-0" />
-                        {!collapsed && (
-                          <span className="truncate">{t.name}</span>
-                        )}
-                      </NavLink>,
-                    ],
-              )}
+                  >
+                    <t.icon className="h-4 w-4 shrink-0" />
+                    {!collapsed && (
+                      <span className="truncate">{t.name}</span>
+                    )}
+                  </NavLink>
+              ))}
             </div>
-          ))}
+            );
+          })}
         </nav>
 
         {/* 底部：设置（更新红点），展开时附「纯本地」注脚 */}

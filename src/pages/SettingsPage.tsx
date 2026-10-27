@@ -6,6 +6,7 @@ import {
   Bot,
   Database,
   Info,
+  ListOrdered,
   Palette,
   Sparkles,
   type LucideIcon,
@@ -14,6 +15,7 @@ import AppearanceSection from '../components/settings/AppearanceSection';
 import UpdatesSection from '../components/settings/UpdatesSection';
 import AgentsSection from '../components/settings/AgentsSection';
 import AiSection from '../components/settings/AiSection';
+import NavSection from '../components/settings/NavSection';
 import DataSection from '../components/settings/DataSection';
 import AboutSection from '../components/settings/AboutSection';
 
@@ -26,6 +28,7 @@ interface SectionDef {
 
 const SECTIONS: SectionDef[] = [
   { id: 'appearance', name: '外观', icon: Palette, element: AppearanceSection },
+  { id: 'nav', name: '导航管理', icon: ListOrdered, element: NavSection },
   { id: 'updates', name: '软件更新', icon: ArrowUpCircle, element: UpdatesSection },
   { id: 'agents', name: 'Agent 管理', icon: Bot, element: AgentsSection },
   { id: 'ai', name: 'AI 助手', icon: Sparkles, element: AiSection },
