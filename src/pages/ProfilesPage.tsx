@@ -17,7 +17,10 @@ import {
 } from 'lucide-react';
 import { Toolbar, ToolbarButton, ToolbarDivider } from '../components/Toolbar';
 import ConfirmApplyDialog from '../components/ConfirmApplyDialog';
-import { AGENTS, type AgentId } from '../lib/agents';
+import { agentShortName, type AgentId } from '../lib/agents';
+import { PROMPT_TARGETS } from '../lib/agentTargets';
+import { PROVIDER_TARGETS, type ProviderTarget } from '../lib/providerTargets';
+import { useAgents } from '../hooks/useAgents';
 import {
   addProfile,
   duplicateProfile,
@@ -41,14 +44,6 @@ import { loadStore as loadProviderStore } from '../services/providers';
 import type { ProviderStore } from '../lib/providers';
 import { applyProfile, loadProfiles, saveProfiles } from '../services/profiles';
 import { isTauri } from '@tauri-apps/api/core';
-
-const AGENT_SHORT: Record<AgentId, string> = {
-  claude: 'Claude',
-  codex: 'Codex',
-  pi: 'Pi',
-  cursor: 'Cursor',
-  gemini: 'Gemini',
-};
 
 interface DraftState {
   name: string;
@@ -126,6 +121,15 @@ export default function ProfilesPage() {
   const [error, setError] = useState('');
   const { toast, showToast } = useToast(2800);
   const fileInput = useRef<HTMLInputElement | null>(null);
+  const visibleAgents = useAgents();
+  // 套餐只开放「可写」的 agent：提示词走 PROMPT_TARGETS，模型服务走 PROVIDER_TARGETS
+  const promptAgents = visibleAgents.filter(
+    (a) => PROMPT_TARGETS.find((t) => t.agent === a.id)?.writable === true,
+  );
+  const providerTargets = PROVIDER_TARGETS as Partial<Record<AgentId, ProviderTarget>>;
+  const providerAgents = visibleAgents.filter(
+    (a) => providerTargets[a.id]?.writable === true,
+  );
 
   const notify = useCallback(
     (msg: string, ok = true) => showToast(msg, ok ? 'ok' : 'err'),
@@ -168,10 +172,13 @@ export default function ProfilesPage() {
     void refresh();
   }, [refresh]);
 
+  // 保存前重读磁盘上的最新 store 再应用变更，避免内存旧数据覆盖外部修改
   const persist = useCallback(
-    async (next: ProfileStore, okMsg: string) => {
+    async (mutate: (fresh: ProfileStore) => ProfileStore, okMsg: string) => {
       setBusy(true);
       try {
+        const fresh = await loadProfiles();
+        const next = mutate(fresh);
         await saveProfiles(next);
         setStore(next);
         notify(okMsg);
@@ -202,10 +209,12 @@ export default function ProfilesPage() {
     }
     setBusy(true);
     try {
+      // 保存前重读磁盘上的最新 store，重名/不存在等冲突按最新数据判定
+      const fresh = await loadProfiles();
       const next =
         modal.mode === 'edit' && modal.id
-          ? updateProfile(store, modal.id, draft)
-          : addProfile(store, draft).store;
+          ? updateProfile(fresh, modal.id, draft)
+          : addProfile(fresh, draft).store;
       await saveProfiles(next);
       setStore(next);
       setModal(null);
@@ -219,22 +228,20 @@ export default function ProfilesPage() {
 
   const duplicate = useCallback(
     (profile: Profile) => {
-      try {
-        const { store: next } = duplicateProfile(store, profile.id);
-        void persist(next, `已复制「${profile.name}」`);
-      } catch (e) {
-        notify(`复制失败：${errorText(e)}`, false);
-      }
+      void persist(
+        (fresh) => duplicateProfile(fresh, profile.id).store,
+        `已复制「${profile.name}」`,
+      );
     },
-    [notify, persist, store],
+    [persist],
   );
 
   const remove = useCallback(
     (profile: Profile) => {
       if (!window.confirm(`删除套餐「${profile.name}」？已应用到 agent 的配置不受影响。`)) return;
-      void persist(removeProfile(store, profile.id), '已删除套餐');
+      void persist((fresh) => removeProfile(fresh, profile.id), '已删除套餐');
     },
-    [persist, store],
+    [persist],
   );
 
   // 「先看后切」：卡片「应用」只打开预览弹窗，真正写入在弹窗确认后执行（借鉴 cc-switch）
@@ -280,17 +287,40 @@ export default function ProfilesPage() {
       setBusy(true);
       try {
         const incoming = parseProfiles(await file.text());
-        const { store: merged, added } = mergeProfileStores(store, incoming);
+        // 保存前重读磁盘上的最新 store，避免覆盖外部修改
+        const fresh = await loadProfiles();
+        const { store: merged, added } = mergeProfileStores(fresh, incoming);
         await saveProfiles(merged);
         setStore(merged);
-        notify(`已导入 ${added.length} 个套餐`);
+        // 引用体检：导入的套餐可能引用本机不存在的 skill/MCP/提示词/模型服务 id
+        const skillSet = new Set(skillNames);
+        const mcpSet = new Set(mcpNames);
+        const promptIds = new Set((promptLib?.prompts ?? []).map((p) => p.id));
+        const providerIds = new Set(providerStore.providers.map((p) => p.id));
+        let dangling = 0;
+        for (const p of added) {
+          dangling += p.skills.filter((s) => !skillSet.has(s)).length;
+          dangling += p.mcpServers.filter((s) => !mcpSet.has(s)).length;
+          dangling += Object.values(p.prompts).filter(
+            (id): id is string => typeof id === 'string' && !promptIds.has(id),
+          ).length;
+          dangling += Object.values(p.providers ?? {}).filter(
+            (id): id is string => typeof id === 'string' && !providerIds.has(id),
+          ).length;
+        }
+        notify(
+          dangling > 0
+            ? `已导入 ${added.length} 个套餐，其中 ${dangling} 条引用（skill/MCP/提示词/模型服务）在本机不存在，应用时会跳过`
+            : `已导入 ${added.length} 个套餐`,
+          dangling === 0,
+        );
       } catch (e) {
         notify(`导入失败：${errorText(e)}`, false);
       } finally {
         setBusy(false);
       }
     },
-    [notify, store],
+    [mcpNames, notify, promptLib, providerStore, skillNames],
   );
 
   const profiles = store.profiles;
@@ -460,7 +490,7 @@ export default function ProfilesPage() {
                       {promptRows.map(([agent, id]) => (
                         <div key={agent} className="flex items-center gap-1 truncate">
                           <span className="w-12 shrink-0 font-medium">
-                            {AGENT_SHORT[agent]}
+                            {agentShortName(agent)}
                           </span>
                           <span className="truncate">{promptName(id)}</span>
                         </div>
@@ -472,7 +502,7 @@ export default function ProfilesPage() {
                       {providerRows.map(([agent, id]) => (
                         <div key={`p-${agent}`} className="flex items-center gap-1 truncate">
                           <span className="w-12 shrink-0 font-medium">
-                            {AGENT_SHORT[agent]}
+                            {agentShortName(agent)}
                           </span>
                           <span className="truncate">{providerName(id)}</span>
                         </div>
@@ -523,7 +553,7 @@ export default function ProfilesPage() {
 
       <div className="flex h-7 shrink-0 items-center gap-2 border-t bg-card px-3 text-[11px] text-muted-foreground">
         <AlertTriangle className="h-3.5 w-3.5 text-warning-foreground" />
-        应用套餐 = 按套餐重算 Skills / MCP / 提示词；覆盖前自动备份，部分失败会逐条列出
+        应用套餐 = 按套餐重算可见 agent 的 Skills / MCP / 提示词 / 模型服务；覆盖前自动备份，部分失败会逐条列出
         <span className="ml-auto">
           套餐文件 ~/.ai-baogongtou/profiles.json · 共 {profiles.length} 个
         </span>
@@ -540,7 +570,7 @@ export default function ProfilesPage() {
                   <span className="ml-1 font-mono font-medium">
                     {applyTarget.skills.length}
                   </span>{' '}
-                  个（启用到全部 agent）
+                  个（重算可见 agent 的软链）
                 </div>
                 <div className="rounded-md bg-muted/50 px-2.5 py-1.5">
                   MCP server
@@ -570,8 +600,8 @@ export default function ProfilesPage() {
             </div>
           }
           consequences={[
-            '按套餐重算全部 agent 的 Skills / MCP / 提示词 / 模型服务',
-            '被覆盖的配置文件会先自动备份',
+            '按套餐重算可见 agent 的 Skills / MCP / 提示词 / 模型服务',
+            'Skills 只增删软链，真实目录不会被覆盖；被覆盖的配置文件会先自动备份',
             '部分失败会逐条列出，不影响其他项',
           ]}
           confirmLabel="确认应用套餐"
@@ -711,34 +741,43 @@ export default function ProfilesPage() {
                   提示词（每 agent 一条，可不选）
                 </div>
                 <div className="space-y-1">
-                  {AGENTS.map((agent) => {
-                    const value = modal.draft.prompts[agent.id] ?? '';
-                    const options = promptLib?.prompts ?? [];
-                    const unknown = value !== '' && !options.some((p) => p.id === value);
-                    return (
-                      <div key={agent.id} className="flex items-center gap-2">
-                        <span className="w-24 shrink-0 text-xs">{agent.name}</span>
-                        <select
-                          value={value}
-                          onChange={(e) => {
-                            const prompts = { ...modal.draft.prompts };
-                            if (e.target.value) prompts[agent.id] = e.target.value;
-                            else delete prompts[agent.id];
-                            setModal({ ...modal, draft: { ...modal.draft, prompts } });
-                          }}
-                          className="h-7 min-w-0 flex-1 rounded-md border border-input bg-transparent px-1.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        >
-                          <option value="">不设置</option>
-                          {unknown && <option value={value}>{promptName(value)}</option>}
-                          {options.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    );
-                  })}
+                  {(() => {
+                    // 可写的可见 agent；draft 里已有的（如导入的）agent 也保留一行以便查看/清除
+                    const rows = promptAgents.map((a) => a.id);
+                    for (const key of Object.keys(modal.draft.prompts)) {
+                      if (!rows.includes(key)) rows.push(key);
+                    }
+                    return rows.map((agentId) => {
+                      const value = modal.draft.prompts[agentId] ?? '';
+                      const options = promptLib?.prompts ?? [];
+                      const unknown = value !== '' && !options.some((p) => p.id === value);
+                      return (
+                        <div key={agentId} className="flex items-center gap-2">
+                          <span className="w-24 shrink-0 text-xs">
+                            {agentShortName(agentId)}
+                          </span>
+                          <select
+                            value={value}
+                            onChange={(e) => {
+                              const prompts = { ...modal.draft.prompts };
+                              if (e.target.value) prompts[agentId] = e.target.value;
+                              else delete prompts[agentId];
+                              setModal({ ...modal, draft: { ...modal.draft, prompts } });
+                            }}
+                            className="h-7 min-w-0 flex-1 rounded-md border border-input bg-transparent px-1.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          >
+                            <option value="">不设置</option>
+                            {unknown && <option value={value}>{promptName(value)}</option>}
+                            {options.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               </section>
 
@@ -747,34 +786,45 @@ export default function ProfilesPage() {
                   模型服务（每 agent 一条，可不选）
                 </div>
                 <div className="space-y-1">
-                  {AGENTS.map((agent) => {
-                    const value = modal.draft.providers[agent.id] ?? '';
-                    const options = providerStore.providers.filter((p) => p.agent === agent.id);
-                    const unknown = value !== '' && !options.some((p) => p.id === value);
-                    return (
-                      <div key={`provider-${agent.id}`} className="flex items-center gap-2">
-                        <span className="w-24 shrink-0 text-xs">{agent.name}</span>
-                        <select
-                          value={value}
-                          onChange={(e) => {
-                            const providers = { ...modal.draft.providers };
-                            if (e.target.value) providers[agent.id] = e.target.value;
-                            else delete providers[agent.id];
-                            setModal({ ...modal, draft: { ...modal.draft, providers } });
-                          }}
-                          className="h-7 min-w-0 flex-1 rounded-md border border-input bg-transparent px-1.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        >
-                          <option value="">不设置</option>
-                          {unknown && <option value={value}>{providerName(value)}</option>}
-                          {options.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    );
-                  })}
+                  {(() => {
+                    // 可写的可见 agent；draft 里已有的（如导入的）agent 也保留一行以便查看/清除
+                    const rows = providerAgents.map((a) => a.id);
+                    for (const key of Object.keys(modal.draft.providers)) {
+                      if (!rows.includes(key)) rows.push(key);
+                    }
+                    return rows.map((agentId) => {
+                      const value = modal.draft.providers[agentId] ?? '';
+                      const options = providerStore.providers.filter(
+                        (p) => p.agent === agentId,
+                      );
+                      const unknown = value !== '' && !options.some((p) => p.id === value);
+                      return (
+                        <div key={`provider-${agentId}`} className="flex items-center gap-2">
+                          <span className="w-24 shrink-0 text-xs">
+                            {agentShortName(agentId)}
+                          </span>
+                          <select
+                            value={value}
+                            onChange={(e) => {
+                              const providers = { ...modal.draft.providers };
+                              if (e.target.value) providers[agentId] = e.target.value;
+                              else delete providers[agentId];
+                              setModal({ ...modal, draft: { ...modal.draft, providers } });
+                            }}
+                            className="h-7 min-w-0 flex-1 rounded-md border border-input bg-transparent px-1.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          >
+                            <option value="">不设置</option>
+                            {unknown && <option value={value}>{providerName(value)}</option>}
+                            {options.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               </section>
 

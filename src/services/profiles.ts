@@ -1,5 +1,6 @@
-/** 配置套餐服务：一次性应用 skills / MCP / 提示词，逐步容错并汇总结果 */
-import { AGENTS, type AgentId } from '../lib/agents';
+/** 配置套餐服务：一次性应用 skills / MCP / 提示词 / 模型服务，逐步容错并汇总结果 */
+import { AGENTS, hasMcpSupport, type AgentId } from '../lib/agents';
+import { effectiveAgents } from '../lib/agentVisibility';
 import { absPath, tauriFs, type FsPort } from '../lib/fsPort';
 import type { CentralManifest } from '../lib/mcp';
 import {
@@ -9,9 +10,14 @@ import {
   type Profile,
   type ProfileStore,
 } from '../lib/profiles';
-import { enableSkill, scanAll } from './agentSkills';
+import { enableSkill, disableSkill, scanAll } from './agentSkills';
 import { distribute, loadManifest, saveManifest } from './agentMcp';
-import { applyPrompt, loadPromptLibrary } from './agentPrompts';
+import {
+  loadPromptLibrary,
+  savePromptLibrary,
+  writePromptFile,
+} from './agentPrompts';
+import { setActivePrompt } from '../lib/prompts';
 import { applyProvider, loadStore as loadProviderStore, setActive } from './providers';
 
 const PROFILES_FILE = '.ai-baogongtou/profiles.json';
@@ -30,6 +36,11 @@ function errMsg(e: unknown): string {
 
 function agentLabel(id: AgentId): string {
   return AGENTS.find((a) => a.id === id)?.name ?? id;
+}
+
+/** 参与 MCP 管理的 agent：可见性开启且已知 MCP 配置路径（与 agentMcp 同口径） */
+function mcpAgents() {
+  return effectiveAgents().filter(hasMcpSupport);
 }
 
 export async function profilesFilePath(): Promise<string> {
@@ -70,6 +81,18 @@ async function backupProfilesFile(file: string, fs: FsPort): Promise<void> {
     i += 1;
   }
   await fs.writeText(path, content);
+  // 保留策略：只留最近 20 份（文件名内嵌固定宽度时间戳，字典序即时间序）
+  try {
+    const names = (await fs.readDir(dir))
+      .filter((e) => !e.isDirectory && e.name.startsWith('profiles-'))
+      .map((e) => e.name)
+      .sort();
+    for (let j = 0; j < names.length - 20; j++) {
+      await fs.remove(`${dir}/${names[j]}`, false);
+    }
+  } catch {
+    // 清理失败不影响主流程
+  }
 }
 
 export async function saveProfiles(
@@ -99,8 +122,9 @@ export function buildProfileManifest(
       if (!selected.has(server.name)) return { ...server, agents: {} };
       const enabled = AGENTS.some((a) => server.agents[a.id]);
       if (enabled) return server;
+      // 新 server 默认全开：只勾「可见且支持 MCP」的 agent，避免把 56 个注册项全置 true
       const agents: Partial<Record<AgentId, boolean>> = {};
-      for (const a of AGENTS) agents[a.id] = true;
+      for (const a of mcpAgents()) agents[a.id] = true;
       return { ...server, agents };
     }),
   };
@@ -108,7 +132,7 @@ export function buildProfileManifest(
 
 /**
  * 应用套餐。每一步独立 try/catch，部分失败也会继续后续步骤并写进 errors。
- * 顺序：skills → MCP → 提示词。
+ * 顺序：skills → MCP → 提示词 → 模型服务。
  */
 export async function applyProfile(
   profile: Profile,
@@ -117,10 +141,12 @@ export async function applyProfile(
   const applied: string[] = [];
   const errors: string[] = [];
 
-  // 1) Skills：只启用中央库中真实存在的 skill，逐个 agent 建立软链
+  // 1) Skills：只处理「可见」的 agent（effectiveAgents，与 MCP 步骤同口径），
+  //    差量重算软链：启用套餐内的，移除不在套餐内但由本工具建立的软链（真实目录绝不动）
   if (profile.skills.length > 0) {
     try {
       const snapshot = await scanAll(fs);
+      const agents = effectiveAgents();
       const library = new Set(snapshot.librarySkills);
       const missing = profile.skills.filter((s) => !library.has(s));
       for (const name of missing) {
@@ -128,20 +154,50 @@ export async function applyProfile(
       }
       let ok = 0;
       const enabled = new Set<string>();
+      /** 本次新建的软链（skill → agent 列表），写进报告便于用户追溯/手动回滚 */
+      const linkDetails = new Map<string, string[]>();
       for (const name of profile.skills) {
         if (!library.has(name)) continue;
-        for (const agent of AGENTS) {
+        for (const agent of agents) {
           try {
             await enableSkill(name, agent.id, fs);
             ok += 1;
             enabled.add(name);
+            const list = linkDetails.get(name) ?? [];
+            list.push(agentLabel(agent.id));
+            linkDetails.set(name, list);
           } catch (e) {
             errors.push(`Skill「${name}」→ ${agentLabel(agent.id)} 启用失败：${errMsg(e)}`);
           }
         }
       }
-      if (ok > 0) {
-        applied.push(`Skills：${enabled.size} 个已启用到 ${AGENTS.length} 个 agent`);
+      // 重算语义：收回未选中的软链（disableSkill 只删软链，用户真实目录不动）
+      const selected = new Set(profile.skills);
+      const removedDetails: string[] = [];
+      for (const scan of snapshot.scans) {
+        for (const s of scan.skills) {
+          if (s.kind !== 'linked' || selected.has(s.name)) continue;
+          try {
+            await disableSkill(s.name, scan.agent, fs);
+            removedDetails.push(`${s.name} → ${agentLabel(scan.agent)}`);
+          } catch (e) {
+            errors.push(
+              `Skill「${s.name}」→ ${agentLabel(scan.agent)} 移除软链失败：${errMsg(e)}`,
+            );
+          }
+        }
+      }
+      if (ok > 0 || removedDetails.length > 0) {
+        const parts = [
+          `Skills：${enabled.size} 个已启用到 ${agents.length} 个可见 agent`,
+        ];
+        for (const [name, targets] of linkDetails) {
+          parts.push(`新建软链 ${name} → ${targets.join('、')}`);
+        }
+        if (removedDetails.length > 0) {
+          parts.push(`收回 ${removedDetails.length} 个未选中的软链（${removedDetails.join('；')}）`);
+        }
+        applied.push(parts.join('；'));
       }
     } catch (e) {
       errors.push(`Skills 应用失败：${errMsg(e)}`);
@@ -178,11 +234,12 @@ export async function applyProfile(
     }
   }
 
-  // 3) 提示词：每个 agent 独立应用（applyPrompt 内部会先备份）
+  // 3) 提示词：库只加载/保存一次（避免每个 agent 都全量备份库文件），循环内只写目标文件
   const promptEntries = Object.entries(profile.prompts) as [AgentId, string][];
   if (promptEntries.length > 0) {
     try {
-      const lib = await loadPromptLibrary(fs);
+      let lib = await loadPromptLibrary(fs);
+      let changed = false;
       for (const [agent, promptId] of promptEntries) {
         const prompt = lib.prompts.find((p) => p.id === promptId);
         if (!prompt) {
@@ -190,7 +247,9 @@ export async function applyProfile(
           continue;
         }
         try {
-          const result = await applyPrompt(agent, prompt, fs);
+          const result = await writePromptFile(agent, prompt, fs);
+          lib = setActivePrompt(lib, agent, prompt.id);
+          changed = true;
           applied.push(
             `提示词「${prompt.name}」→ ${agentLabel(agent)}${
               result.backup ? '（原文件已备份）' : ''
@@ -200,6 +259,8 @@ export async function applyProfile(
           errors.push(`提示词 → ${agentLabel(agent)} 写入失败：${errMsg(e)}`);
         }
       }
+      // 全部写完后一次性保存 active 映射（savePromptLibrary 内部会先备份库文件一次）
+      if (changed) await savePromptLibrary(lib, fs);
     } catch (e) {
       errors.push(`提示词应用失败：${errMsg(e)}`);
     }

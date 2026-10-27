@@ -41,6 +41,25 @@ export async function promptBackupDir(): Promise<string> {
   return absPath(PROMPT_BACKUP_DIR);
 }
 
+/** 备份保留策略：每个前缀只留最近 N 份（文件名内嵌固定宽度时间戳，字典序即时间序） */
+const KEEP_BACKUPS = 20;
+
+async function pruneBackups(prefix: string, fs: FsPort): Promise<void> {
+  try {
+    const dir = await promptBackupDir();
+    if (!(await fs.exists(dir))) return;
+    const names = (await fs.readDir(dir))
+      .filter((e) => !e.isDirectory && e.name.startsWith(prefix))
+      .map((e) => e.name)
+      .sort();
+    for (let i = 0; i < names.length - KEEP_BACKUPS; i++) {
+      await fs.remove(`${dir}/${names[i]}`, false);
+    }
+  } catch {
+    // 清理失败不影响主流程
+  }
+}
+
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
@@ -79,6 +98,7 @@ async function writeBackup(
     i += 1;
   }
   await fs.writeText(path, content);
+  await pruneBackups(`${agent}-`, fs);
   return path;
 }
 
@@ -98,6 +118,7 @@ async function backupLibraryFile(fs: FsPort): Promise<void> {
     i += 1;
   }
   await fs.writeText(path, content);
+  await pruneBackups('prompts-library-', fs);
 }
 
 export async function loadPromptLibrary(fs: FsPort = tauriFs): Promise<PromptLibrary> {
@@ -133,6 +154,32 @@ export async function readCurrentPrompt(
 }
 
 /**
+ * 只写目标文件（写前备份旧内容），不更新提示词库。
+ * 套餐批量应用时配合单次 savePromptLibrary 使用，避免每条都全量备份库文件。
+ * 任何一步失败都会抛出（不会出现"没备份就覆盖"）。
+ */
+export async function writePromptFile(
+  agent: AgentId,
+  prompt: PromptEntry,
+  fs: FsPort = tauriFs,
+): Promise<ApplyPromptResult> {
+  if (!prompt.content.trim()) throw new Error('提示词内容为空，拒绝写入');
+  const file = await promptFilePath(agent);
+  const existing = (await fs.exists(file)) ? await fs.readText(file) : null;
+  // 与写入内容同口径比较（写入时会补尾部换行），避免重复应用同一提示词产生相同备份
+  const finalContent = prompt.content.endsWith('\n')
+    ? prompt.content
+    : `${prompt.content}\n`;
+  const backup =
+    existing !== null && existing !== finalContent
+      ? await writeBackup(agent, existing, fs)
+      : null;
+  await ensureParentDir(file, fs);
+  await fs.writeText(file, finalContent);
+  return { file, backup };
+}
+
+/**
  * 应用提示词：先把现有内容备份，再写入目标文件，并记录为该 agent 的 active。
  * 任何一步失败都会抛出（不会出现"没备份就覆盖"）。
  */
@@ -141,22 +188,11 @@ export async function applyPrompt(
   prompt: PromptEntry,
   fs: FsPort = tauriFs,
 ): Promise<ApplyPromptResult> {
-  if (!prompt.content.trim()) throw new Error('提示词内容为空，拒绝写入');
   // 先加载并校验库，库损坏时拒绝写文件（避免出现文件已写但库未更新的不一致）
   const lib = await loadPromptLibrary(fs);
-  const file = await promptFilePath(agent);
-  const existing = (await fs.exists(file)) ? await fs.readText(file) : null;
-  const backup =
-    existing !== null && existing !== (prompt.content)
-      ? await writeBackup(agent, existing, fs)
-      : null;
-  await ensureParentDir(file, fs);
-  await fs.writeText(
-    file,
-    prompt.content.endsWith('\n') ? prompt.content : `${prompt.content}\n`,
-  );
+  const result = await writePromptFile(agent, prompt, fs);
   await savePromptLibrary(setActivePrompt(lib, agent, prompt.id), fs);
-  return { file, backup };
+  return result;
 }
 
 /** 最近的备份（新的在前，绝对路径） */
@@ -197,7 +233,9 @@ export async function clearPrompt(
     await fs.writeText(file, content);
     await fs.remove(latest, false);
     const lib = await loadPromptLibrary(fs);
-    await savePromptLibrary(setActivePrompt(lib, agent, null), fs);
+    if (lib.active[agent]) {
+      await savePromptLibrary(setActivePrompt(lib, agent, null), fs);
+    }
     return { file, restored: latest, backup: null };
   }
   const exists = await fs.exists(file);
@@ -207,8 +245,11 @@ export async function clearPrompt(
   if (exists) {
     await fs.writeText(file, '');
   }
+  // active 本就无映射时跳过库保存（避免什么都没清也白产生一份库备份）
   const lib = await loadPromptLibrary(fs);
-  await savePromptLibrary(setActivePrompt(lib, agent, null), fs);
+  if (lib.active[agent]) {
+    await savePromptLibrary(setActivePrompt(lib, agent, null), fs);
+  }
   return { file, restored: null, backup };
 }
 

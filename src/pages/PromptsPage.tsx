@@ -71,6 +71,16 @@ export default function PromptsPage() {
   const [externalChanged, setExternalChanged] = useState<ReadonlySet<AgentId>>(new Set());
   const agentFilesRef = useRef(agentFiles);
   agentFilesRef.current = agentFiles;
+  /** 自己写入的时间戳：fs watch 回声在此短窗口内直接忽略 */
+  const recentWritesRef = useRef(new Map<AgentId, number>());
+  /** 外部变更高亮的消退计时器（卸载时统一清理） */
+  const highlightTimersRef = useRef<number[]>([]);
+  useEffect(
+    () => () => {
+      for (const t of highlightTimersRef.current) window.clearTimeout(t);
+    },
+    [],
+  );
 
   const notify = useCallback(
     (msg: string, ok = true) => showToast(msg, ok ? 'ok' : 'err'),
@@ -133,6 +143,9 @@ export default function PromptsPage() {
         (t) => t.writable && agentFilesRef.current[t.agent]?.path === path,
       );
       if (!target) return;
+      // 自己写入触发的回声：写入后短窗口内的事件直接忽略，避免误报「外部修改」
+      const lastWrite = recentWritesRef.current.get(target.agent);
+      if (lastWrite !== undefined && Date.now() - lastWrite < 1500) return;
       let text: string | null = null;
       try {
         text = await readCurrentPrompt(target.agent);
@@ -145,13 +158,14 @@ export default function PromptsPage() {
         [target.agent]: { path, exists: text !== null, chars: text?.length ?? 0, text },
       }));
       setExternalChanged((cur) => new Set(cur).add(target.agent));
-      setTimeout(() => {
+      const timer = window.setTimeout(() => {
         setExternalChanged((cur) => {
           const next = new Set(cur);
           next.delete(target.agent);
           return next;
         });
       }, 5000);
+      highlightTimersRef.current.push(timer);
       notify(
         `${target.agent} 的提示词文件已被外部${kind === 'removed' ? '删除' : '修改'}，状态已同步`,
       );
@@ -200,7 +214,9 @@ export default function PromptsPage() {
     }
     setBusy(true);
     try {
-      const next = updatePrompt(lib, selectedId, draft);
+      // 保存前重读磁盘上的最新库再合并，避免内存旧库覆盖外部修改
+      const fresh = await loadPromptLibrary();
+      const next = updatePrompt(fresh, selectedId, draft);
       await savePromptLibrary(next);
       setLib(next);
       setDirty(false);
@@ -216,11 +232,12 @@ export default function PromptsPage() {
     if (!lib || !confirmDiscard()) return;
     setBusy(true);
     try {
+      const fresh = await loadPromptLibrary();
       const promptName = nextAvailableName(
         '未命名提示词',
-        lib.prompts.map((p) => p.name),
+        fresh.prompts.map((p) => p.name),
       );
-      const { library, prompt } = addPrompt(lib, {
+      const { library, prompt } = addPrompt(fresh, {
         name: promptName,
         content: '# 新提示词\n\n',
         description: '',
@@ -240,7 +257,8 @@ export default function PromptsPage() {
     if (!lib || !selectedId || !confirmDiscard()) return;
     setBusy(true);
     try {
-      const { library, prompt } = duplicatePrompt(lib, selectedId);
+      const fresh = await loadPromptLibrary();
+      const { library, prompt } = duplicatePrompt(fresh, selectedId);
       await savePromptLibrary(library);
       setLib(library);
       populate(prompt);
@@ -259,8 +277,16 @@ export default function PromptsPage() {
     if (!window.confirm(`删除提示词「${target.name}」？已写入 agent 的文件不受影响。`)) return;
     setBusy(true);
     try {
-      const index = lib.prompts.findIndex((p) => p.id === selectedId);
-      const next = removePrompt(lib, selectedId);
+      const fresh = await loadPromptLibrary();
+      const index = fresh.prompts.findIndex((p) => p.id === selectedId);
+      if (index < 0) {
+        // 已被外部删除，直接按最新库刷新
+        setLib(fresh);
+        populate(fresh.prompts[0] ?? null);
+        notify('该提示词已不存在，已刷新列表', false);
+        return;
+      }
+      const next = removePrompt(fresh, selectedId);
       await savePromptLibrary(next);
       setLib(next);
       const fallback = next.prompts[Math.min(index, next.prompts.length - 1)] ?? null;
@@ -282,7 +308,22 @@ export default function PromptsPage() {
       }
       setBusy(true);
       try {
+        recentWritesRef.current.set(agent, Date.now());
         const result = await applyPrompt(agent, current);
+        // 先把预期新文本写进 ref，堵住 fs watch 回声比较旧值的时序窗口
+        const written = current.content.endsWith('\n')
+          ? current.content
+          : `${current.content}\n`;
+        const prev = agentFilesRef.current[agent];
+        agentFilesRef.current = {
+          ...agentFilesRef.current,
+          [agent]: {
+            path: prev?.path ?? result.file,
+            exists: true,
+            chars: written.length,
+            text: written,
+          },
+        };
         await loadAgentFiles();
         setLib(await loadPromptLibrary());
         notify(
@@ -302,6 +343,7 @@ export default function PromptsPage() {
       if (!window.confirm('清除提示词文件？若有备份将恢复最近一份备份。')) return;
       setBusy(true);
       try {
+        recentWritesRef.current.set(agent, Date.now());
         const result = await clearPrompt(agent);
         await loadAgentFiles();
         setLib(await loadPromptLibrary());
