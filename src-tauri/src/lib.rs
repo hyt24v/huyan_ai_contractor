@@ -15,13 +15,23 @@ fn fs_guard(path: &str, recursive_delete: bool) -> Result<(), String> {
     let home = std::env::var("HOME").unwrap_or_default();
     let normalized = path.trim_end_matches('/');
     const CRITICAL: [&str; 11] = [
-        "/", "/System", "/usr", "/bin", "/sbin", "/etc", "/var", "/Library",
-        "/Applications", "/Users", "/private",
+        "/",
+        "/System",
+        "/usr",
+        "/bin",
+        "/sbin",
+        "/etc",
+        "/var",
+        "/Library",
+        "/Applications",
+        "/Users",
+        "/private",
     ];
     if CRITICAL.contains(&normalized) || (!home.is_empty() && normalized == home) {
         return Err(format!("拒绝操作系统关键路径: {path}"));
     }
-    if recursive_delete && !home.is_empty()
+    if recursive_delete
+        && !home.is_empty()
         && let Some(rest) = normalized.strip_prefix(&format!("{home}/"))
         && !rest.contains('/')
     {
