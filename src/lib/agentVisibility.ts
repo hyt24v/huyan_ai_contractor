@@ -78,6 +78,9 @@ export function effectiveAgentIds(): AgentId[] {
  * 已自定义时不改生效列表,只更新检测缓存(供设置页展示「已检测到」徽标)。
  */
 export async function refreshAgentVisibility(fs: FsPort = tauriFs): Promise<AgentDef[]> {
+  // 记录刷新前状态，用于判断是否需要广播变更
+  const prevDetected = readIds(DETECTED_KEY) ?? [];
+  const prevEffective = effectiveAgentIds();
   const detected: string[] = [];
   for (const agent of AGENTS) {
     try {
@@ -92,7 +95,18 @@ export async function refreshAgentVisibility(fs: FsPort = tauriFs): Promise<Agen
   if (!isAgentVisibilityCustomized()) {
     cache = defsOf(detected.length > 0 ? detected : FALLBACK_AGENT_IDS);
   }
-  return effectiveAgents();
+  const next = effectiveAgents();
+  // 检测结果或生效列表有变化时广播，让 useAgents() 订阅方即时重渲染
+  // （否则要等下一次其它设置变更才「顺便」更新）
+  const sameIds = (a: string[], b: string[]) =>
+    a.length === b.length && a.every((x) => b.includes(x));
+  if (
+    !sameIds(prevDetected, detected) ||
+    !sameIds(prevEffective, next.map((a) => a.id))
+  ) {
+    emitChanged();
+  }
+  return next;
 }
 
 /** 设置单个 agent 显示/隐藏;首次操作时以当前生效列表为底初始化自定义列表 */

@@ -22,6 +22,9 @@ import {
 /** 顶栏按钮等外部入口触发命令面板开关的自定义事件 */
 export const TOGGLE_COMMAND_PALETTE_EVENT = 'huyan:toggle-command-palette';
 
+/** 命令面板「收起/展开导航面板」动作广播，由 Layout 监听后切换侧栏 */
+export const TOGGLE_SIDEBAR_EVENT = 'huyan:toggle-sidebar';
+
 interface PaletteItem {
   id: string;
   title: string;
@@ -188,7 +191,7 @@ export default function CommandPalette() {
         icon: PanelLeft,
         run: () => {
           close();
-          document.querySelector<HTMLElement>('[title*="导航面板"]')?.click();
+          window.dispatchEvent(new Event(TOGGLE_SIDEBAR_EVENT));
         },
       },
       {
@@ -225,24 +228,30 @@ export default function CommandPalette() {
       .map((entry) => entry.item);
   }, [items, query]);
 
-  // 全局快捷键：⌘K / Ctrl+K 开关，Esc 关闭；自定义事件供顶栏按钮触发
+  // 全局快捷键：⌘K / Ctrl+K 开关，Esc 关闭；自定义事件供顶栏按钮触发。
+  // 所有关闭路径统一走 close()，保证主题实时预览被还原（previewTheme(null)）。
+  const openRef = useRef(open);
+  openRef.current = open;
   useEffect(() => {
+    const toggle = () => {
+      if (openRef.current) close();
+      else setOpen(true);
+    };
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        setOpen((prev) => !prev);
+        toggle();
         return;
       }
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') close();
     };
-    const onExternal = () => setOpen((prev) => !prev);
     window.addEventListener('keydown', onKeyDown);
-    window.addEventListener(TOGGLE_COMMAND_PALETTE_EVENT, onExternal);
+    window.addEventListener(TOGGLE_COMMAND_PALETTE_EVENT, toggle);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener(TOGGLE_COMMAND_PALETTE_EVENT, onExternal);
+      window.removeEventListener(TOGGLE_COMMAND_PALETTE_EVENT, toggle);
     };
-  }, []);
+  }, [close]);
 
   // 打开时重置输入与选中项
   useEffect(() => {

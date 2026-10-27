@@ -3,7 +3,10 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Settings, Sparkles, ArrowUpCircle, Search } from 'lucide-react';
 import type { Update } from '@tauri-apps/plugin-updater';
 import AiDock from './AiDock';
-import CommandPalette, { TOGGLE_COMMAND_PALETTE_EVENT } from './CommandPalette';
+import CommandPalette, {
+  TOGGLE_COMMAND_PALETTE_EVENT,
+  TOGGLE_SIDEBAR_EVENT,
+} from './CommandPalette';
 import UpdateDialog from './UpdateDialog';
 import WhatsNewDialog from './WhatsNewDialog';
 import { useAutoBackup } from '../hooks/useAutoBackup';
@@ -23,6 +26,12 @@ import { refreshAgentVisibility } from '../lib/agentVisibility';
 import logo from '../../src-tauri/icons/icon.png';
 
 const SIDEBAR_KEY = 'huyan_tool:sidebar_collapsed';
+
+// titleBarStyle: Overlay 只在 macOS 生效（隐藏标题栏、红绿灯悬浮在顶栏上）；
+// Windows/Linux 保留原生标题栏，顶栏左侧无需为红绿灯让位。
+const IS_MAC =
+  typeof navigator !== 'undefined' &&
+  /mac/i.test(navigator.platform || navigator.userAgent);
 
 function getInitialCollapsed(): boolean {
   return localStorage.getItem(SIDEBAR_KEY) === '1';
@@ -77,6 +86,13 @@ export default function Layout() {
     [],
   );
 
+  // 命令面板「收起/展开导航面板」动作（⌘K 里搜「导航」触发）
+  useEffect(() => {
+    const onToggleSidebar = () => setCollapsed((c) => !c);
+    window.addEventListener(TOGGLE_SIDEBAR_EVENT, onToggleSidebar);
+    return () => window.removeEventListener(TOGGLE_SIDEBAR_EVENT, onToggleSidebar);
+  }, []);
+
   // 启动后静默检查更新:发现新版本弹窗展示更新内容(按版本记忆「稍后提醒」),设置齿轮显示红点
   useEffect(() => {
     currentVersion()
@@ -111,6 +127,8 @@ export default function Layout() {
     if (!isTauri()) return;
     fetch(
       `https://api.github.com/repos/hyt24v/huyan_ai_contractor/releases/tags/v${appVersion}`,
+      // 弱网挂起保护：10s 超时静默放弃（release notes 属锦上添花）
+      { signal: AbortSignal.timeout(10_000) },
     )
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { body?: string } | null) => {
@@ -127,6 +145,9 @@ export default function Layout() {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
+      // 焦点在输入框/可编辑区域（含 Monaco 内部 textarea）时不劫持，避免打字误触发
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.('input, textarea, [contenteditable]')) return;
       if (e.key.toLowerCase() === 'b') {
         e.preventDefault();
         setCollapsed((c) => !c);
@@ -145,7 +166,7 @@ export default function Layout() {
       {/* 全宽顶栏（VS Code 标题栏带）：左侧避让红绿灯，兼拖拽区；右侧收 AI/更新/命令面板 */}
       <header
         data-tauri-drag-region
-        className="flex h-10 shrink-0 items-center justify-between pl-[80px] pr-3"
+        className={`flex h-10 shrink-0 items-center justify-between pr-3 ${IS_MAC ? 'pl-[80px]' : 'pl-3'}`}
       >
         <div data-tauri-drag-region className="flex min-w-0 items-center gap-2">
           <span

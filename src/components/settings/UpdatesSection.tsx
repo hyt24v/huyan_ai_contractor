@@ -14,7 +14,7 @@ import UpdateDialog from '../UpdateDialog';
 import { useEffect } from 'react';
 
 export default function UpdatesSection() {
-  const { version, status, toast, check } = useUpdater();
+  const { version, status, toast, check, relaunch } = useUpdater();
   const [autoCheck, setAutoCheck] = useState(getAutoCheckUpdate);
   const [dialogOpen, setDialogOpen] = useState(false);
   useEffect(() => onSettingsChanged(() => setAutoCheck(getAutoCheckUpdate())), []);
@@ -26,6 +26,8 @@ export default function UpdatesSection() {
       check(false).catch(() => undefined);
     } else if (status.kind === 'available') {
       setDialogOpen(true);
+    } else if (status.kind === 'ready') {
+      relaunch();
     }
   };
 
