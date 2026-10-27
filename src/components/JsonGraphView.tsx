@@ -179,6 +179,8 @@ export default function JsonGraphView({ root }: { root: JsonTreeNode | null }) {
       className="relative h-full w-full cursor-grab touch-none overflow-hidden bg-background active:cursor-grabbing"
       onPointerDown={(e) => {
         if (e.button !== 0) return;
+        // 点在工具条按钮上时不启动拖拽（否则 setPointerCapture 会吞掉按钮的 click）
+        if ((e.target as HTMLElement).closest('button')) return;
         panRef.current = {
           px: e.clientX,
           py: e.clientY,
