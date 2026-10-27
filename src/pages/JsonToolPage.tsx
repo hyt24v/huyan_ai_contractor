@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import CodeEditor, { type EditorInstance } from '../components/CodeEditor';
 import ErrorPanel from '../components/ErrorPanel';
 import JsonTreeView from '../components/JsonTreeView';
+import JsonGraphView from '../components/JsonGraphView';
 import JsonlTableView from '../components/JsonlTableView';
 import {
   SegmentedControl,
@@ -64,7 +65,7 @@ const SAMPLE = `{
 }`;
 
 type ModeSetting = 'auto' | EditorMode;
-type Panel = 'tree' | 'table' | 'query';
+type Panel = 'tree' | 'table' | 'query' | 'graph';
 
 function initialText(): string {
   return (
@@ -735,6 +736,7 @@ export default function JsonToolPage() {
               options={[
                 { value: 'tree', label: '树' },
                 { value: 'table', label: '表格' },
+                { value: 'graph', label: '图形' },
                 { value: 'query', label: '查询' },
               ]}
               value={panel}
@@ -762,9 +764,9 @@ export default function JsonToolPage() {
             )}
           </div>
 
-          {treeStale && tree && panel === 'tree' && (
+          {treeStale && tree && (panel === 'tree' || panel === 'graph') && (
             <div className="shrink-0 border-b bg-warning px-3 py-1 text-xs text-warning-foreground">
-              当前 JSON 有错误，显示的是上一次合法的树
+              当前 JSON 有错误，显示的是上一次合法的视图
             </div>
           )}
 
@@ -781,6 +783,25 @@ export default function JsonToolPage() {
                   )}
                   <div className="min-h-0 flex-1">
                     <JsonTreeView root={jsonlTree} />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex h-full items-center justify-center px-4 text-center text-xs text-muted-foreground">
+                  没有可显示的合法行
+                </div>
+              ))}
+            {panel === 'graph' &&
+              (mode === 'json' ? (
+                <JsonGraphView root={tree} />
+              ) : jsonlTree ? (
+                <div className="flex h-full flex-col">
+                  {jsonlInvalidCount > 0 && (
+                    <div className="shrink-0 border-b bg-warning px-3 py-1 text-xs text-warning-foreground">
+                      {jsonlInvalidCount} 行有错误，已从图中排除
+                    </div>
+                  )}
+                  <div className="min-h-0 flex-1">
+                    <JsonGraphView root={jsonlTree} />
                   </div>
                 </div>
               ) : (
