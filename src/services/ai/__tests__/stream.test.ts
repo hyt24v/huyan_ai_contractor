@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseStreamData } from '../client';
-import { normalizeModels } from '../../../lib/providers';
+import { normalizeModels, normalizeModelParams } from '../../../lib/providers';
 
 describe('parseStreamData · openai-completions', () => {
   it('解析正文增量', () => {
@@ -116,5 +116,33 @@ describe('normalizeModels', () => {
     expect(normalizeModels([])).toBeUndefined();
     expect(normalizeModels([' ', ''])).toBeUndefined();
     expect(normalizeModels(undefined)).toBeUndefined();
+  });
+});
+
+describe('normalizeModelParams', () => {
+  it('保留合法参数', () => {
+    expect(normalizeModelParams({ temperature: 0.7, topP: 0.9, maxTokens: 4096 })).toEqual({
+      temperature: 0.7,
+      topP: 0.9,
+      maxTokens: 4096,
+    });
+  });
+
+  it('丢弃越界/非法值，全丢弃返回 undefined', () => {
+    expect(
+      normalizeModelParams({ temperature: 3, topP: -0.1, maxTokens: 0 }),
+    ).toBeUndefined();
+  });
+
+  it('全空对象返回 undefined（恢复默认）', () => {
+    expect(normalizeModelParams({})).toBeUndefined();
+    expect(normalizeModelParams(undefined)).toBeUndefined();
+  });
+
+  it('部分保留', () => {
+    expect(normalizeModelParams({ temperature: 2, maxTokens: 1 })).toEqual({
+      temperature: 2,
+      maxTokens: 1,
+    });
   });
 });

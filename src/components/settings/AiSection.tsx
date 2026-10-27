@@ -6,7 +6,8 @@ import { Input } from '../ui/controls';
 import { loadStore, upsertProvider } from '../../services/providers';
 import { fetchModels } from '../../lib/providerApi';
 import { getAiSettings, setAiSettings, type AiSettings } from '../../lib/settings';
-import type { Provider } from '../../lib/providers';
+import type { ModelParams, Provider } from '../../lib/providers';
+import ModelParamsEditor from '../ModelParamsEditor';
 
 export default function AiSection() {
   const [providers, setProviders] = useState<Provider[]>([]);
@@ -15,6 +16,8 @@ export default function AiSection() {
   const [fetching, setFetching] = useState(false);
   const [fetchMsg, setFetchMsg] = useState('');
   const [newModel, setNewModel] = useState('');
+  /** 正在编辑参数的模型名（点击模型芯片切换） */
+  const [paramModel, setParamModel] = useState<string | null>(null);
 
   useEffect(() => {
     loadStore()
@@ -73,16 +76,40 @@ export default function AiSection() {
     (name: string) => {
       if (!provider) return;
       const rest = models.filter((m) => m !== name);
+      const modelParams = { ...(provider.modelParams ?? {}) };
+      delete modelParams[name];
+      if (paramModel === name) setParamModel(null);
       void persistProvider(
         {
           ...provider,
           models: rest,
           model: provider.model === name ? rest[0] : provider.model,
+          modelParams:
+            Object.keys(modelParams).length > 0 ? modelParams : undefined,
         },
         `已移除模型 ${name}`,
       );
     },
-    [provider, models, persistProvider],
+    [provider, models, persistProvider, paramModel],
+  );
+
+  /** 保存某模型的参数覆盖；next=undefined 表示恢复默认 */
+  const saveParams = useCallback(
+    (modelName: string, next: ModelParams | undefined) => {
+      if (!provider) return;
+      const modelParams = { ...(provider.modelParams ?? {}) };
+      if (next) modelParams[modelName] = next;
+      else delete modelParams[modelName];
+      void persistProvider(
+        {
+          ...provider,
+          modelParams:
+            Object.keys(modelParams).length > 0 ? modelParams : undefined,
+        },
+        next ? `已更新 ${modelName} 的参数` : `已恢复 ${modelName} 的默认参数`,
+      );
+    },
+    [provider, persistProvider],
   );
 
   const setDefaultModel = useCallback(
@@ -160,7 +187,7 @@ export default function AiSection() {
 
         <SettingRow
           label="模型列表"
-          description="AI 对话中的可切换模型；★ 为服务商默认模型"
+          description="AI 对话中的可切换模型；点击模型名编辑参数；★ 为服务商默认模型"
         >
           {provider ? (
             <div className="w-full max-w-md space-y-1.5">
@@ -186,7 +213,24 @@ export default function AiSection() {
                           }`}
                         />
                       </button>
-                      <span className="max-w-52 truncate">{m}</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setParamModel(paramModel === m ? null : m)
+                        }
+                        title="编辑该模型的参数"
+                        className={`max-w-52 truncate transition-colors hover:text-primary ${
+                          paramModel === m ? 'text-primary' : ''
+                        }`}
+                      >
+                        {m}
+                      </button>
+                      {provider.modelParams?.[m] && (
+                        <span
+                          className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
+                          title="已自定义参数"
+                        />
+                      )}
                       <button
                         type="button"
                         onClick={() => removeModel(m)}
@@ -198,6 +242,31 @@ export default function AiSection() {
                       </button>
                     </span>
                   ))}
+                </div>
+              )}
+              {paramModel && (
+                <div className="rounded-md border border-border/60 bg-background/50 p-2">
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <span className="text-[11px] font-medium">
+                      {paramModel} 参数
+                      <span className="ml-1.5 font-normal text-muted-foreground">
+                        留空 = 不发送该参数（走服务商默认）
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setParamModel(null)}
+                      title="收起"
+                      aria-label="收起参数编辑"
+                      className="text-muted-foreground/60 transition-colors hover:text-foreground"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                  <ModelParamsEditor
+                    params={provider.modelParams?.[paramModel]}
+                    onChange={(n) => saveParams(paramModel, n)}
+                  />
                 </div>
               )}
               <div className="flex items-center gap-1.5">

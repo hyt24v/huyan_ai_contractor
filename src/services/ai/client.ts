@@ -6,7 +6,7 @@
  */
 import { listen } from '@tauri-apps/api/event';
 import { aiSseAbort, aiSseRequest, httpPost } from '../../lib/providerApi';
-import type { Provider, ProviderApi } from '../../lib/providers';
+import type { ModelParams, Provider, ProviderApi } from '../../lib/providers';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -53,8 +53,21 @@ function extractError(status: number, body: string): string {
 
 // ---------- 协议适配 ----------
 
-function completionsRequest(model: string, messages: ChatMessage[], stream = false): string {
-  return JSON.stringify({ model, messages, stream });
+function completionsRequest(
+  model: string,
+  messages: ChatMessage[],
+  stream = false,
+  params?: ModelParams,
+): string {
+  // 参数缺省不携带——服务商用其原始默认配置
+  return JSON.stringify({
+    model,
+    messages,
+    stream,
+    ...(params?.temperature !== undefined ? { temperature: params.temperature } : {}),
+    ...(params?.topP !== undefined ? { top_p: params.topP } : {}),
+    ...(params?.maxTokens !== undefined ? { max_tokens: params.maxTokens } : {}),
+  });
 }
 
 /** 非流式响应解析：{ text, reasoning }；null = 结构不符 */
@@ -87,7 +100,12 @@ function completionsResponse(body: string): ParsedReply | null {
   }
 }
 
-function responsesRequest(model: string, messages: ChatMessage[], stream = false): string {
+function responsesRequest(
+  model: string,
+  messages: ChatMessage[],
+  stream = false,
+  params?: ModelParams,
+): string {
   const input = messages.map((m) => ({
     type: 'message',
     role: m.role,
@@ -98,7 +116,16 @@ function responsesRequest(model: string, messages: ChatMessage[], stream = false
       },
     ],
   }));
-  return JSON.stringify({ model, input, stream });
+  return JSON.stringify({
+    model,
+    input,
+    stream,
+    ...(params?.temperature !== undefined ? { temperature: params.temperature } : {}),
+    ...(params?.topP !== undefined ? { top_p: params.topP } : {}),
+    ...(params?.maxTokens !== undefined
+      ? { max_output_tokens: params.maxTokens }
+      : {}),
+  });
 }
 
 function responsesResponse(body: string): ParsedReply | null {
@@ -140,6 +167,7 @@ function anthropicRequest(
   messages: ChatMessage[],
   maxTokens: number,
   stream = false,
+  params?: ModelParams,
 ): string {
   const system = messages
     .filter((m) => m.role === 'system')
@@ -154,6 +182,8 @@ function anthropicRequest(
     ...(system ? { system } : {}),
     messages: turns,
     stream,
+    ...(params?.temperature !== undefined ? { temperature: params.temperature } : {}),
+    ...(params?.topP !== undefined ? { top_p: params.topP } : {}),
   });
 }
 
@@ -182,6 +212,8 @@ export interface ChatOptions {
   /** 覆盖 provider.model（设置页 AI 节里单独选择的模型） */
   model?: string;
   maxTokens?: number;
+  /** 按模型的参数覆盖（Provider.modelParams[effectiveModel]）；缺省不发送 */
+  params?: ModelParams;
   timeoutMs?: number;
 }
 
@@ -249,13 +281,19 @@ function buildRequest(
     case 'openai-responses':
       return {
         url: endpointUrl(provider.baseUrl, 'responses'),
-        body: responsesRequest(model, messages, stream),
+        body: responsesRequest(model, messages, stream, opts?.params),
         parse: responsesResponse,
       };
     case 'anthropic-messages':
       return {
         url: endpointUrl(provider.baseUrl, 'messages'),
-        body: anthropicRequest(model, messages, opts?.maxTokens ?? 8192, stream),
+        body: anthropicRequest(
+          model,
+          messages,
+          opts?.maxTokens ?? opts?.params?.maxTokens ?? 8192,
+          stream,
+          opts?.params,
+        ),
         // Anthropic 用 x-api-key 鉴权，不走 Bearer
         headers: {
           'x-api-key': provider.apiKey ?? '',
@@ -266,7 +304,7 @@ function buildRequest(
     default:
       return {
         url: endpointUrl(provider.baseUrl, 'chat/completions'),
-        body: completionsRequest(model, messages, stream),
+        body: completionsRequest(model, messages, stream, opts?.params),
         parse: completionsResponse,
       };
   }

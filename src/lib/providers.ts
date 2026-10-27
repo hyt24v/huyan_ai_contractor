@@ -42,9 +42,57 @@ export interface Provider {
   model?: string;
   /** 可选模型列表（AI 助手对话中可切换）；缺省时以 model 为唯一选项 */
   models?: string[];
+  /** 按模型名的参数覆盖；缺省 = 请求不携带参数，走服务商原始默认 */
+  modelParams?: Record<string, ModelParams>;
   api?: ProviderApi;
   createdAt: string;
   updatedAt: string;
+}
+
+/** 单个模型的生成参数覆盖（全部可选；undefined = 不发送该参数） */
+export interface ModelParams {
+  /** 采样温度，0-2 */
+  temperature?: number;
+  /** nucleus 采样，0-1 */
+  topP?: number;
+  /** 最大输出 token 数，正整数 */
+  maxTokens?: number;
+}
+
+/** 参数归一化：非法值丢弃；三项全空返回 undefined（= 不覆盖服务商默认） */
+export function normalizeModelParams(
+  params: ModelParams | undefined,
+): ModelParams | undefined {
+  if (!params) return undefined;
+  const out: ModelParams = {};
+  const t = params.temperature;
+  if (typeof t === 'number' && Number.isFinite(t) && t >= 0 && t <= 2) {
+    out.temperature = t;
+  }
+  const p = params.topP;
+  if (typeof p === 'number' && Number.isFinite(p) && p >= 0 && p <= 1) {
+    out.topP = p;
+  }
+  const m = params.maxTokens;
+  if (typeof m === 'number' && Number.isInteger(m) && m > 0) {
+    out.maxTokens = m;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/** modelParams 字典归一化：丢弃非法条目与空参数 */
+export function normalizeModelParamsMap(
+  raw: unknown,
+): Record<string, ModelParams> | undefined {
+  const obj = asPlainObject(raw);
+  if (!obj) return undefined;
+  const out: Record<string, ModelParams> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (!k.trim() || /[\r\n]/.test(k)) continue;
+    const p = normalizeModelParams(asPlainObject(v) as ModelParams | null ?? undefined);
+    if (p) out[k] = p;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /** 本地存储：~/.ai-baogongtou/providers.json */
@@ -199,7 +247,7 @@ export function createProvider(
   };
 }
 
-/** 编辑已有 provider：可选字段留空 = 清除 */
+/** 编辑已有 provider：可选字段留空 = 清除；modelParams 表单不编辑，原样保留 */
 export function updateProvider(
   existing: Provider,
   input: ProviderInput,
@@ -216,6 +264,7 @@ export function updateProvider(
     ...(key ? { apiKey: key } : {}),
     ...(model ? { model } : {}),
     ...(models ? { models } : {}),
+    ...(existing.modelParams ? { modelParams: existing.modelParams } : {}),
     ...(input.api ? { api: input.api } : {}),
     createdAt: existing.createdAt,
     updatedAt: now.toISOString(),
@@ -324,6 +373,9 @@ export function normalizeStore(raw: unknown, now: Date): ProviderStore {
           })()
         : {}),
       ...(isProviderApi(o.api) ? { api: o.api } : {}),
+      ...(normalizeModelParamsMap(o.modelParams)
+        ? { modelParams: normalizeModelParamsMap(o.modelParams) }
+        : {}),
       createdAt: typeof o.createdAt === 'string' ? o.createdAt : ts,
       updatedAt: typeof o.updatedAt === 'string' ? o.updatedAt : ts,
     });
@@ -381,6 +433,9 @@ function parseProvider(raw: unknown, now: Date): Provider | string {
       : {}),
     ...(normalizeModels(input.models) ? { models: normalizeModels(input.models)! } : {}),
     ...(input.api ? { api: input.api } : {}),
+    ...(normalizeModelParamsMap(r.modelParams)
+      ? { modelParams: normalizeModelParamsMap(r.modelParams) }
+      : {}),
     createdAt: typeof r.createdAt === 'string' ? r.createdAt : ts,
     updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt : ts,
   };

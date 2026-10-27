@@ -18,6 +18,7 @@ import {
   Loader2,
   Maximize2,
   Minimize2,
+  SlidersHorizontal,
   Square,
   Trash2,
   X,
@@ -33,8 +34,9 @@ import {
   useModelOverride,
 } from '../services/ai/session';
 import { getAiSettings, onSettingsChanged } from '../lib/settings';
-import { loadStore } from '../services/providers';
-import type { Provider } from '../lib/providers';
+import { loadStore, upsertProvider } from '../services/providers';
+import type { ModelParams, Provider } from '../lib/providers';
+import ModelParamsEditor from './ModelParamsEditor';
 import { Button } from './ui/controls';
 
 interface AiDockProps {
@@ -71,6 +73,7 @@ export default function AiDock({ open, onClose, scope }: AiDockProps) {
   const [width, setWidth] = useState(loadWidth);
   const [maximized, setMaximized] = useState(false);
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const [paramsOpen, setParamsOpen] = useState(false);
   const streamRef = useRef<StreamHandle | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -144,11 +147,26 @@ export default function AiDock({ open, onClose, scope }: AiDockProps) {
     streamRef.current?.abort();
   };
 
+  /** 保存当前模型的参数覆盖（写入 provider.modelParams，立即生效） */
+  const saveParams = (next: ModelParams | undefined) => {
+    if (!provider || !effectiveModel) return;
+    const modelParams = { ...(provider.modelParams ?? {}) };
+    if (next) modelParams[effectiveModel] = next;
+    else delete modelParams[effectiveModel];
+    const updated: Provider = {
+      ...provider,
+      modelParams: Object.keys(modelParams).length > 0 ? modelParams : undefined,
+    };
+    setProvider(updated);
+    void upsertProvider(updated).catch(() => undefined);
+  };
+
   const send = async (text: string) => {
     const content = text.trim();
     if (!content || streaming || !provider) return;
     setInput('');
     setModelPickerOpen(false);
+    setParamsOpen(false);
     appendMessage(scope, { role: 'user', content });
     const placeholder = appendMessage(scope, {
       role: 'assistant',
@@ -168,6 +186,7 @@ export default function AiDock({ open, onClose, scope }: AiDockProps) {
       ];
       const handle = chatStream(provider, history, {
         model: effectiveModel,
+        params: provider.modelParams?.[effectiveModel],
         onDelta: (d) => {
           if (d.text) textAcc += d.text;
           if (d.reasoning) reasoningAcc += d.reasoning;
@@ -448,6 +467,43 @@ export default function AiDock({ open, onClose, scope }: AiDockProps) {
                         </button>
                       ))
                     )}
+                  </div>
+                </>
+              )}
+            </div>
+            {/* 参数设置 popover（当前模型的 temperature/topP/maxTokens 覆盖） */}
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setParamsOpen((v) => !v)}
+                disabled={!provider || !effectiveModel}
+                title="模型参数（留空 = 服务商默认）"
+                aria-label="模型参数"
+                className="relative flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                {provider?.modelParams?.[effectiveModel] && (
+                  <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-primary" />
+                )}
+              </button>
+              {paramsOpen && provider && (
+                <>
+                  <div
+                    className="fixed inset-0 z-20"
+                    onClick={() => setParamsOpen(false)}
+                  />
+                  <div className="absolute bottom-full right-0 z-30 mb-1 w-64 rounded-md border border-border bg-card p-2.5 shadow-md">
+                    <div className="mb-2 truncate text-[11px] font-medium">
+                      {effectiveModel} 参数
+                      <span className="ml-1.5 font-normal text-muted-foreground">
+                        留空 = 默认
+                      </span>
+                    </div>
+                    <ModelParamsEditor
+                      compact
+                      params={provider.modelParams?.[effectiveModel]}
+                      onChange={saveParams}
+                    />
                   </div>
                 </>
               )}
