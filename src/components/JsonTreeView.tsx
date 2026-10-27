@@ -75,19 +75,14 @@ function Highlight({ text, query }: { text: string; query: string }) {
   );
 }
 
-/** 弱值（null / false / 0 / 空串）加 pill 底色，避免淹没在行里 */
-function weakPillClass(node: JsonTreeNode): string {
-  if (node.type === 'null') return 'rounded-sm bg-muted px-1 italic';
-  if (node.type === 'boolean' && node.value === false)
-    return 'rounded-sm bg-json-boolean/10 px-1';
-  if (node.type === 'number' && node.value === 0)
-    return 'rounded-sm bg-json-number/10 px-1';
-  if (node.type === 'string' && node.value === '')
-    return 'rounded-sm bg-muted px-1';
-  return '';
-}
+/** 弱值强调已并入 TYPE_CHIP：number/boolean/null 恒显类型底色 pill */
+const TYPE_CHIP: Partial<Record<JsonTreeNode['type'], string>> = {
+  number: 'rounded-sm bg-json-number/10 px-1',
+  boolean: 'rounded-sm bg-json-boolean/10 px-1',
+  null: 'rounded-sm bg-muted px-1 italic',
+};
 
-/** 字符串值：超 80 字符截断 + 行内展开/收起；截断时 title 悬浮全文 */
+/** 字符串值：自动换行完整显示；超 300 字符默认折叠（可展开），避免撑爆树 */
 function StringValue({
   node,
   query,
@@ -97,33 +92,58 @@ function StringValue({
 }) {
   const [expanded, setExpanded] = useState(false);
   const full = typeof node.value === 'string' ? node.value : '';
-  const truncated = full.length > 80;
-  if (!truncated) {
-    return (
-      <span className={`truncate ${TYPE_COLOR.string}`} title={`"${full}"`}>
-        &quot;
-        <Highlight text={full} query={query} />
-        &quot;
-      </span>
-    );
-  }
+  const collapsible = full.length > 300;
+  const shown = collapsible && !expanded ? `${full.slice(0, 300)}…` : full;
   return (
     <span
-      className={`${TYPE_COLOR.string} ${expanded ? 'whitespace-pre-wrap break-all' : 'truncate'}`}
-      title={expanded ? undefined : `"${full}"`}
+      className={`${TYPE_COLOR.string} min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]`}
     >
       &quot;
-      <Highlight text={expanded ? full : `${full.slice(0, 80)}…`} query={query} />
+      <Highlight text={shown} query={query} />
       &quot;
-      <button
-        className="ml-1 shrink-0 rounded-sm bg-muted px-1 text-[10px] text-muted-foreground hover:text-foreground"
-        onClick={(e) => {
-          e.stopPropagation();
-          setExpanded((v) => !v);
-        }}
-      >
-        {expanded ? '收起' : `展开（共 ${full.length} 字符）`}
-      </button>
+      {collapsible && (
+        <button
+          className="ml-1 shrink-0 whitespace-nowrap rounded-sm bg-muted px-1 text-[10px] text-muted-foreground hover:text-foreground"
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded((v) => !v);
+          }}
+        >
+          {expanded ? '收起' : `展开（共 ${full.length} 字符）`}
+        </button>
+      )}
+    </span>
+  );
+}
+
+/** 容器值：{ }/[ ] + 数量徽章 + 前几个 key 预览（jsoncrack 式计数强调） */
+function ContainerValue({
+  node,
+  query,
+}: {
+  node: JsonTreeNode;
+  query: string;
+}) {
+  const open = node.type === 'object' ? '{' : '[';
+  const close = node.type === 'object' ? '}' : ']';
+  const keys = (node.children ?? []).slice(0, 3).map((c) => c.key);
+  return (
+    <span className="flex min-w-0 items-center gap-1 text-muted-foreground">
+      <span className="shrink-0">
+        {open}
+        <span className="mx-0.5 rounded-sm bg-muted px-1 text-[11px] font-medium text-foreground/70">
+          {node.childCount}
+        </span>
+        {close}
+      </span>
+      {keys.length > 0 && (
+        <span className="truncate opacity-70">
+          <Highlight
+            text={keys.join(', ') + (node.childCount > 3 ? ', …' : '')}
+            query={query}
+          />
+        </span>
+      )}
     </span>
   );
 }
@@ -158,12 +178,10 @@ function TreeNode({
     }
   };
 
-  const pill = weakPillClass(node);
-
   return (
     <div>
       <div
-        className="group flex h-7 items-center gap-1 rounded-sm pr-2 font-mono text-[13px] hover:bg-accent/60"
+        className="group flex min-h-7 items-center gap-1 rounded-sm py-0.5 pr-2 font-mono text-[13px] hover:bg-accent/60"
         style={{ paddingLeft: `${depth * 14 + 4}px` }}
       >
         <button
@@ -182,9 +200,11 @@ function TreeNode({
         <span className="shrink-0 text-muted-foreground">:</span>
         {node.type === 'string' && typeof node.value === 'string' ? (
           <StringValue node={node} query={query} />
+        ) : node.type === 'object' || node.type === 'array' ? (
+          <ContainerValue node={node} query={query} />
         ) : (
           <span
-            className={`truncate ${TYPE_COLOR[node.type]} ${pill}`}
+            className={`shrink-0 ${TYPE_COLOR[node.type]} ${TYPE_CHIP[node.type] ?? ''}`}
             title={node.preview}
           >
             <Highlight text={node.preview} query={query} />
