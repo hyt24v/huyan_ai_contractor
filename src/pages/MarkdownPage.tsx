@@ -48,6 +48,8 @@ import {
   ToolbarDivider,
 } from '../components/Toolbar';
 import { useEditorHistory } from '../hooks/useEditorHistory';
+import { useToast } from '../hooks/useToast';
+import { addHistory } from '../lib/editorHistory';
 import {
   countWords,
   extractOutline,
@@ -96,16 +98,14 @@ export default function MarkdownPage() {
   );
   const [viewMode, setViewMode] = useState<ViewMode>('wysiwyg');
   const [outlineOpen, setOutlineOpen] = useState(true);
-  const [toast, setToast] = useState('');
+  const { toast, showToast } = useToast(1800);
 
   const mdRef = useRef<MarkdownEditorHandle | null>(null);
   const monacoRef = useRef<EditorInstance | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(''), 1800);
-  }, []);
+  // 持久化失败只提示一次（恢复成功后重置），避免每次击键都弹错
+  const persistFailedRef = useRef(false);
 
   // setText 包装：源码模式直接 set；所见即所得模式同步给 Crepe
   const applyText = useCallback(
@@ -135,14 +135,34 @@ export default function MarkdownPage() {
     showToast,
   });
 
-  // 持久化
+  // 破坏性操作（清空/载入/恢复历史）前自动快照当前内容到历史，防误丢
+  const snapshotNow = useCallback(() => {
+    if (addHistory(text, HISTORY_KEY_MD)) refreshHistory();
+  }, [text, refreshHistory]);
+
+  // 持久化 / 大纲 / 字数走 400ms 防抖后的文本，避免每次击键三重全量计算
+  const [settledText, setSettledText] = useState(text);
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, text);
+    const t = window.setTimeout(() => setSettledText(text), 400);
+    return () => window.clearTimeout(t);
   }, [text]);
 
+  // 持久化（嵌图后可能超 localStorage 配额，失败要提示而不是静默丢内容）
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, settledText);
+      persistFailedRef.current = false;
+    } catch {
+      if (!persistFailedRef.current) {
+        persistFailedRef.current = true;
+        showToast('内容过大，本地暂存失败：刷新后可能丢失，请先「保存」为文件', 'err');
+      }
+    }
+  }, [settledText, showToast]);
+
   // 大纲 / 字数
-  const outline = useMemo(() => extractOutline(text), [text]);
-  const wc = useMemo(() => countWords(text), [text]);
+  const outline = useMemo(() => extractOutline(settledText), [settledText]);
+  const wc = useMemo(() => countWords(settledText), [settledText]);
 
   // ⌘/ 切换源码模式
   useEffect(() => {
@@ -159,10 +179,15 @@ export default function MarkdownPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const run = useCallback(
     (command: { key: CmdKey<any> }, payload?: unknown) => {
-      mdRef.current?.runCommand(command, payload);
+      const ok = mdRef.current?.runCommand(command, payload);
+      if (ok === false) {
+        // 编辑器未就绪 / 无选区等导致命令静默无效时给用户反馈
+        showToast('命令未生效：请先点击编辑器或选中文字', 'err');
+        return;
+      }
       mdRef.current?.focus();
     },
-    [],
+    [showToast],
   );
 
   const insertLink = useCallback(() => {
@@ -180,12 +205,45 @@ export default function MarkdownPage() {
   // 打开本地文件
   const openFile = useCallback(
     (file: File) => {
-      file.text().then((content) => {
-        applyText(content);
-        showToast(`已载入 ${file.name}`);
-      });
+      // 大文件直接喂给 Crepe 会卡死，先确认
+      if (
+        file.size > 5 * 1024 * 1024 &&
+        !window.confirm(
+          `文件 ${file.name} 有 ${(file.size / 1024 / 1024).toFixed(1)} MB，打开可能卡顿，继续？`,
+        )
+      ) {
+        return;
+      }
+      file
+        .text()
+        .then((content) => {
+          snapshotNow(); // 覆盖当前内容前留底
+          applyText(content);
+          showToast(`已载入 ${file.name}`);
+        })
+        .catch((e) =>
+          showToast(
+            `读取失败：${e instanceof Error ? e.message : String(e)}`,
+            'err',
+          ),
+        );
     },
-    [applyText, showToast],
+    [applyText, showToast, snapshotNow],
+  );
+
+  // 导出目录下生成不重名的文件路径（重名追加 -2/-3…）
+  const uniqueExportPath = useCallback(
+    async (title: string, ext: string) => {
+      const dir = await absPath('.ai-baogongtou/exports');
+      if (!(await tauriFs.exists(dir))) await tauriFs.mkdir(dir);
+      const safe = title.replace(/[\\/:*?"<>|]/g, '_');
+      let path = `${dir}/${safe}.${ext}`;
+      for (let i = 2; await tauriFs.exists(path); i++) {
+        path = `${dir}/${safe}-${i}.${ext}`;
+      }
+      return path;
+    },
+    [],
   );
 
   // 导出 HTML
@@ -194,38 +252,40 @@ export default function MarkdownPage() {
     const html = markdownToHtmlDoc(text, title);
     if (isTauri()) {
       try {
-        const dir = await absPath('.ai-baogongtou/exports');
-        if (!(await tauriFs.exists(dir))) await tauriFs.mkdir(dir);
-        const path = `${dir}/${title.replace(/[\\/:*?"<>|]/g, '_')}.html`;
+        const path = await uniqueExportPath(title, 'html');
         await tauriFs.writeText(path, html);
         showToast(`已导出到 ${path}`);
       } catch (e) {
-        showToast(`导出失败：${e instanceof Error ? e.message : String(e)}`);
+        showToast(
+          `导出失败：${e instanceof Error ? e.message : String(e)}`,
+          'err',
+        );
       }
     } else {
       downloadText(`${title}.html`, html);
       showToast('已开始下载');
     }
-  }, [text, outline, showToast]);
+  }, [text, outline, showToast, uniqueExportPath]);
 
   // 保存 .md
   const saveMd = useCallback(async () => {
-    const title = outline[0]?.text ?? 'note';
+    const title = outline[0]?.text ?? 'Document';
     if (isTauri()) {
       try {
-        const dir = await absPath('.ai-baogongtou/exports');
-        if (!(await tauriFs.exists(dir))) await tauriFs.mkdir(dir);
-        const path = `${dir}/${title.replace(/[\\/:*?"<>|]/g, '_')}.md`;
+        const path = await uniqueExportPath(title, 'md');
         await tauriFs.writeText(path, text);
         showToast(`已保存到 ${path}`);
       } catch (e) {
-        showToast(`保存失败：${e instanceof Error ? e.message : String(e)}`);
+        showToast(
+          `保存失败：${e instanceof Error ? e.message : String(e)}`,
+          'err',
+        );
       }
     } else {
       downloadText(`${title}.md`, text);
       showToast('已开始下载');
     }
-  }, [text, outline, showToast]);
+  }, [text, outline, showToast, uniqueExportPath]);
 
   const jumpToOutlineItem = useCallback(
     (index: number) => {
@@ -308,7 +368,10 @@ export default function MarkdownPage() {
             setHistoryOpen((o) => !o);
           }}
           onSave={saveCurrent}
-          onRestore={restoreEntry}
+          onRestore={(entry) => {
+            snapshotNow(); // 恢复覆盖当前内容前留底
+            restoreEntry(entry);
+          }}
           onRemove={removeEntry}
           onClear={clearAll}
           containerRef={historyRef}
@@ -316,13 +379,23 @@ export default function MarkdownPage() {
         <ToolbarButton
           onClick={() =>
             copyToClipboard(text).then((ok) =>
-              showToast(ok ? '已复制全文' : '复制失败'),
+              showToast(ok ? '已复制全文' : '复制失败', ok ? 'ok' : 'err'),
             )
           }
         >
           复制
         </ToolbarButton>
-        <ToolbarButton onClick={() => applyText('')}>清空</ToolbarButton>
+        <ToolbarButton
+          onClick={() => {
+            if (!text) return;
+            if (!window.confirm('确定清空全部内容？（已自动快照到历史，可恢复）'))
+              return;
+            snapshotNow();
+            applyText('');
+          }}
+        >
+          清空
+        </ToolbarButton>
         <input
           ref={fileInputRef}
           type="file"
@@ -335,8 +408,12 @@ export default function MarkdownPage() {
           }}
         />
         {toast && (
-          <span className="ml-auto text-xs font-medium text-success">
-            {toast}
+          <span
+            className={`ml-auto text-xs font-medium ${
+              toast.tone === 'err' ? 'text-destructive' : 'text-success'
+            }`}
+          >
+            {toast.msg}
           </span>
         )}
       </Toolbar>
@@ -376,6 +453,11 @@ export default function MarkdownPage() {
               ref={mdRef}
               defaultValue={text}
               onChange={setText}
+              onInitError={() => {
+                // 编辑器加载失败自动降级源码模式，内容不丢
+                setViewMode('source');
+                showToast('所见即所得加载失败，已切换源码模式', 'err');
+              }}
             />
           ) : (
             <CodeEditor

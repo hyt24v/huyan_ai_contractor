@@ -4,6 +4,16 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import './markdown-preview.css';
 
+// Tauri webview 内外链默认会劫持当前窗口导航；统一给消毒后的 <a> 加 target=_blank
+if (DOMPurify.isSupported) {
+  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+    if (node.tagName === 'A') {
+      node.setAttribute('target', '_blank');
+      node.setAttribute('rel', 'noopener noreferrer');
+    }
+  });
+}
+
 export default function MarkdownPreview({ content }: { content: string }) {
   const raw = useMemo(
     () => marked.parse(content, { async: false }) as string,
