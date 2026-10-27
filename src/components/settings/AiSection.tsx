@@ -1,8 +1,7 @@
 /** 设置 → AI 助手：选择对话 dock 使用的服务商与模型，并管理该服务商的可选模型列表（AI-P1） */
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, RefreshCw, Star, X } from 'lucide-react';
+import { RefreshCw, Star, X } from 'lucide-react';
 import { SettingGroup, SettingRow } from './ui';
-import { Input } from '../ui/controls';
 import { loadStore, upsertProvider } from '../../services/providers';
 import { fetchModels } from '../../lib/providerApi';
 import { getAiSettings, setAiSettings, type AiSettings } from '../../lib/settings';
@@ -15,7 +14,6 @@ export default function AiSection() {
   const [fetched, setFetched] = useState<string[]>([]);
   const [fetching, setFetching] = useState(false);
   const [fetchMsg, setFetchMsg] = useState('');
-  const [newModel, setNewModel] = useState('');
   /** 正在编辑参数的模型名（点击模型芯片切换） */
   const [paramModel, setParamModel] = useState<string | null>(null);
 
@@ -67,7 +65,6 @@ export default function AiSection() {
         },
         `已添加模型 ${m}`,
       );
-      setNewModel('');
     },
     [provider, models, persistProvider],
   );
@@ -176,18 +173,26 @@ export default function AiSection() {
           label="默认模型"
           description="留空则使用模型列表的第一个；对话中可临时切换"
         >
-          <Input
+          <select
             value={settings.model ?? ''}
             onChange={(e) => update({ model: e.target.value || undefined })}
-            placeholder={provider?.model || '模型名，如 gpt-4o-mini'}
-            list="ai-model-suggestions"
-            className="w-56"
-          />
+            disabled={!provider || models.length === 0}
+            className="h-8 w-56 rounded-md border border-input bg-transparent px-2 text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 dark:bg-input/30"
+          >
+            <option value="">
+              {models.length > 0 ? `默认（${models[0]}）` : '请先在下方添加模型'}
+            </option>
+            {models.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
         </SettingRow>
 
         <SettingRow
           label="模型列表"
-          description="AI 对话中的可切换模型；点击模型名编辑参数；★ 为服务商默认模型"
+          description="点击模型名编辑参数；★ 为服务商默认模型；只能从拉取的列表中添加"
         >
           {provider ? (
             <div className="w-full max-w-md space-y-1.5">
@@ -270,29 +275,27 @@ export default function AiSection() {
                 </div>
               )}
               <div className="flex items-center gap-1.5">
-                <Input
-                  value={newModel}
-                  onChange={(e) => setNewModel(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-                      e.preventDefault();
-                      addModel(newModel);
-                    }
+                <select
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) addModel(e.target.value);
                   }}
-                  placeholder="添加模型，如 deepseek-chat"
-                  list="ai-model-suggestions"
-                  className="w-56"
-                />
-                <button
-                  type="button"
-                  onClick={() => addModel(newModel)}
-                  disabled={!newModel.trim()}
-                  title="添加模型"
-                  aria-label="添加模型"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-input text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
+                  disabled={fetched.length === 0}
+                  className="h-8 w-56 rounded-md border border-input bg-transparent px-2 text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 dark:bg-input/30"
                 >
-                  <Plus className="h-3.5 w-3.5" />
-                </button>
+                  <option value="">
+                    {fetched.length > 0
+                      ? `从拉取结果中选择（${fetched.filter((m) => !models.includes(m)).length} 个可添加）…`
+                      : '先点击右侧按钮拉取模型列表'}
+                  </option>
+                  {fetched
+                    .filter((m) => !models.includes(m))
+                    .map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                </select>
                 <button
                   type="button"
                   onClick={() => void pullModels()}
@@ -305,11 +308,6 @@ export default function AiSection() {
                     className={`h-3.5 w-3.5 ${fetching ? 'animate-spin' : ''}`}
                   />
                 </button>
-                <datalist id="ai-model-suggestions">
-                  {[...new Set([...models, ...fetched])].map((m) => (
-                    <option key={m} value={m} />
-                  ))}
-                </datalist>
               </div>
             </div>
           ) : (

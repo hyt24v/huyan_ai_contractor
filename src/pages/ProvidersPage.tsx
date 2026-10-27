@@ -108,7 +108,6 @@ export default function ProvidersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState('');
   const [showKey, setShowKey] = useState(false);
-  const [newModel, setNewModel] = useState('');
   const [agentFilter, setAgentFilter] = useState<'all' | AgentId>('all');
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -158,7 +157,6 @@ export default function ProvidersPage() {
     setModelsList([]);
     setModelsMsg('');
     setTestMsg(null);
-    setNewModel('');
   }, []);
 
   const openEdit = useCallback((p: Provider) => {
@@ -170,7 +168,6 @@ export default function ProvidersPage() {
     setModelsList([]);
     setModelsMsg('');
     setTestMsg(null);
-    setNewModel('');
   }, []);
 
   /** 选预设：自动填名称（未填时）+ Base URL + 建议模型并入模型列表（借鉴 cc-switch 预设一键添加） */
@@ -217,15 +214,16 @@ export default function ProvidersPage() {
     }
   }, [draft]);
 
-  /** 表单内模型列表操作（cc-switch 式：一个服务挂多个模型，★ 为默认） */
-  const addModel = useCallback(() => {
-    if (!draft) return;
-    const name = newModel.trim();
-    setNewModel('');
-    if (!name || name.includes('\n') || (draft.models ?? []).includes(name)) return;
-    const models = [...(draft.models ?? []), name];
-    setDraft({ ...draft, models, model: draft.model || name });
-  }, [draft, newModel]);
+  /** 表单内模型列表操作（cc-switch 式：一个服务挂多个模型，★ 为默认；只能从拉取列表选择） */
+  const addModel = useCallback(
+    (name: string) => {
+      if (!draft) return;
+      if (!name || (draft.models ?? []).includes(name)) return;
+      const models = [...(draft.models ?? []), name];
+      setDraft({ ...draft, models, model: draft.model || name });
+    },
+    [draft],
+  );
 
   const removeModel = useCallback(
     (name: string) => {
@@ -713,7 +711,7 @@ export default function ProvidersPage() {
               </label>
               <div className="space-y-1.5 sm:col-span-2">
                 <span className="text-xs text-muted-foreground">
-                  模型列表（可选，一个服务可挂多个模型；★ 为默认模型）
+                  模型列表（可选，一个服务可挂多个模型；★ 为默认模型；只能从拉取的列表中选择）
                 </span>
                 {(draft.models ?? []).length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -753,35 +751,32 @@ export default function ProvidersPage() {
                   </div>
                 )}
                 <div className="flex gap-1.5">
-                  <input
-                    value={newModel}
-                    onChange={(e) => setNewModel(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-                        e.preventDefault();
-                        addModel();
-                      }
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value) addModel(e.target.value);
                     }}
-                    placeholder="输入模型名，Enter 或＋添加，如 claude-sonnet-4-5"
-                    spellCheck={false}
-                    list="provider-models"
-                    className="h-8 w-full rounded-md border border-input bg-transparent px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  />
-                  <button
-                    type="button"
-                    onClick={addModel}
-                    disabled={!newModel.trim()}
-                    title="添加到模型列表"
-                    className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-input px-2 text-[11px] transition-colors hover:bg-accent disabled:opacity-40"
+                    disabled={modelsList.length === 0}
+                    className="h-8 w-full rounded-md border border-input bg-background px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
                   >
-                    <Plus className="h-3 w-3" />
-                    添加
-                  </button>
+                    <option value="">
+                      {modelsList.length > 0
+                        ? `从拉取结果中选择（${modelsList.filter((m) => !(draft.models ?? []).includes(m)).length} 个可添加）…`
+                        : '先点击右侧「拉取」获取模型列表'}
+                    </option>
+                    {modelsList
+                      .filter((m) => !(draft.models ?? []).includes(m))
+                      .map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                  </select>
                   <button
                     type="button"
                     onClick={() => void pullModels()}
                     disabled={fetchingModels || !draft.baseUrl.trim()}
-                    title="从该供应商拉取模型列表（/v1/models），供输入建议"
+                    title="从该供应商拉取模型列表（/v1/models）"
                     className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-input px-2 text-[11px] transition-colors hover:bg-accent disabled:opacity-40"
                   >
                     {fetchingModels ? (
@@ -792,11 +787,6 @@ export default function ProvidersPage() {
                     拉取
                   </button>
                 </div>
-                <datalist id="provider-models">
-                  {modelsList.map((m) => (
-                    <option key={m} value={m} />
-                  ))}
-                </datalist>
                 {modelsMsg && (
                   <div className="text-[11px] text-muted-foreground">{modelsMsg}</div>
                 )}
