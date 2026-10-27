@@ -94,7 +94,11 @@ function serverToDraft(s: CentralServer): EditDraft {
 }
 
 export default function McpManagerPage() {
-  const mcpAgents = useAgents().filter(hasMcpSupport);
+  const agents = useAgents();
+  // 必须 useMemo 稳定引用：inline filter 每次渲染都产生新数组，
+  // 会使 refresh 的 useCallback 依赖失效 → useEffect 每次渲染都重跑 → 无限扫描循环，
+  // 表现为勾选框点了立即被重置、主线程被扫描占满
+  const mcpAgents = useMemo(() => agents.filter(hasMcpSupport), [agents]);
   const [manifest, setManifest] = useState<CentralManifest | null>(null);
   const [error, setError] = useState('');
   const [scanErrors, setScanErrors] = useState<Record<string, string>>({});
