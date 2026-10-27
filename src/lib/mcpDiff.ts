@@ -7,7 +7,11 @@
  * - 该 agent 配置里存在、但清单里没有的 server → 不纳入管理（untracked），不动它
  */
 import { AGENTS, type AgentDef, type AgentId } from './agents';
+import { canonicalSpec, fieldEntries } from './mcp';
 import type { CentralManifest, CentralServer, McpServerSpec } from './mcp';
+
+// 等价比较逻辑在 mcp.ts（planDistribution 复用，保持同一事实源），此处仅转发
+export { canonicalSpec, fieldEntries } from './mcp';
 
 export type DiffStatus = 'added' | 'removed' | 'changed' | 'unchanged';
 
@@ -70,30 +74,6 @@ export function specOf(server: CentralServer): McpServerSpec {
         ...(server.args ? { args: server.args } : {}),
         ...(server.env ? { env: server.env } : {}),
       };
-}
-
-/** 把规格拍平成有序字段列表（用于逐行展示差异） */
-export function fieldEntries(spec: McpServerSpec): Array<[string, string]> {
-  const out: Array<[string, string]> = [['type', spec.type]];
-  if (spec.type === 'http') {
-    if (spec.url !== undefined) out.push(['url', spec.url]);
-    for (const [k, v] of Object.entries(spec.headers ?? {}).sort(([a], [b]) => a.localeCompare(b))) {
-      out.push([`headers.${k}`, v]);
-    }
-  } else {
-    if (spec.command !== undefined) out.push(['command', spec.command]);
-    if (spec.args !== undefined) out.push(['args', spec.args.join(' ')]);
-    for (const [k, v] of Object.entries(spec.env ?? {}).sort(([a], [b]) => a.localeCompare(b))) {
-      out.push([`env.${k}`, v]);
-    }
-  }
-  return out;
-}
-
-/** 稳定序列化：忽略对象键顺序，用于判断语义等价 */
-export function canonicalSpec(spec: McpServerSpec | undefined): string {
-  if (!spec) return '';
-  return JSON.stringify(fieldEntries(spec));
 }
 
 /** 两个规格之间的字段级差异行 */

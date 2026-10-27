@@ -8,19 +8,34 @@ import {
   emptyManifest,
   mergeIntoManifest,
   parseMcpServersJson,
+  parseTomlMcpServers,
   planDistribution,
   replaceTomlServers,
+  sanitizeManifest,
   type CentralManifest,
   type CentralServer,
   type McpServerSpec,
 } from '../lib/mcp';
 
+export { parseTomlMcpServers } from '../lib/mcp';
+
 const MANIFEST_FILE = '.ai-baogongtou/mcp-central.json';
+
+const errMsg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
+/** 串行化 MCP 写操作：避免与页面刷新 / 定时快照等并发路径互踩 */
+let mcpWriteLock: Promise<unknown> = Promise.resolve();
+function withMcpLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = mcpWriteLock.then(fn, fn);
+  mcpWriteLock = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
 
 export interface McpSnapshot {
   manifest: CentralManifest;
-  /** 每个 agent 当前实际配置里的 server 名（用于展示差异） */
-  perAgent: Partial<Record<AgentId, string[]>>;
   /** 每个 agent 当前实际的 server 规格（用于分发预览 / 漂移检测） */
   current: Partial<Record<AgentId, Record<string, McpServerSpec>>>;
   /** 已安装（配置目录或配置文件存在）的 agent；未安装的不参与漂移/分发 */
@@ -60,13 +75,8 @@ export async function loadManifest(fs: FsPort = tauriFs): Promise<CentralManifes
   if (!(await fs.exists(p))) return emptyManifest();
   try {
     const parsed: unknown = JSON.parse(await fs.readText(p));
-    if (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      Array.isArray((parsed as CentralManifest).servers)
-    ) {
-      return parsed as CentralManifest;
-    }
+    // 逐条校验，丢弃畸形条目（手改/旧格式不直接透传到页面）
+    return sanitizeManifest(parsed);
   } catch {
     // 损坏时回退空清单
   }
@@ -87,7 +97,6 @@ export async function saveManifest(
 export async function scanMcp(fs: FsPort = tauriFs): Promise<McpSnapshot> {
   const manifest = await loadManifest(fs);
   const scans: Partial<Record<AgentId, { servers: Record<string, McpServerSpec>; enabled: Record<string, boolean> }>> = {};
-  const perAgent: Partial<Record<AgentId, string[]>> = {};
   const current: Partial<Record<AgentId, Record<string, McpServerSpec>>> = {};
   for (const agent of mcpAgents()) {
     const p = await absPath(agent.mcpFile!);
@@ -99,7 +108,6 @@ export async function scanMcp(fs: FsPort = tauriFs): Promise<McpSnapshot> {
       } else {
         scans[agent.id] = parseTomlMcpServers(text);
       }
-      perAgent[agent.id] = Object.keys(scans[agent.id]!.servers);
       current[agent.id] = scans[agent.id]!.servers;
     } catch {
       // 单个 agent 配置坏了不影响整体
@@ -114,130 +122,101 @@ export async function scanMcp(fs: FsPort = tauriFs): Promise<McpSnapshot> {
       ? { ...s, agents: { ...s.agents, ...existing.agents } }
       : s;
   });
-  return { manifest: { servers }, perAgent, current, installed: await detectInstalledAgents(fs) };
+  return { manifest: { servers }, current, installed: await detectInstalledAgents(fs) };
 }
 
-/** 简单解析 codex config.toml 里的 mcp_servers（只读我们生成的标准形态 + 常见形态） */
-export function parseTomlMcpServers(text: string): {
-  servers: Record<string, McpServerSpec>;
-  enabled: Record<string, boolean>;
-} {
-  const servers: Record<string, McpServerSpec> = {};
-  const enabled: Record<string, boolean> = {};
-  const lines = text.split('\n');
-  let current: string | null = null;
-  let sub: 'env' | 'headers' | null = null;
-  const ensure = (name: string): McpServerSpec => {
-    if (!servers[name]) servers[name] = { type: 'stdio' };
-    return servers[name];
-  };
-  const unq = (s: string) => s.trim().replace(/^"|"$/g, '');
-  for (const line of lines) {
-    const hm = line.match(/^\s*\[([^\]]+)\]\s*$/);
-    if (hm) {
-      const path = hm[1].split('.').map(unq);
-      if (path[0] === 'mcp_servers' && path.length >= 2) {
-        current = path[1];
-        sub = path[2] === 'env' ? 'env' : path[2] === 'headers' ? 'headers' : null;
-        ensure(current);
-      } else {
-        current = null;
-        sub = null;
-      }
-      continue;
+/** 每个配置文件最多保留的 .bak 份数（快照体系之外的轻量兜底，防只增不减） */
+const BAK_KEEP = 5;
+
+/** 清理 target 旁边的 .bak.<时间戳>，只保留最新 BAK_KEEP 份。
+ * 注意：FsPort.readDir 过滤点开头条目，$HOME 下 .claude.json.bak.* 这类不可见，
+ * 只能清理目录内非隐藏的 .bak（如 .codex/config.toml.bak.*）。 */
+async function pruneBakFiles(fs: FsPort, target: string): Promise<void> {
+  const slash = target.lastIndexOf('/');
+  if (slash < 0) return;
+  const dir = target.slice(0, slash);
+  const base = target.slice(slash + 1);
+  try {
+    const baks = (await fs.readDir(dir))
+      .filter((e) => !e.isDirectory && e.name.startsWith(`${base}.bak.`))
+      .map((e) => e.name)
+      .sort();
+    for (const old of baks.slice(0, Math.max(0, baks.length - BAK_KEEP))) {
+      await fs.remove(`${dir}/${old}`).catch(() => undefined);
     }
-    if (!current) continue;
-    const kv = line.match(/^\s*([^=]+?)\s*=\s*(.+?)\s*$/);
-    if (!kv) continue;
-    const key = unq(kv[1]);
-    let val = kv[2];
-    const spec = ensure(current);
-    if (sub === 'env' || sub === 'headers') {
-      const map = sub === 'env' ? (spec.env ??= {}) : (spec.headers ??= {});
-      map[key] = unq(val);
-      continue;
-    }
-    if (key === 'command') spec.command = unq(val);
-    else if (key === 'url') {
-      spec.type = 'http';
-      spec.url = unq(val);
-    } else if (key === 'args') {
-      const m = val.match(/\[(.*)\]/);
-      if (m) {
-        spec.args = m[1]
-          .split(',')
-          .map((s) => unq(s))
-          .filter((s) => s.length > 0);
-      }
-    } else if (key === 'enabled') {
-      enabled[current] = val.trim() !== 'false';
-    }
-    void val;
+  } catch {
+    // 清理失败不影响分发
   }
-  for (const n of Object.keys(servers)) enabled[n] = enabled[n] !== false;
-  return { servers, enabled };
 }
 
-/** 分发：把清单写回各 agent 配置（写前备份）；未安装的 agent 跳过并计入 skipped */
+/** 分发：把清单写回各 agent 配置（写前备份）；未安装的 agent 跳过并计入 skipped。
+ * 单个 agent 读取/解析/写入失败只记入 errors，不中断整单。 */
 export async function distribute(
   manifest: CentralManifest,
   fs: FsPort = tauriFs,
 ): Promise<{ written: AgentId[]; skipped: AgentId[]; errors: Record<string, string> }> {
-  const installed = new Set(await detectInstalledAgents(fs));
-  const skipped = mcpAgents().filter((a) => !installed.has(a.id)).map((a) => a.id);
-  const scans: Partial<Record<AgentId, { servers: Record<string, McpServerSpec> }>> = {};
-  const texts: Partial<Record<AgentId, string>> = {};
-  for (const agent of mcpAgents()) {
-    const p = await absPath(agent.mcpFile!);
-    const text = (await fs.exists(p)) ? await fs.readText(p) : '';
-    texts[agent.id] = text;
-    scans[agent.id] =
-      agent.mcpFormat === 'json'
-        ? parseMcpServersJson(text || '{}')
-        : parseTomlMcpServers(text);
-  }
-  const plan = planDistribution(manifest, scans, mcpAgents().map((a) => a.id));
-  const written: AgentId[] = [];
-  const errors: Record<string, string> = {};
-  for (const agent of mcpAgents()) {
-    if (!installed.has(agent.id)) continue;
-    const { updates, removals } = plan[agent.id];
-    // 额外：清单里没勾选该 agent、但该 agent 配置里存在且属于清单管理的 server → 移除
-    const managed = new Set(manifest.servers.map((s) => s.name));
-    for (const name of Object.keys(scans[agent.id]?.servers ?? {})) {
-      if (managed.has(name)) {
-        const server = manifest.servers.find((s) => s.name === name);
-        if (server && !server.agents[agent.id] && !removals.includes(name)) {
-          removals.push(name);
+  return withMcpLock(async () => {
+    const agents = mcpAgents();
+    const installed = new Set(await detectInstalledAgents(fs));
+    const skipped = agents.filter((a) => !installed.has(a.id)).map((a) => a.id);
+    const errors: Record<string, string> = {};
+    const scans: Partial<Record<AgentId, { servers: Record<string, McpServerSpec> }>> = {};
+    const texts: Partial<Record<AgentId, string>> = {};
+    // 预读：单个 agent 读取失败记入 errors 并跳过，不冲出整个函数
+    for (const agent of agents) {
+      if (!installed.has(agent.id)) continue;
+      try {
+        const p = await absPath(agent.mcpFile!);
+        const text = (await fs.exists(p)) ? await fs.readText(p) : '';
+        texts[agent.id] = text;
+        scans[agent.id] =
+          agent.mcpFormat === 'json'
+            ? parseMcpServersJson(text || '{}')
+            : parseTomlMcpServers(text);
+      } catch (e) {
+        errors[agent.id] = `读取配置失败：${errMsg(e)}`;
+      }
+    }
+    const plan = planDistribution(manifest, scans, agents.map((a) => a.id));
+    const written: AgentId[] = [];
+    for (const agent of agents) {
+      if (!installed.has(agent.id) || errors[agent.id]) continue;
+      const { updates, removals } = plan[agent.id];
+      if (Object.keys(updates).length === 0 && removals.length === 0) continue;
+      const p = await absPath(agent.mcpFile!);
+      try {
+        const original = texts[agent.id] ?? '';
+        // TOCTOU 防护：写入前再读一次，预读后被外部改动则跳过
+        const latest = (await fs.exists(p)) ? await fs.readText(p) : '';
+        if (latest !== original) {
+          errors[agent.id] = '配置在分发期间被外部修改，已跳过（请刷新后重试）';
+          continue;
         }
+        // 先计算新内容（原文件 JSON 损坏会在这里抛错），成功后才备份/写入
+        const next =
+          agent.mcpFormat === 'json'
+            ? applyJsonServers(
+                original || '{}',
+                Object.fromEntries(
+                  Object.entries(updates).map(([n, s]) => [
+                    n,
+                    { spec: s, hasEnabledFlag: agent.hasEnabledFlag ?? false },
+                  ]),
+                ),
+                removals,
+              )
+            : replaceTomlServers(original, updates, removals);
+        // 备份
+        if (original.length > 0) {
+          await fs.writeText(backupPath(p, new Date()), original);
+          await pruneBakFiles(fs, p);
+        }
+        await fs.writeText(p, next);
+        written.push(agent.id);
+      } catch (e) {
+        errors[agent.id] = errMsg(e);
       }
     }
-    if (Object.keys(updates).length === 0 && removals.length === 0) continue;
-    const p = await absPath(agent.mcpFile!);
-    try {
-      const original = texts[agent.id] ?? '';
-      // 备份
-      if (original.length > 0) {
-        await fs.writeText(backupPath(p, new Date()), original);
-      }
-      const next =
-        agent.mcpFormat === 'json'
-          ? applyJsonServers(
-              original || '{}',
-              Object.fromEntries(
-                Object.entries(updates).map(([n, s]) => [
-                  n,
-                  { spec: s, hasEnabledFlag: agent.hasEnabledFlag ?? false },
-                ]),
-              ),
-              removals,
-            )
-          : replaceTomlServers(original, updates, removals);
-      await fs.writeText(p, next);
-      written.push(agent.id);
-    } catch (e) {
-      errors[agent.id] = e instanceof Error ? e.message : String(e);
-    }
-  }
-  return { written, skipped, errors };
+    return { written, skipped, errors };
+  });
 }

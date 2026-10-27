@@ -6,6 +6,8 @@ import {
   SNAPSHOT_FILES_DIR,
   SNAPSHOT_MANIFEST_FILE,
   compareSnapshotIds,
+  isSafeRelPath,
+  isValidCopyName,
   isValidSnapshotId,
   parseSnapshot,
   prunePlan,
@@ -21,6 +23,17 @@ import { absPath, tauriFs, type FsPort } from '../lib/fsPort';
 const CENTRAL_MANIFEST = '.ai-baogongtou/mcp-central.json';
 
 const errMsg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
+/** 快照创建/回滚串行化：避免手动分发与 6 小时定时快照并发时 readDir→mkdir 同 id 竞态 */
+let snapshotLock: Promise<unknown> = Promise.resolve();
+function withSnapshotLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = snapshotLock.then(fn, fn);
+  snapshotLock = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
 
 async function ensureDir(fs: FsPort, dir: string): Promise<void> {
   if (!(await fs.exists(dir))) await fs.mkdir(dir);
@@ -45,6 +58,7 @@ function snapshotTargets(): string[] {
  * 源文件缺失不会抛错，只在清单里记 exists=false。
  */
 export async function createSnapshot(fs: FsPort = tauriFs, label = ''): Promise<string> {
+  return withSnapshotLock(async () => {
   const root = await backupRoot();
   await ensureDir(fs, root);
 
@@ -83,6 +97,7 @@ export async function createSnapshot(fs: FsPort = tauriFs, label = ''): Promise<
   };
   await fs.writeText(`${dir}/${SNAPSHOT_MANIFEST_FILE}`, serializeSnapshot(snapshot));
   return id;
+  });
 }
 
 /** 列出所有快照（新 → 旧）；清单损坏的快照也会列出但 files 为空 */
@@ -130,10 +145,16 @@ export async function restoreSnapshot(
   const record = parseSnapshot(await fs.readText(manifestPath));
   if (!record) throw new Error(`快照清单损坏：${id}`);
 
+  return withSnapshotLock(async () => {
   const restored: string[] = [];
   const removed: string[] = [];
   const missing: string[] = [];
   for (const f of record.files) {
+    // 清单可能被篡改/损坏：路径与副本名必须是无越界的单层安全名
+    if (!isSafeRelPath(f.file) || (f.exists && !isValidCopyName(f.copy))) {
+      missing.push(`${f.file}（清单条目非法，已跳过）`);
+      continue;
+    }
     if (!f.exists) {
       // 快照时不存在：真正的回滚需要删掉快照之后新增的文件
       try {
@@ -164,6 +185,7 @@ export async function restoreSnapshot(
     }
   }
   return { record, restored, removed, missing };
+  });
 }
 
 /** 只保留最新 keep 个快照，返回被删除的 ID */

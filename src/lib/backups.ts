@@ -79,16 +79,36 @@ export function prunePlan(ids: readonly string[], keep: number = DEFAULT_KEEP): 
 
 /**
  * 原始相对路径 → 快照内唯一副本名。
- * 去掉前导点（避免 tauriFs.readDir 过滤隐藏项），路径分隔符换成双下划线：
- *   .cursor/mcp.json        → cursor__mcp.json
- *   .pi/agent/mcp.json      → pi__agent__mcp.json
+ * 去掉前导点（避免 tauriFs.readDir 过滤隐藏项），用 ~ 作可逆转义符保证无碰撞：
+ * 先转义已有的 ~ 为 ~~，再把路径分隔符换成 ~：
+ *   .cursor/mcp.json        → cursor~mcp.json
+ *   .pi/agent/mcp.json      → pi~agent~mcp.json
+ *   claude__mcp.json（字面）→ claude__mcp.json（不与 .claude/mcp.json 碰撞）
  */
 export function snapshotCopyName(relPath: string): string {
   const cleaned = relPath
     .replace(/^[./\\]+/, '')
-    .replace(/[/\\]+/g, '__')
-    .replace(/[^A-Za-z0-9._@+-]/g, '_');
+    .replace(/~/g, '~~')
+    .replace(/[/\\]+/g, '~')
+    .replace(/[^A-Za-z0-9._@+~-]/g, '_');
   return cleaned || 'file';
+}
+
+/** 快照副本名必须是无分隔符的单层安全文件名（防篡改清单越界读写） */
+export function isValidCopyName(name: string): boolean {
+  return (
+    name.length > 0 &&
+    name !== '.' &&
+    name !== '..' &&
+    !name.includes('..') &&
+    /^[A-Za-z0-9._@+~-]+$/.test(name)
+  );
+}
+
+/** 相对 $HOME 的路径必须不含 .. 段、不是绝对路径（防篡改清单越界读写） */
+export function isSafeRelPath(path: string): boolean {
+  if (!path || path.startsWith('/') || /^[A-Za-z]:/.test(path)) return false;
+  return !path.split(/[/\\]+/).some((seg) => seg === '..');
 }
 
 export function serializeSnapshot(record: SnapshotRecord): string {

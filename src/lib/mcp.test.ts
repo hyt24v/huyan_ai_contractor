@@ -2,12 +2,18 @@ import { describe, expect, it } from 'vitest';
 import {
   applyJsonServers,
   backupPath,
+  joinArgs,
   mergeIntoManifest,
   parseMcpServersJson,
   parseTomlHeader,
+  parseTomlMcpServers,
+  parseTomlStringArray,
+  parseTomlValue,
   planDistribution,
   replaceTomlServers,
+  sanitizeManifest,
   serverToToml,
+  splitArgs,
 } from './mcp';
 
 describe('parseMcpServersJson', () => {
@@ -64,9 +70,13 @@ describe('applyJsonServers', () => {
     expect(j.mcpServers.old).toBeUndefined();
     expect(j.mcpServers.new1).toMatchObject({ command: 'n', args: ['a'], enabled: true });
   });
-  it('原文件非法时从空对象开始', () => {
-    const out = applyJsonServers('{{bad', { x: { spec: { type: 'http', url: 'u' }, hasEnabledFlag: false } }, []);
-    expect(JSON.parse(out).mcpServers.x).toEqual({ type: 'http', url: 'u' });
+  it('非空非法 JSON 直接抛错，绝不从空对象重写（数据安全）', () => {
+    expect(() =>
+      applyJsonServers('{{bad', { x: { spec: { type: 'http', url: 'u' }, hasEnabledFlag: false } }, []),
+    ).toThrow();
+    // 顶层非对象同样抛错
+    expect(() => applyJsonServers('[]', {}, [])).toThrow();
+    expect(() => applyJsonServers('"str"', {}, [])).toThrow();
   });
 });
 
@@ -75,6 +85,101 @@ describe('parseTomlHeader', () => {
     expect(parseTomlHeader('[mcp_servers.x]')).toEqual(['mcp_servers', 'x']);
     expect(parseTomlHeader('[mcp_servers."my.name".env]')).toEqual(['mcp_servers', 'my.name', 'env']);
     expect(parseTomlHeader('key = 1')).toBeNull();
+  });
+
+  it('放行节头行尾注释与多余空白', () => {
+    expect(parseTomlHeader('[mcp_servers.x] # 注释')).toEqual(['mcp_servers', 'x']);
+    expect(parseTomlHeader('  [mcp_servers.x]  ')).toEqual(['mcp_servers', 'x']);
+  });
+
+  it('支持引号内的 ] 与单引号段', () => {
+    expect(parseTomlHeader('[mcp_servers."a]b"]')).toEqual(['mcp_servers', 'a]b']);
+    expect(parseTomlHeader("[mcp_servers.'lit.name']")).toEqual(['mcp_servers', 'lit.name']);
+  });
+});
+
+describe('parseTomlValue / parseTomlStringArray', () => {
+  it('basic 字符串反转义，literal 字符串原样', () => {
+    expect(parseTomlValue('"a\\nb"')).toBe('a\nb');
+    expect(parseTomlValue('"a\\\"b"')).toBe('a"b');
+    expect(parseTomlValue('"\\\\"')).toBe('\\');
+    expect(parseTomlValue('"a\\u0041"')).toBe('aA');
+    expect(parseTomlValue("'a\\nb'")).toBe('a\\nb');
+    // 未知转义保守保留两字符
+    expect(parseTomlValue('"a\\qb"')).toBe('a\\qb');
+    expect(parseTomlValue('plain')).toBe('plain');
+  });
+
+  it('引号感知切分数组', () => {
+    expect(parseTomlStringArray('["a, b", "c"]')).toEqual(['a, b', 'c']);
+    expect(parseTomlStringArray("['x', \"y\"]")).toEqual(['x', 'y']);
+    expect(parseTomlStringArray('[]')).toEqual([]);
+  });
+});
+
+describe('parseTomlMcpServers', () => {
+  it('round-trip：写出的 TOML 读回后 args/env 不劣化', () => {
+    const spec = {
+      type: 'stdio' as const,
+      command: 'cg',
+      args: ['a, b', 'x"y', 'line\nbreak'],
+      env: { 'K,1': 'v "q" \\ end' },
+    };
+    const toml = serverToToml('weird.name', spec);
+    const { servers, enabled } = parseTomlMcpServers(toml);
+    expect(servers['weird.name']).toEqual(spec);
+    // enabled 稀疏：未写 enabled = 行时不出现该键（默认启用）
+    expect(enabled['weird.name']).toBeUndefined();
+  });
+
+  it('http server 与 enabled 读回', () => {
+    const toml = [
+      '[mcp_servers.web]',
+      'url = "https://x/mcp"',
+      'enabled = false',
+      '',
+    ].join('\n');
+    const { servers, enabled } = parseTomlMcpServers(toml);
+    expect(servers.web).toEqual({ type: 'http', url: 'https://x/mcp' });
+    expect(enabled.web).toBe(false);
+  });
+
+  it('缺 command/url 的段被忽略', () => {
+    const toml = '[mcp_servers.broken]\nfoo = 1\n';
+    expect(parseTomlMcpServers(toml).servers).toEqual({});
+  });
+});
+
+describe('splitArgs / joinArgs', () => {
+  it('空格切分，引号保留空格', () => {
+    expect(splitArgs('-y @scope/pkg "a b"')).toEqual(['-y', '@scope/pkg', 'a b']);
+    expect(splitArgs("'x y' z")).toEqual(['x y', 'z']);
+    expect(splitArgs('')).toEqual([]);
+  });
+
+  it('joinArgs 与 splitArgs 互逆', () => {
+    const args = ['-y', 'a b', 'x"y'];
+    expect(splitArgs(joinArgs(args))).toEqual(args);
+  });
+});
+
+describe('sanitizeManifest', () => {
+  it('丢弃畸形条目并去重同名', () => {
+    const m = sanitizeManifest({
+      servers: [
+        { name: 'ok', type: 'stdio', command: 'x', agents: { pi: true } },
+        { name: '', type: 'stdio', command: 'x' },
+        null,
+        { name: 'ok', type: 'http', url: 'u' }, // 重名，后者丢弃
+        { name: 'bad', type: 'weird' },
+      ],
+    });
+    expect(m.servers).toHaveLength(1);
+    expect(m.servers[0].name).toBe('ok');
+  });
+
+  it('servers 非数组时给空清单', () => {
+    expect(sanitizeManifest({ servers: 'nope' } as unknown as Record<string, unknown>).servers).toEqual([]);
   });
 });
 
@@ -150,6 +255,37 @@ describe('planDistribution', () => {
     expect(Object.keys(plan.claude.updates)).toEqual(['mem']);
     // pi: cg 需要新增
     expect(Object.keys(plan.pi.updates)).toEqual(['cg']);
+  });
+
+  it('取消勾选的 server 进 removals', () => {
+    const manifest = {
+      servers: [
+        { name: 'cg', type: 'stdio' as const, command: 'cg', agents: { pi: true } },
+      ],
+    };
+    const plan = planDistribution(
+      manifest,
+      { claude: { servers: { cg: { type: 'stdio', command: 'cg' }, old: { type: 'http', url: 'u' } } } },
+      ['claude'],
+    );
+    // cg 在清单里但未勾选 claude → 移除；old 不在清单里 → 不纳入管理，不动
+    expect(plan.claude.removals).toEqual(['cg']);
+    expect(plan.claude.updates).toEqual({});
+  });
+
+  it('键序不同但内容相同的 spec 判等跳过（canonicalSpec）', () => {
+    const manifest = {
+      servers: [
+        { name: 's', type: 'stdio' as const, command: 'c', args: ['a'], env: { B: '2', A: '1' }, agents: { pi: true } },
+      ],
+    };
+    // 现有配置字段顺序、env 键序不同
+    const plan = planDistribution(
+      manifest,
+      { pi: { servers: { s: { env: { A: '1', B: '2' }, args: ['a'], command: 'c', type: 'stdio' } } } },
+      ['pi'],
+    );
+    expect(plan.pi.updates).toEqual({});
   });
 });
 

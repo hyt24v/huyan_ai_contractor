@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../hooks/useToast';
 import { AlertTriangle, ChevronDown, History, Pencil, Plus, RefreshCw, Send, Trash2, Undo2 } from 'lucide-react';
 import { SegmentedControl, Toolbar, ToolbarButton, ToolbarDivider } from '../components/Toolbar';
 import DiffView from '../components/DiffView';
-import { hasMcpSupport, type AgentId } from '../lib/agents';
+import { agentShortName, hasMcpSupport, type AgentId } from '../lib/agents';
 import { useAgents } from '../hooks/useAgents';
 import { snapshotDisplayTime, type SnapshotRecord } from '../lib/backups';
-import type { CentralManifest, CentralServer } from '../lib/mcp';
+import { joinArgs, splitArgs, type CentralManifest, type CentralServer } from '../lib/mcp';
 import { computeMcpDiff, type McpDiff, type PerAgentServers } from '../lib/mcpDiff';
 import { distribute, loadManifest, saveManifest, scanMcp } from '../services/agentMcp';
 import {
@@ -16,15 +16,6 @@ import {
   restoreSnapshot,
 } from '../services/backups';
 import { isTauri } from '@tauri-apps/api/core';
-
-/** 已知的短名;未收录的 agent 回退到注册表名称 */
-const AGENT_SHORT: Record<string, string> = {
-  claude: 'Claude',
-  codex: 'Codex',
-  pi: 'Pi',
-  cursor: 'Cursor',
-  gemini: 'Gemini',
-};
 
 interface EditDraft {
   name: string;
@@ -80,7 +71,7 @@ function draftToServer(d: EditDraft): CentralServer | { error: string } {
     ...(d.type === 'stdio'
       ? {
           command: d.command.trim(),
-          args: d.args.trim() ? d.args.trim().split(/\s+/) : undefined,
+          args: d.args.trim() ? splitArgs(d.args.trim()) : undefined,
           env: parseKvLines(d.env),
         }
       : { url: d.url.trim(), headers: parseKvLines(d.headers) }),
@@ -93,7 +84,7 @@ function serverToDraft(s: CentralServer): EditDraft {
     name: s.name,
     type: s.type,
     command: s.command ?? '',
-    args: (s.args ?? []).join(' '),
+    args: joinArgs(s.args ?? []),
     env: kvToText(s.env),
     url: s.url ?? '',
     headers: kvToText(s.headers),
@@ -117,6 +108,8 @@ export default function McpManagerPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<SnapshotRecord[]>([]);
   const [historyBusy, setHistoryBusy] = useState(false);
+  // busy 的 ref 镜像：refresh 回调里做并发保护用
+  const busyRef = useRef(false);
   // 矩阵表：搜索过滤 + 列头批量（可撤销，只作用于筛选结果，借鉴 cc-switch）
   const [query, setQuery] = useState('');
   const [colMenu, setColMenu] = useState<AgentId | null>(null);
@@ -127,6 +120,8 @@ export default function McpManagerPage() {
 
 
   const refresh = useCallback(async () => {
+    // 分发/回滚进行中禁止刷新（会 setDirty(false) 丢掉未保存标记）
+    if (busyRef.current) return;
     setError('');
     try {
       const snap = await scanMcp();
@@ -152,7 +147,19 @@ export default function McpManagerPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, []);
+  }, [mcpAgents]);
+
+  /** 工具栏「刷新」：有未分发编辑时先确认，避免静默丢弃 */
+  const onRefreshClick = useCallback(() => {
+    if (busyRef.current) {
+      showToast('操作进行中，请稍候');
+      return;
+    }
+    if (dirty && !window.confirm('有未分发的编辑，刷新将丢弃这些修改。确定刷新？')) {
+      return;
+    }
+    void refresh();
+  }, [dirty, refresh, showToast]);
 
   useEffect(() => {
     void refresh();
@@ -178,6 +185,13 @@ export default function McpManagerPage() {
 
   const removeServer = useCallback(
     (name: string) => {
+      if (
+        !window.confirm(
+          `确定从中央清单删除「${name}」？下次「保存并分发」时会从所有 agent 配置中移除它。`,
+        )
+      ) {
+        return;
+      }
       mutate((m) => ({ servers: m.servers.filter((s) => s.name !== name) }));
     },
     [mutate],
@@ -207,22 +221,33 @@ export default function McpManagerPage() {
     setDraft(null);
   }, [draft, manifest, mutate, showToast]);
 
-  /** 「保存并分发」第一步：先算差异，无变更直接提示，有变更打开预览 */
-  const applyAll = useCallback(() => {
-    if (!manifest) return;
+  /** 「保存并分发」第一步：先算差异；无文件变更也要把清单落盘，否则编辑会丢 */
+  const applyAll = useCallback(async () => {
+    if (!manifest || busyRef.current) return;
     const installedDefs = mcpAgents.filter((a) => installed.includes(a.id));
     const nextDiff = computeMcpDiff(manifest, current, installedDefs);
     if (!nextDiff.summary.hasChanges) {
-      showToast('无变更，无需分发');
-      setDirty(false);
+      busyRef.current = true;
+      setBusy(true);
+      try {
+        await saveManifest(manifest);
+        showToast('无文件变更，中央清单已保存');
+        setDirty(false);
+      } catch (e) {
+        showToast(`保存清单失败：${e instanceof Error ? e.message : String(e)}`, 'err');
+      } finally {
+        busyRef.current = false;
+        setBusy(false);
+      }
       return;
     }
     setDiff(nextDiff);
-  }, [manifest, current, installed, showToast]);
+  }, [manifest, current, installed, mcpAgents, showToast]);
 
   /** 预览确认后：快照 → 写中央清单 → 分发 → 刷新 */
   const confirmDistribute = useCallback(async () => {
-    if (!manifest) return;
+    if (!manifest || busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     try {
       const snapshot = await createSnapshot(undefined, '分发前自动快照');
@@ -230,25 +255,27 @@ export default function McpManagerPage() {
       await saveManifest(manifest);
       const { written, skipped, errors } = await distribute(manifest);
       const errList = Object.entries(errors)
-        .map(([a, e]) => `${AGENT_SHORT[a as AgentId]}: ${e}`)
+        .map(([a, e]) => `${agentShortName(a as AgentId)}: ${e}`)
         .join('；');
       const skipNote =
         skipped.length > 0
-          ? `；跳过未安装：${skipped.map((a) => AGENT_SHORT[a]).join('、')}`
+          ? `；跳过未安装：${skipped.map((a) => agentShortName(a)).join('、')}`
           : '';
       showToast(
         errList
           ? `已快照 ${snapshot}；写入 ${written.length} 个 agent；失败：${errList}${skipNote}`
           : written.length > 0
-            ? `已快照 ${snapshot}，分发到 ${written.map((a) => AGENT_SHORT[a]).join('、')}${skipNote}`
+            ? `已快照 ${snapshot}，分发到 ${written.map((a) => agentShortName(a)).join('、')}${skipNote}`
             : `已保存中央清单（快照 ${snapshot}），无文件需写入${skipNote}`,
       );
       setDiff(null);
       setDirty(false);
+      busyRef.current = false;
+      setBusy(false);
       await refresh();
     } catch (e) {
       showToast(`分发失败：${e instanceof Error ? e.message : String(e)}`, 'err');
-    } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }, [manifest, refresh, showToast]);
@@ -267,22 +294,31 @@ export default function McpManagerPage() {
 
   const rollback = useCallback(
     async (record: SnapshotRecord) => {
-      if (!window.confirm(`确定回滚到快照 ${snapshotDisplayTime(record)}？当前配置将被覆盖。`)) {
+      if (busyRef.current) return;
+      if (
+        !window.confirm(
+          `确定回滚到快照 ${snapshotDisplayTime(record)}？当前配置将被覆盖，快照时点不存在的配置文件将被删除。`,
+        )
+      ) {
         return;
       }
+      busyRef.current = true;
       setHistoryBusy(true);
       try {
         const safety = await createSnapshot(undefined, `回滚前自动快照（${snapshotDisplayTime(record)}）`);
+        await pruneSnapshots();
         const result = await restoreSnapshot(undefined, record.id);
         const parts = [`已回滚 ${result.restored.length} 个文件`];
         if (result.removed.length > 0) parts.push(`删除快照后新增 ${result.removed.length} 个`);
         if (result.missing.length > 0) parts.push(`${result.missing.length} 个失败`);
         showToast(`${parts.join('，')}；回滚前状态已快照 ${safety}`);
         setHistoryOpen(false);
+        busyRef.current = false;
+        setHistoryBusy(false);
         await refresh();
       } catch (e) {
         showToast(`回滚失败：${e instanceof Error ? e.message : String(e)}`, 'err');
-      } finally {
+        busyRef.current = false;
         setHistoryBusy(false);
       }
     },
@@ -308,7 +344,7 @@ export default function McpManagerPage() {
       const names = new Set(filteredServers.map((s) => s.name));
       setLastBatch({
         manifest,
-        label: `${AGENT_SHORT[agent] ?? agent} ${value ? '全部勾选' : '全部取消'}（${names.size} 个筛选结果）`,
+        label: `${agentShortName(agent)} ${value ? '全部勾选' : '全部取消'}（${names.size} 个筛选结果）`,
       });
       mutate((m) => ({
         servers: m.servers.map((s) =>
@@ -331,7 +367,7 @@ export default function McpManagerPage() {
   return (
     <div className="flex h-full flex-col">
       <Toolbar>
-        <ToolbarButton onClick={() => void refresh()} title="重新扫描各 agent 配置">
+        <ToolbarButton onClick={onRefreshClick} title="重新扫描各 agent 配置">
           <RefreshCw className="mr-1 inline h-3.5 w-3.5" />
           刷新
         </ToolbarButton>
@@ -347,7 +383,7 @@ export default function McpManagerPage() {
         <ToolbarButton
           primary
           disabled={busy || (!dirty && driftCount === 0)}
-          onClick={applyAll}
+          onClick={() => void applyAll()}
         >
           <Send className="mr-1 inline h-3.5 w-3.5" />
           保存并分发
@@ -433,7 +469,7 @@ export default function McpManagerPage() {
               <input
                 value={draft.args}
                 onChange={(e) => setDraft({ ...draft, args: e.target.value })}
-                placeholder="args，空格分隔，如 -y @upstash/context7-mcp"
+                placeholder="args，空格分隔；含空格的参数用引号包裹"
                 className="h-8 rounded-md border border-input bg-transparent px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
               <textarea
@@ -475,7 +511,7 @@ export default function McpManagerPage() {
                     })
                   }
                 />
-                {AGENT_SHORT[a.id]}
+                {agentShortName(a.id)}
               </label>
             ))}
           </div>
@@ -498,7 +534,7 @@ export default function McpManagerPage() {
                     title="点击展开批量操作（只作用于当前筛选结果）"
                     className="inline-flex items-center gap-0.5 rounded px-1 transition-colors hover:bg-accent hover:text-foreground"
                   >
-                    {AGENT_SHORT[a.id] ?? a.name}
+                    {agentShortName(a.id)}
                     <ChevronDown className="h-3 w-3" />
                   </button>
                   {colMenu === a.id && (
@@ -581,7 +617,7 @@ export default function McpManagerPage() {
             ))}
             {filteredServers.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-4 py-10 text-center text-xs text-muted-foreground">
+                <td colSpan={4 + mcpAgents.length} className="px-4 py-10 text-center text-xs text-muted-foreground">
                   {manifest
                     ? query.trim()
                       ? `没有匹配「${query.trim()}」的 server`
@@ -595,7 +631,7 @@ export default function McpManagerPage() {
       </div>
 
       <div className="flex h-7 shrink-0 items-center border-t bg-card px-3 text-xs text-muted-foreground">
-        勾选 = 分发时写入该 agent 配置文件；取消勾选并分发 = 从该 agent 移除。写入前自动备份（.bak.时间戳）
+        勾选 = 分发时写入该 agent 配置文件；取消勾选并分发 = 从该 agent 移除。写入前自动快照 + 保留最近 5 份 .bak
       </div>
 
       {diff && (

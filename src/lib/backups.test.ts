@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   compareSnapshotIds,
+  isSafeRelPath,
+  isValidCopyName,
   isValidSnapshotId,
   parseSnapshot,
   prunePlan,
@@ -95,11 +97,11 @@ describe('prunePlan', () => {
 describe('snapshotCopyName', () => {
   it('去掉前导点并展平路径，避免隐藏文件与同名冲突', () => {
     expect(snapshotCopyName('.claude.json')).toBe('claude.json');
-    expect(snapshotCopyName('.codex/config.toml')).toBe('codex__config.toml');
-    expect(snapshotCopyName('.cursor/mcp.json')).toBe('cursor__mcp.json');
-    expect(snapshotCopyName('.pi/agent/mcp.json')).toBe('pi__agent__mcp.json');
+    expect(snapshotCopyName('.codex/config.toml')).toBe('codex~config.toml');
+    expect(snapshotCopyName('.cursor/mcp.json')).toBe('cursor~mcp.json');
+    expect(snapshotCopyName('.pi/agent/mcp.json')).toBe('pi~agent~mcp.json');
     expect(snapshotCopyName('.ai-baogongtou/mcp-central.json')).toBe(
-      'ai-baogongtou__mcp-central.json',
+      'ai-baogongtou~mcp-central.json',
     );
   });
 
@@ -109,8 +111,38 @@ describe('snapshotCopyName', () => {
     );
   });
 
+  it('编码无碰撞：路径分隔符与字面字符可区分', () => {
+    // .claude/mcp.json vs 字面文件名 claude__mcp.json 不能映射到同一副本名
+    expect(snapshotCopyName('.claude/mcp.json')).not.toBe(snapshotCopyName('claude__mcp.json'));
+    // 字面 ~ 先转义为 ~~，不与分隔符 ~ 碰撞
+    expect(snapshotCopyName('a~b')).toBe('a~~b');
+    expect(snapshotCopyName('a~b')).not.toBe(snapshotCopyName('a/b'));
+  });
+
   it('空路径有兜底名', () => {
     expect(snapshotCopyName('')).toBe('file');
+  });
+});
+
+describe('isValidCopyName / isSafeRelPath', () => {
+  it('拒绝带分隔符 / .. / 非法字符的副本名', () => {
+    expect(isValidCopyName('claude.json')).toBe(true);
+    expect(isValidCopyName('codex~config.toml')).toBe(true);
+    expect(isValidCopyName('codex__config.toml')).toBe(true); // 旧格式快照仍可回滚
+    expect(isValidCopyName('../../x')).toBe(false);
+    expect(isValidCopyName('a/b')).toBe(false);
+    expect(isValidCopyName('..')).toBe(false);
+    expect(isValidCopyName('a..b')).toBe(false);
+    expect(isValidCopyName('')).toBe(false);
+  });
+
+  it('相对路径不允许越界', () => {
+    expect(isSafeRelPath('.claude.json')).toBe(true);
+    expect(isSafeRelPath('.codex/config.toml')).toBe(true);
+    expect(isSafeRelPath('../evil')).toBe(false);
+    expect(isSafeRelPath('a/../../evil')).toBe(false);
+    expect(isSafeRelPath('/abs/path')).toBe(false);
+    expect(isSafeRelPath('')).toBe(false);
   });
 });
 
