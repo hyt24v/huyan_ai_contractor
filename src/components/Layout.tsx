@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { PanelLeftClose, PanelLeftOpen, Settings, Sparkles, ArrowUpCircle, Search } from 'lucide-react';
+import { Settings, Sparkles, ArrowUpCircle, Search } from 'lucide-react';
 import type { Update } from '@tauri-apps/plugin-updater';
 import AiDock from './AiDock';
 import CommandPalette, { TOGGLE_COMMAND_PALETTE_EVENT } from './CommandPalette';
@@ -146,18 +146,6 @@ export default function Layout() {
         className="flex h-10 shrink-0 items-center justify-between pl-[80px] pr-3"
       >
         <div data-tauri-drag-region className="flex min-w-0 items-center gap-2">
-          <button
-            onClick={() => setCollapsed((c) => !c)}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            title={`${collapsed ? '展开' : '收起'}导航面板 (⌘B)`}
-            aria-label={`${collapsed ? '展开' : '收起'}导航面板`}
-          >
-            {collapsed ? (
-              <PanelLeftOpen className="h-4 w-4" />
-            ) : (
-              <PanelLeftClose className="h-4 w-4" />
-            )}
-          </button>
           <span
             data-tauri-drag-region
             className="truncate text-sm font-semibold tracking-tight"
@@ -248,7 +236,8 @@ export default function Layout() {
                       <NavLink
                         key={t.path}
                         to={t.path}
-                        title={collapsed ? t.name : undefined}
+                        onDoubleClick={() => setCollapsed((c) => !c)}
+                        title={collapsed ? `${t.name}（双击展开导航）` : t.name}
                         aria-label={t.name}
                         className={({ isActive }) =>
                           `mb-0.5 flex items-center rounded-md transition-colors ${
