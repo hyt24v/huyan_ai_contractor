@@ -138,32 +138,93 @@ export default function Layout() {
   }, [navigate]);
 
   return (
-    // 岛式布局（VS Code 新版风格）：chrome 外壳底色 + gap-2 p-2 留缝，各面板为悬浮圆角卡片
-    <div className="flex h-full gap-2 bg-chrome p-2">
-      {/* 单一侧栏：展开 w-52（图标+文字），折叠 w-12（纯图标条）；顶部避让 macOS 红绿灯（兼拖拽区） */}
+    // 岛式布局（VS Code 风格）：顶部全宽标题栏带（红绿灯 + 拖拽区），下方各面板为悬浮圆角岛屿
+    <div className="flex h-full flex-col bg-chrome">
+      {/* 全宽顶栏（VS Code 标题栏带）：左侧避让红绿灯，兼拖拽区；右侧收 AI/更新/命令面板 */}
+      <header
+        data-tauri-drag-region
+        className="flex h-10 shrink-0 items-center justify-between pl-[80px] pr-3"
+      >
+        <div data-tauri-drag-region className="flex min-w-0 items-center gap-2">
+          <button
+            onClick={() => setCollapsed((c) => !c)}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            title={`${collapsed ? '展开' : '收起'}导航面板 (⌘B)`}
+            aria-label={`${collapsed ? '展开' : '收起'}导航面板`}
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="h-4 w-4" />
+            ) : (
+              <PanelLeftClose className="h-4 w-4" />
+            )}
+          </button>
+          <span
+            data-tauri-drag-region
+            className="truncate text-sm font-semibold tracking-tight"
+          >
+            {isSettings ? '设置' : (currentTool?.name ?? '工具')}
+          </span>
+        </div>
+        <div data-tauri-drag-region className="flex items-center gap-1">
+          <button
+            onClick={() => setAiDockOpen((v) => !v)}
+            title="AI 助手"
+            aria-label="AI 助手"
+            className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
+              aiDockOpen
+                ? 'bg-accent text-foreground'
+                : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+            }`}
+          >
+            <Sparkles className="h-4 w-4" />
+          </button>
+          {hasUpdate && (
+            <button
+              onClick={() => navigate('/settings/updates')}
+              title="发现新版本，点击查看"
+              aria-label="有新版本可用"
+              className="relative flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <ArrowUpCircle className="h-4 w-4" />
+              <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-destructive" />
+            </button>
+          )}
+          <button
+            onClick={() =>
+              window.dispatchEvent(new Event(TOGGLE_COMMAND_PALETTE_EVENT))
+            }
+            className="flex h-7 items-center gap-1.5 rounded-md px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            title="命令面板"
+          >
+            <Search className="h-3.5 w-3.5" />
+            <kbd className="rounded border border-border/60 bg-muted/50 px-1 font-sans text-[10px]">
+              ⌘K
+            </kbd>
+          </button>
+        </div>
+      </header>
+
+      {/* 岛屿区：侧栏 / 内容 / AI dock 悬浮在 chrome 底色上 */}
+      <div className="flex min-h-0 flex-1 gap-2 px-2 pb-2">
+      {/* 单一侧栏：展开 w-52（图标+文字），折叠 w-12（纯图标条） */}
       <aside
         className={`flex shrink-0 flex-col rounded-xl border border-border/40 bg-sidebar transition-[width] duration-200 ${
           collapsed ? 'w-12' : 'w-52'
         }`}
       >
-        {/* Logo 区：展开时位于红绿灯右侧，折叠时居中于红绿灯下方 */}
+        {/* Logo 区 */}
         <div
-          data-tauri-drag-region
           className={`flex shrink-0 items-center ${
-            collapsed ? 'justify-center pb-2 pt-9' : 'gap-2.5 pb-2 pl-[84px] pr-3 pt-2.5'
+            collapsed ? 'justify-center pb-2 pt-2.5' : 'gap-2.5 px-3 pb-2 pt-2.5'
           }`}
         >
           <img
-            data-tauri-drag-region
             src={logo}
             alt="AI包工头"
             className="h-7 w-7 shrink-0 rounded-[7px] object-cover"
           />
           {!collapsed && (
-            <span
-              data-tauri-drag-region
-              className="truncate text-sm font-semibold tracking-tight"
-            >
+            <span className="truncate text-sm font-semibold tracking-tight">
               AI包工头
             </span>
           )}
@@ -248,74 +309,9 @@ export default function Layout() {
         </div>
       </aside>
 
-      {/* 主区域：内容面板（浮在 chrome 外壳上，无阴影） */}
+      {/* 主区域：内容面板（浮在 chrome 外壳上） */}
       <div className="min-w-0 flex-1">
         <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-border/40 bg-content">
-          {/* 顶栏兼 Tauri 拖拽区（dbx 范式 U8）：右侧收命令面板/更新入口 */}
-          <header
-            data-tauri-drag-region
-            className={`flex h-10 shrink-0 items-center justify-between border-b border-border/40 pr-2 ${
-              collapsed ? 'pl-8' : 'pl-3'
-            }`}
-          >
-            <div data-tauri-drag-region className="flex min-w-0 items-center gap-2">
-              <button
-                onClick={() => setCollapsed((c) => !c)}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                title={`${collapsed ? '展开' : '收起'}导航面板 (⌘B)`}
-                aria-label={`${collapsed ? '展开' : '收起'}导航面板`}
-              >
-                {collapsed ? (
-                  <PanelLeftOpen className="h-4 w-4" />
-                ) : (
-                  <PanelLeftClose className="h-4 w-4" />
-                )}
-              </button>
-              <span
-                data-tauri-drag-region
-                className="truncate text-sm font-semibold tracking-tight"
-              >
-                {isSettings ? '设置' : (currentTool?.name ?? '工具')}
-              </span>
-            </div>
-            <div data-tauri-drag-region className="flex items-center gap-1">
-              <button
-                onClick={() => setAiDockOpen((v) => !v)}
-                title="AI 助手"
-                aria-label="AI 助手"
-                className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
-                  aiDockOpen
-                    ? 'bg-accent text-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                }`}
-              >
-                <Sparkles className="h-4 w-4" />
-              </button>
-              {hasUpdate && (
-                <button
-                  onClick={() => navigate('/settings/updates')}
-                  title="发现新版本，点击查看"
-                  aria-label="有新版本可用"
-                  className="relative flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  <ArrowUpCircle className="h-4 w-4" />
-                  <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-destructive" />
-                </button>
-              )}
-              <button
-                onClick={() =>
-                  window.dispatchEvent(new Event(TOGGLE_COMMAND_PALETTE_EVENT))
-                }
-                className="flex h-7 items-center gap-1.5 rounded-md px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                title="命令面板"
-              >
-                <Search className="h-3.5 w-3.5" />
-                <kbd className="rounded border border-border/60 bg-muted/50 px-1 font-sans text-[10px]">
-                  ⌘K
-                </kbd>
-              </button>
-            </div>
-          </header>
           <main className="min-h-0 flex-1">
             <Outlet />
           </main>
@@ -327,6 +323,7 @@ export default function Layout() {
         onClose={() => setAiDockOpen(false)}
         scope={isSettings ? '设置' : (currentTool?.name ?? '工具')}
       />
+      </div>
       <CommandPalette />
       {whatsNew && !pendingUpdate && (
         <WhatsNewDialog
