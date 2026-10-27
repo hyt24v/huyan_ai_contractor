@@ -8,9 +8,12 @@ export interface ErrorItem {
 
 export default function ErrorPanel({
   errors,
+  total,
   onJump,
 }: {
   errors: ErrorItem[];
+  /** 错误总数；大于 errors.length 时说明被截断，显示提示（审核 #17） */
+  total?: number;
   onJump?: (line: number, column?: number) => void;
 }) {
   if (errors.length === 0) return null;
@@ -33,6 +36,11 @@ export default function ErrorPanel({
           <span className="break-all font-mono">{e.message}</span>
         </div>
       ))}
+      {total !== undefined && total > errors.length && (
+        <div className="py-0.5 text-xs text-muted-foreground">
+          仅显示前 {errors.length} 条，共 {total} 条错误
+        </div>
+      )}
     </div>
   );
 }

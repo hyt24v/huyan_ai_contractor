@@ -44,9 +44,7 @@ import {
   type EditorMode,
   type QueryResult,
 } from '../lib/toolkit';
-import {
-  HISTORY_KEY,
-} from '../lib/editorHistory';
+import { addHistory, HISTORY_KEY } from '../lib/editorHistory';
 import { useEditorHistory } from '../hooks/useEditorHistory';
 import { useToast } from '../hooks/useToast';
 import HistoryDropdown from '../components/HistoryDropdown';
@@ -130,12 +128,25 @@ export default function JsonToolPage() {
     clearAll,
   } = useEditorHistory({ storageKey: HISTORY_KEY, text, setText, showToast });
 
-  // 模式：手动优先，否则自动识别
-  const mode: EditorMode =
-    modeSetting === 'auto' ? detectMode(text) : modeSetting;
+  /** 破坏性操作（清空/载入/恢复/覆盖）前自动快照当前内容到历史（AGENTS.md 约定，审核 #12） */
+  const snapshotNow = useCallback(() => {
+    if (addHistory(text, HISTORY_KEY)) refreshHistory();
+  }, [text, refreshHistory]);
 
+  // 模式：手动优先，否则自动识别（useMemo 缓存，避免每次渲染重复全量解析，审核 #14）
+  const autoMode = useMemo(() => detectMode(text), [text]);
+  const mode: EditorMode = modeSetting === 'auto' ? autoMode : modeSetting;
+
+  // 防抖 + try/catch：避免每次击键同步写大文本卡顿；配额满时静默跳过而不是白屏（审核 #13）
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, text);
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(STORAGE_KEY, text);
+      } catch {
+        // 配额超限：本次不持久化
+      }
+    }, 500);
+    return () => clearTimeout(timer);
   }, [text]);
   useEffect(() => {
     localStorage.setItem(MODE_KEY, modeSetting);
@@ -144,7 +155,9 @@ export default function JsonToolPage() {
   // ---------- 校验（随模式分派，防抖 300ms） ----------
   const validate = useCallback(
     (value: string, m: EditorMode) => {
-      const model = editorRef.current?.getModel();
+      // 极端输入（超深嵌套等）可能触发引擎限制，降级为错误提示而不是让 effect 异常白屏（审核 #5）
+      try {
+        const model = editorRef.current?.getModel();
       if (m === 'json') {
         // 宽容解析：「不保留转义」显示态（字符串含真实换行）不算错误
         const r = parseJsonTolerant(value);
@@ -200,6 +213,11 @@ export default function JsonToolPage() {
               })),
           );
         }
+      }
+      } catch (e) {
+        setJsonError({
+          message: `解析失败：${e instanceof Error ? e.message : String(e)}`,
+        });
       }
     },
     [tree],
@@ -339,12 +357,22 @@ export default function JsonToolPage() {
 
   const openFile = useCallback(
     (file: File) => {
-      file.text().then((content) => {
-        setText(content);
-        showToast(`已载入 ${file.name}`);
-      });
+      snapshotNow();
+      file
+        .text()
+        .then((content) => {
+          setText(content);
+          showToast(`已载入 ${file.name}`);
+        })
+        .catch((e) => {
+          // 读取失败要有反馈，不能静默无反应（审核 #19）
+          showToast(
+            `读取失败：${e instanceof Error ? e.message : String(e)}`,
+            'err',
+          );
+        });
     },
-    [showToast],
+    [showToast, snapshotNow],
   );
 
   // 分隔条拖拽
@@ -374,10 +402,12 @@ export default function JsonToolPage() {
     return buildJsonTree(values);
   }, [jsonlResults]);
 
-  const jsonlInvalidCount = useMemo(
-    () => jsonlResults.filter((r) => !r.empty && !r.ok).length,
+  const jsonlErrors = useMemo(
+    () => jsonlResults.filter((r) => !r.empty && !r.ok),
     [jsonlResults],
   );
+
+  const jsonlInvalidCount = jsonlErrors.length;
 
   const tableRows = useMemo((): JsonlLineResult[] | null => {
     if (mode === 'jsonl') return jsonlResults;
@@ -409,11 +439,28 @@ export default function JsonToolPage() {
   const handleTableDelete = useCallback(
     (line: number, endLine?: number) => {
       if (mode === 'jsonl') {
-        setText(deleteLine(text, line, endLine));
+        // 防抖窗口内表格数据可能滞后于文本：用当前 text 重新解析定位，避免按旧行号删错行（审核 #8）
+        const stale = jsonlResults.find(
+          (r) => r.line === line && (r.endLine ?? r.line) === (endLine ?? line),
+        );
+        const fresh = parseJsonlSmart(text);
+        const target =
+          (stale && !stale.empty
+            ? fresh.find((r) => !r.empty && r.raw === stale.raw)
+            : undefined) ??
+          fresh.find(
+            (r) => !r.empty && line >= r.line && line <= (r.endLine ?? r.line),
+          );
+        if (!target) {
+          showToast('定位失败：内容已变化，请重试', 'err');
+          return;
+        }
+        const tEnd = target.endLine ?? target.line;
+        setText(deleteLine(text, target.line, target.endLine));
         showToast(
-          endLine && endLine > line
-            ? `已删除第 ${line}–${endLine} 行`
-            : `已删除第 ${line} 行`,
+          tEnd > target.line
+            ? `已删除第 ${target.line}–${tEnd} 行`
+            : `已删除第 ${target.line} 行`,
         );
       } else if (Array.isArray(jsonValue)) {
         const next = (jsonValue as JsonValue[]).filter(
@@ -435,7 +482,7 @@ export default function JsonToolPage() {
         showToast(`已删除字段 ${key}`);
       }
     },
-    [mode, text, jsonValue, showToast],
+    [mode, text, jsonValue, jsonlResults, showToast],
   );
 
   const sizeWarning = text.length > 10 * 1024 * 1024;
@@ -456,7 +503,7 @@ export default function JsonToolPage() {
         {/* 模式切换 */}
         <SegmentedControl<ModeSetting>
           options={[
-            { value: 'auto', label: `自动(${detectMode(text) === 'json' ? 'JSON' : 'JSONL'})` },
+            { value: 'auto', label: `自动(${autoMode === 'json' ? 'JSON' : 'JSONL'})` },
             { value: 'json', label: 'JSON' },
             { value: 'jsonl', label: 'JSONL' },
           ]}
@@ -476,8 +523,8 @@ export default function JsonToolPage() {
               const s = jsonlStats(parseJsonlSmart(text));
               showToast(
                 s.errors === 0
-                  ? `✓ ${s.valid} 行全部合法`
-                  : `${s.errors} 行有错误`,
+                  ? `✓ ${s.valid} 条记录全部合法`
+                  : `${s.errors} 条记录有错误`,
                 s.errors === 0 ? 'ok' : 'err',
               );
             }
@@ -646,13 +693,17 @@ export default function JsonToolPage() {
             setHistoryOpen((o) => !o);
           }}
           onSave={saveCurrent}
-          onRestore={restoreEntry}
+          onRestore={(entry) => {
+            snapshotNow();
+            restoreEntry(entry);
+          }}
           onRemove={removeEntry}
           onClear={clearAll}
           containerRef={historyRef}
         />
         <ToolbarButton
           onClick={() => {
+            snapshotNow();
             setText('');
           }}
         >
@@ -714,10 +765,10 @@ export default function JsonToolPage() {
           )}
           {mode === 'jsonl' && (
             <ErrorPanel
-              errors={jsonlResults
-                .filter((r) => !r.empty && !r.ok)
+              errors={jsonlErrors
                 .slice(0, 20)
                 .map((r) => ({ line: r.line, message: r.error ?? '解析失败' }))}
+              total={jsonlErrors.length}
               onJump={(line) => jumpTo(line)}
             />
           )}
@@ -817,6 +868,7 @@ export default function JsonToolPage() {
                   onJumpToLine={(line) => {
                     if (mode === 'jsonl') jumpTo(line);
                   }}
+                  disableJump={mode !== 'jsonl'}
                 />
               ) : (
                 <div className="flex h-full items-center justify-center px-4 text-center text-xs text-muted-foreground">
@@ -851,6 +903,7 @@ export default function JsonToolPage() {
                       <button
                         className="rounded px-1.5 py-0.5 hover:bg-accent hover:text-foreground"
                         onClick={() => {
+                          snapshotNow();
                           setText(queryResult.text);
                           showToast('已应用到编辑器');
                         }}
@@ -885,11 +938,15 @@ export default function JsonToolPage() {
           </span>
         ) : (
           <>
-            <span>共 {jsonlStatsMemo.total} 行</span>
-            <span className="text-success">{jsonlStatsMemo.valid} 行合法</span>
+            <span>
+              共 {jsonlStatsMemo.total} 条记录
+              {jsonlStatsMemo.lines !== jsonlStatsMemo.total &&
+                `（${jsonlStatsMemo.lines} 行）`}
+            </span>
+            <span className="text-success">{jsonlStatsMemo.valid} 条合法</span>
             {jsonlStatsMemo.errors > 0 && (
               <span className="text-destructive">
-                {jsonlStatsMemo.errors} 行错误
+                {jsonlStatsMemo.errors} 条错误
               </span>
             )}
             {jsonlStatsMemo.empty > 0 && (

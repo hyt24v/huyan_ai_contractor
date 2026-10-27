@@ -102,8 +102,9 @@ export function parseJsonRecords(text: string): JsonlLineResult[] {
         i++;
       }
     } else {
-      // 原始值 token（true/false/null/数字或无法识别的垃圾片段）：读到空白为止
-      while (i < n && !isWs(text[i])) i++;
+      // 原始值 token（true/false/null/数字或无法识别的垃圾片段）：读到换行为止。
+      // 垃圾行按「一行一条错误记录」处理——不被空白切碎、行号保持正确（审核 #1）
+      while (i < n && text[i] !== '\n') i++;
     }
     const raw = text.slice(start, i);
     try {
@@ -141,14 +142,16 @@ export function parseJsonlSmart(text: string): JsonlLineResult[] {
   const records = parseJsonRecords(text);
   const recordErrors = records.filter((r) => !r.ok).length;
   const recordOk = records.length - recordErrors;
-  if (records.length >= 2 && recordOk >= 1 && recordErrors < lineErrors) {
+  // records.length >= 1：整篇文档只有一条多行美化记录时也应走记录模式（审核 #3）
+  if (records.length >= 1 && recordOk >= 1 && recordErrors < lineErrors) {
     return records;
   }
   return lineResults;
 }
 
 export interface JsonlStats {
-  total: number; // 总行数
+  total: number; // 条目数（逐行模式 = 行数；记录模式 = 记录数）
+  lines: number; // 条目覆盖的文本行数（多行记录模式下 > total，审核 #11）
   empty: number;
   errors: number;
   valid: number; // 非空且合法
@@ -158,12 +161,14 @@ export function jsonlStats(results: JsonlLineResult[]): JsonlStats {
   let empty = 0;
   let errors = 0;
   let valid = 0;
+  let lines = 0;
   for (const r of results) {
+    lines += (r.endLine ?? r.line) - r.line + 1;
     if (r.empty) empty++;
     else if (r.ok) valid++;
     else errors++;
   }
-  return { total: results.length, empty, errors, valid };
+  return { total: results.length, lines, empty, errors, valid };
 }
 
 export interface JsonlTransformResult {
@@ -235,11 +240,25 @@ export function duplicateLine(text: string, line: number, endLine?: number): str
   const lines = text.split('\n');
   const end = endLine ?? line;
   if (line < 1 || line > lines.length) return text;
-  lines.splice(end, 0, ...lines.slice(line - 1, end));
-  return lines.join('\n');
+  // 不用 splice(...spread)：复制超大记录时展开运算符会触发调用参数上限 RangeError（审核 #16）
+  return lines
+    .slice(0, end)
+    .concat(lines.slice(line - 1, end), lines.slice(end))
+    .join('\n');
 }
 
 // ---------- 字段并集与路径取值 ----------
+
+const SIMPLE_KEY_RE = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+
+/**
+ * 拼接字段路径段：简单标识符用 .key；含点号等特殊字符的 key 用 ["key"] 形式，
+ * 避免与嵌套点路径歧义（审核 #9）
+ */
+function joinFieldPath(prefix: string, key: string): string {
+  if (SIMPLE_KEY_RE.test(key)) return prefix ? `${prefix}.${key}` : key;
+  return `${prefix}["${key.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`;
+}
 
 /**
  * 计算所有合法行的字段并集（对象递归展开为点路径，数组不展开）。
@@ -253,7 +272,7 @@ export function collectFields(rows: unknown[], maxDepth = 2): string[] {
     if (depth > maxDepth) return;
     if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) return;
     for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
-      const path = prefix ? `${prefix}.${k}` : k;
+      const path = joinFieldPath(prefix, k);
       if (!seen.has(path)) {
         seen.add(path);
         fields.push(path);
@@ -268,10 +287,58 @@ export function collectFields(rows: unknown[], maxDepth = 2): string[] {
   return fields;
 }
 
-/** 按点路径取值，如 a.b.c；不存在返回 undefined */
+/** 解析字段路径：支持 a.b 与 a["b.c"] 混合形式（审核 #9） */
+function parseFieldPath(path: string): string[] {
+  const segs: string[] = [];
+  let i = 0;
+  let cur = '';
+  while (i < path.length) {
+    const c = path[i];
+    if (c === '.') {
+      if (cur !== '') segs.push(cur);
+      cur = '';
+      i++;
+      continue;
+    }
+    if (c === '[' && path[i + 1] === '"') {
+      let j = i + 2;
+      let key = '';
+      let closed = false;
+      while (j < path.length) {
+        const ch = path[j];
+        if (ch === '\\' && j + 1 < path.length) {
+          key += path[j + 1];
+          j += 2;
+          continue;
+        }
+        if (ch === '"' && path[j + 1] === ']') {
+          closed = true;
+          j += 2;
+          break;
+        }
+        key += ch;
+        j++;
+      }
+      if (closed) {
+        if (cur !== '') segs.push(cur);
+        cur = '';
+        segs.push(key);
+        i = j;
+        continue;
+      }
+      // 未闭合的 [ 按普通字符处理
+    }
+    cur += c;
+    i++;
+  }
+  if (cur !== '') segs.push(cur);
+  return segs;
+}
+
+/** 按字段路径取值，如 a.b.c 或 a["b.c"]；不存在返回 undefined */
 export function getByPath(obj: unknown, path: string): JsonValue | undefined {
   let cur: unknown = obj;
-  for (const key of path.split('.')) {
+  for (const key of parseFieldPath(path)) {
     if (cur === null || typeof cur !== 'object') return undefined;
     cur = (cur as Record<string, unknown>)[key];
   }

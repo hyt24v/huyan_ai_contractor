@@ -55,7 +55,7 @@ export function parseJson(text: string): ParseJsonResult {
   }
 }
 
-/** 把字符串字面量中的原始控制字符（真实换行/制表/回车）转义回 \\n \\t \\r，使「不保留转义」显示后的文本仍可解析 */
+/** 把字符串字面量中的原始控制字符（<0x20）转义回 \\n/\\t/\\r 或 \\uXXXX，使「不保留转义」显示后的文本仍可解析 */
 export function escapeRawControlChars(text: string): string {
   let out = '';
   let inString = false;
@@ -79,7 +79,12 @@ export function escapeRawControlChars(text: string): string {
     if (ch === '\n') out += '\\n';
     else if (ch === '\t') out += '\\t';
     else if (ch === '\r') out += '\\r';
-    else out += ch;
+    else {
+      // 其余 <0x20 的控制字符（如 \u000b）一律回补为 \uXXXX，保证结果仍可解析（审核 #4）
+      const code = ch.charCodeAt(0);
+      if (code < 0x20) out += `\\u${code.toString(16).padStart(4, '0')}`;
+      else out += ch;
+    }
   }
   return out;
 }
@@ -139,7 +144,8 @@ function formatPreservingStrings(
     i = j + 1;
     return tok;
   };
-  const PRIMITIVE_RE = /^(?:-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null)$/;
+  // 数字语法对齐 JSON 规范：拒绝 01 等前导零，保证「格式化成功」与校验口径一致（审核 #10）
+  const PRIMITIVE_RE = /^(?:-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null)$/;
   const readPrimitive = (): string => {
     let j = i;
     while (j < n && !' \t\r\n,{]}:'.includes(text[j])) j++;
@@ -442,9 +448,20 @@ function childPath(parentPath: string, key: string, isIndex: boolean): string {
   return `${parentPath}["${key}"]`;
 }
 
-/** 把 JSON 值构建为树（根节点 path 为 ''） */
-export function buildJsonTree(value: unknown): JsonTreeNode {
-  function build(key: string, path: string, val: unknown): JsonTreeNode {
+/** 树的最大构建深度：超出后容器保留计数但不再展开子节点，避免超深嵌套递归栈溢出（审核 #5） */
+export const MAX_TREE_DEPTH = 500;
+
+/** 把 JSON 值构建为树（根节点 path 为 ''；深度超过 maxDepth 的容器不再展开 children） */
+export function buildJsonTree(
+  value: unknown,
+  maxDepth: number = MAX_TREE_DEPTH,
+): JsonTreeNode {
+  function build(
+    key: string,
+    path: string,
+    val: unknown,
+    depth: number,
+  ): JsonTreeNode {
     const type = valueType(val);
     const node: JsonTreeNode = {
       key,
@@ -460,25 +477,29 @@ export function buildJsonTree(value: unknown): JsonTreeNode {
       const arr = val as unknown[];
       node.raw = val;
       node.childCount = arr.length;
-      node.children = arr.map((item, i) =>
-        build(String(i), childPath(path, String(i), true), item),
-      );
+      if (depth < maxDepth) {
+        node.children = arr.map((item, i) =>
+          build(String(i), childPath(path, String(i), true), item, depth + 1),
+        );
+      }
     } else if (type === 'object') {
       const entries = Object.entries(val as Record<string, unknown>);
       node.raw = val;
       node.childCount = entries.length;
-      node.children = entries.map(([k, v]) =>
-        build(k, childPath(path, k, false), v),
-      );
+      if (depth < maxDepth) {
+        node.children = entries.map(([k, v]) =>
+          build(k, childPath(path, k, false), v, depth + 1),
+        );
+      }
     }
     return node;
   }
-  return build('root', '', value);
+  return build('root', '', value, 1);
 }
 
 /**
- * 按 key / 值过滤树：保留命中节点及其祖先（JSON Hero 风格搜索）。
- * 返回 null 表示整棵子树都不命中。
+ * 按 key / 值过滤树：命中节点保留完整分支，未命中但含命中后代的节点保留命中链
+ * （JSON Hero 风格搜索，审核 #15）。返回 null 表示整棵子树都不命中。
  */
 export function filterJsonTree(
   node: JsonTreeNode,
@@ -486,13 +507,27 @@ export function filterJsonTree(
 ): JsonTreeNode | null {
   const q = query.trim().toLowerCase();
   if (q === '') return node;
+  // 根节点 preview 是整个文档的摘要，任何查询都会命中，
+  // 必须跳过自身匹配直接过滤子节点，否则过滤完全失效（审核 #15）
+  const isRoot = node.path === '';
+  // 容器节点的 preview 内嵌了所有后代的信息，若参与匹配则任何后代命中都会
+  // 让祖先「自身命中」导致全分支展开——与「命中父节点才保留整支」的语义冲突。
+  // 因此 preview 仅对叶子（原始值）参与匹配。
+  const isLeaf =
+    node.type === 'string' ||
+    node.type === 'number' ||
+    node.type === 'boolean' ||
+    node.type === 'null';
   const selfMatch =
-    node.key.toLowerCase().includes(q) ||
-    node.preview.toLowerCase().includes(q);
+    !isRoot &&
+    (node.key.toLowerCase().includes(q) ||
+      (isLeaf && node.preview.toLowerCase().includes(q)));
+  // 命中分支完整展示，不裁剪未命中的子节点
+  if (selfMatch) return node;
   const filteredChildren = node.children
     ?.map((c) => filterJsonTree(c, q))
     .filter((c): c is JsonTreeNode => c !== null);
-  if (selfMatch || (filteredChildren && filteredChildren.length > 0)) {
+  if (filteredChildren && filteredChildren.length > 0) {
     return {
       ...node,
       children: filteredChildren,

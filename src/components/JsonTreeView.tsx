@@ -322,7 +322,10 @@ export default function JsonTreeView({ root }: { root: JsonTreeNode | null }) {
       {/* 树 */}
       <div className="min-h-0 flex-1 overflow-auto py-1">
         {filtered ? (
+          // key 用根的形状签名：换一份 JSON（顶层结构变化）时强制重挂载，
+          // 避免相同 key 的节点继承旧文档的展开/折叠状态（审核 #18）；同文档内编辑值不触发
           <TreeNode
+            key={`${filtered.childCount}:${filtered.preview}`}
             node={filtered}
             depth={0}
             forceOpen={searching}

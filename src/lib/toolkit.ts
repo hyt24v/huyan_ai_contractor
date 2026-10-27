@@ -60,21 +60,35 @@ export function repairText(text: string, mode: EditorMode): RepairResult {
       };
     }
   }
-  // JSONL：逐行修复，修不好的行原样保留
-  const lines = text.split('\n');
+  // JSONL：先智能切分（兼容多行美化记录），仅对失败的行/记录做修复，
+  // 合法记录原样保留——避免逐行修复把多行记录拆烂（审核 #2）
+  const results = parseJsonlSmart(text);
+  let lines = text.split('\n');
   let allOk = true;
-  const out = lines.map((line) => {
-    if (line.trim() === '') return line;
+  // 逆序处理：修复导致的行数变化不影响前面记录的行号
+  const badRecords = results
+    .filter((r) => !r.empty && !r.ok)
+    .sort((a, b) => b.line - a.line);
+  for (const r of badRecords) {
+    const start = r.line - 1;
+    const end = (r.endLine ?? r.line) - 1;
+    const raw = lines.slice(start, end + 1).join('\n');
     try {
-      const repaired = jsonrepair(line);
-      if (!parseJson(repaired).ok) allOk = false;
-      return repaired;
+      const repaired = jsonrepair(raw);
+      if (parseJson(repaired).ok) {
+        lines = [
+          ...lines.slice(0, start),
+          ...repaired.split('\n'),
+          ...lines.slice(end + 1),
+        ];
+      } else {
+        allOk = false;
+      }
     } catch {
       allOk = false;
-      return line;
     }
-  });
-  return { ok: allOk, text: out.join('\n') };
+  }
+  return { ok: allOk, text: lines.join('\n') };
 }
 
 // ---------- 键排序 ----------
@@ -105,18 +119,31 @@ export function sortJsonKeys(text: string, mode: EditorMode): RepairResult {
     if (!r.ok) return { ok: false, text, error: r.error.message };
     return { ok: true, text: JSON.stringify(sortValue(asJsonValue(r.value)), null, 2) };
   }
-  const lines = text.split('\n');
-  let allOk = true;
-  const out = lines.map((line) => {
-    if (line.trim() === '') return line;
-    const r = parseJson(line);
-    if (!r.ok) {
-      allOk = false;
-      return line;
+  // JSONL：智能切分（兼容多行美化记录），合法记录排序后统一为单行；
+  // 非法行/记录原样保留并给出错误说明（审核 #3）
+  const results = parseJsonlSmart(text);
+  let errorCount = 0;
+  const out: string[] = [];
+  for (const r of results) {
+    if (r.empty) {
+      out.push('');
+      continue;
     }
-    return JSON.stringify(sortValue(asJsonValue(r.value)));
-  });
-  return { ok: allOk, text: out.join('\n') };
+    if (r.ok) {
+      out.push(JSON.stringify(sortValue(asJsonValue(r.value))));
+    } else {
+      errorCount++;
+      out.push(r.raw);
+    }
+  }
+  return {
+    ok: errorCount === 0,
+    text: out.join('\n'),
+    error:
+      errorCount > 0
+        ? `${errorCount} 行/记录无法解析，已原样保留`
+        : undefined,
+  };
 }
 
 // ---------- JSONPath 查询 ----------

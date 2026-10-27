@@ -13,10 +13,13 @@ export default function JsonlTableView({
   results,
   onDeleteLine,
   onJumpToLine,
+  disableJump = false,
 }: {
   results: JsonlLineResult[];
   onDeleteLine: (line: number, endLine?: number) => void;
   onJumpToLine: (line: number) => void;
+  /** JSON 模式下行号是表格序号而非编辑器行号，禁用跳转避免死按钮（审核 #7） */
+  disableJump?: boolean;
 }) {
   const validRows = useMemo(
     () => results.filter((r) => !r.empty && r.ok),
@@ -94,13 +97,22 @@ export default function JsonlTableView({
                 className="border-b transition-colors last:border-0 hover:bg-muted/50"
               >
                 <td className="px-3 py-1.5 align-middle">
-                  <button
-                    onClick={() => onJumpToLine(r.line)}
-                    className="font-mono text-xs text-muted-foreground hover:text-foreground hover:underline"
-                    title="跳到代码行"
-                  >
-                    {r.line}
-                  </button>
+                  {disableJump ? (
+                    <span
+                      className="font-mono text-xs text-muted-foreground"
+                      title="JSON 模式下为表格序号，非编辑器行号"
+                    >
+                      {r.line}
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => onJumpToLine(r.line)}
+                      className="font-mono text-xs text-muted-foreground hover:text-foreground hover:underline"
+                      title="跳到代码行"
+                    >
+                      {r.line}
+                    </button>
+                  )}
                 </td>
                 {fields.map((f) => {
                   const v = getByPath(r.value, f);

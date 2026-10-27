@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildJsonTree,
+  filterJsonTree,
+  MAX_TREE_DEPTH,
   escapeJson,
   escapeRawControlChars,
   formatJson,
@@ -11,6 +13,91 @@ import {
   unicodeToChinese,
   unescapeJson,
 } from '../json';
+import type { JsonValue } from '../jsonl';
+
+describe('PRIMITIVE_RE 数字格式（审核 #10）', () => {
+  it('拒绝前导零、纯小数点等非法数字', () => {
+    expect(parseJsonTolerant('01').ok).toBe(false);
+    expect(parseJsonTolerant('-01').ok).toBe(false);
+    expect(parseJsonTolerant('.5').ok).toBe(false);
+    expect(parseJsonTolerant('1.').ok).toBe(false);
+    expect(parseJsonTolerant('+1').ok).toBe(false);
+  });
+
+  it('仍接受合法数字与字面量', () => {
+    for (const s of ['0', '-0', '12', '-3.5', '1e10', '2E-3', '0.5']) {
+      expect(parseJsonTolerant(s).ok).toBe(true);
+    }
+    for (const s of ['true', 'false', 'null']) {
+      expect(parseJsonTolerant(s).ok).toBe(true);
+    }
+  });
+});
+
+describe('escapeRawControlChars 控制字符（审核 #4）', () => {
+  it('\u000b 等控制字符在显示态被解码后，仍能宽容解析回原值', () => {
+    // keepEscape=false 显示态会把 \u000b 解码为原始控制字符
+    const displayed = formatJson('{"a":"\\u000b"}');
+    expect(displayed.ok).toBe(true);
+    if (!displayed.ok) return;
+    // escapeRawControlChars 将原始控制字符回补为 \uXXXX
+    const escaped = escapeRawControlChars(displayed.text);
+    expect(escaped).toContain('\\u000b');
+    // 因此显示态文档仍可通过宽容校验，且值不变
+    const v = parseJsonTolerant(displayed.text);
+    expect(v.ok).toBe(true);
+    expect(v.ok && (v.value as { a: string }).a).toBe('\u000b');
+  });
+});
+
+describe('buildJsonTree 深度限制（审核 #5）', () => {
+  it('嵌套超过 maxDepth 时截断而非递归溢出', () => {
+    // 2000 层嵌套数组（足以在旧实现中触发 RangeError）
+    let s = '';
+    for (let i = 0; i < 2000; i++) s += '[';
+    for (let i = 0; i < 2000; i++) s += ']';
+    const value = JSON.parse(s) as JsonValue;
+    const tree = buildJsonTree(value);
+    // 根节点 depth=1，沿第一条链下钻 MAX_TREE_DEPTH-1 次后到达 depth=500 的截断节点
+    let node = tree;
+    for (let d = 0; d < MAX_TREE_DEPTH - 1; d++) {
+      expect((node.children ?? []).length).toBeGreaterThan(0);
+      node = node.children![0];
+    }
+    expect(node.children ?? []).toHaveLength(0);
+    expect(node.childCount).toBeGreaterThan(0);
+  });
+});
+
+describe('filterJsonTree 保留命中分支（审核 #15）', () => {
+  const value: JsonValue = {
+    alpha: { beta: 1, gamma: 2 },
+    delta: 3,
+  };
+  const tree = buildJsonTree(value, 10);
+
+  it('父节点 key 命中时保留其全部后代，未命中兄弟被过滤', () => {
+    const f = filterJsonTree(tree, 'alpha');
+    expect(f).not.toBeNull();
+    expect((f!.children ?? []).map((c) => c.key)).toEqual(['alpha']);
+    // alpha 的两个子节点都保留
+    expect((f!.children![0].children ?? []).map((c) => c.key)).toEqual([
+      'beta',
+      'gamma',
+    ]);
+  });
+
+  it('仅子节点命中时仍按子级过滤', () => {
+    const f = filterJsonTree(tree, 'beta');
+    expect(f).not.toBeNull();
+    const alpha = (f!.children ?? []).find((c) => c.key === 'alpha');
+    expect((alpha?.children ?? []).map((c) => c.key)).toEqual(['beta']);
+  });
+
+  it('无命中返回 null', () => {
+    expect(filterJsonTree(tree, 'zzz')).toBeNull();
+  });
+});
 
 describe('parseJson', () => {
   it('解析合法 JSON', () => {

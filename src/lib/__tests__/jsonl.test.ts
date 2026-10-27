@@ -118,7 +118,15 @@ describe('jsonlStats', () => {
   it('统计行数', () => {
     const rs = parseJsonl('{"a":1}\n\n{bad}\n{"b":2}');
     const s = jsonlStats(rs);
-    expect(s).toEqual({ total: 4, empty: 1, errors: 1, valid: 2 });
+    expect(s).toEqual({ total: 4, lines: 4, empty: 1, errors: 1, valid: 2 });
+  });
+
+  it('记录模式：total 为记录数，lines 为覆盖行数（审核 #11）', () => {
+    const rs = parseJsonlSmart('{\n  "a": 1\n}\n{\n  "b": 2\n}');
+    const s = jsonlStats(rs);
+    expect(s.total).toBe(2);
+    expect(s.lines).toBe(6);
+    expect(s.valid).toBe(2);
   });
 });
 
@@ -144,6 +152,60 @@ describe('normalizeJsonl', () => {
   });
 });
 
+describe('垃圾行不拆分（审核 #1）', () => {
+  const text = '{\n "a":1\n}\nnot json here\n{\n "b":2\n}';
+
+  it('含空格的垃圾行只算一条错误记录，行号正确', () => {
+    const rs = parseJsonlSmart(text);
+    const errs = rs.filter((r) => !r.empty && !r.ok);
+    expect(errs).toHaveLength(1);
+    expect(errs[0].line).toBe(4);
+    expect(errs[0].endLine).toBe(4);
+    expect(errs[0].raw).toBe('not json here');
+  });
+
+  it('prettifyJsonl / normalizeJsonl 原样保留整条垃圾行', () => {
+    const p = prettifyJsonl(text);
+    expect(p.ok).toBe(false);
+    expect(p.errors).toHaveLength(1);
+    expect(p.text).toBe(
+      '{\n  "a": 1\n}\nnot json here\n{\n  "b": 2\n}',
+    );
+    const n = normalizeJsonl(text);
+    expect(n.ok).toBe(false);
+    expect(n.text).toBe('{"a":1}\nnot json here\n{"b":2}');
+  });
+});
+
+describe('含点号的 key（审核 #9）', () => {
+  it('collectFields 用 ["..."] 形式避免与嵌套路径歧义', () => {
+    const rows = [{ 'a.b': 1, a: { b: 2 } }];
+    const fields = collectFields(rows);
+    expect(fields).toContain('["a.b"]');
+    expect(fields).toContain('a');
+    expect(fields).toContain('a.b'); // 嵌套路径
+  });
+
+  it('getByPath 正确区分字面 key 与嵌套路径', () => {
+    const row = { 'a.b': 1, a: { b: 2 } };
+    expect(getByPath(row, '["a.b"]')).toBe(1);
+    expect(getByPath(row, 'a.b')).toBe(2);
+    expect(getByPath(row, 'a["b"]')).toBe(2);
+    // 含引号/反斜杠的 key 转义后仍可取值
+    const tricky = { 'x"y': { 'a\\b': 7 } };
+    const fields = collectFields([tricky], 2);
+    expect(fields).toContain('["x\\"y"]');
+    expect(getByPath(tricky, '["x\\"y"]["a\\\\b"]')).toBe(7);
+  });
+});
+
+describe('duplicateLine 超大记录（审核 #16）', () => {
+  it('20 万行记录复制不抛 RangeError', () => {
+    const big = Array.from({ length: 200000 }, (_, i) => `l${i}`).join('\n');
+    const out = duplicateLine(big, 1, 200000);
+    expect(out.split('\n')).toHaveLength(400000);
+  });
+});
 describe('deleteLine / duplicateLine', () => {
   const text = 'l1\nl2\nl3';
   it('删除指定行', () => {
