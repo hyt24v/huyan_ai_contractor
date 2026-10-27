@@ -16,6 +16,10 @@ export interface AgentDef {
   mcpFormat?: 'json' | 'toml';
   /** 该 agent 的 mcpServers 条目支持 enabled 字段(pi) */
   hasEnabledFlag?: boolean;
+  /** MCP 服务器在 JSON 配置中的顶层键,默认 'mcpServers';支持点路径嵌套(amp 为 'amp.mcpServers') */
+  mcpRootKey?: string;
+  /** 服务器条目 schema:'standard'=mcpServers 标准(command/args/env/url);'opencode'=mcp 键下 {type:'local',command:[…]}/{type:'remote',url} */
+  mcpSpecStyle?: 'standard' | 'opencode';
 }
 
 /** 用于「是否已安装」检测的目录(相对 $HOME):skillsDir 去掉末尾 /skills */
@@ -72,35 +76,108 @@ export const AGENTS: AgentDef[] = [
     mcpFile: '.gemini/settings.json',
     mcpFormat: 'json',
   },
-  // —— 扩展 51 个(路径与 skills-manager 对齐;MCP 配置路径未知,暂不支持)——
+  // —— 扩展 51 个(路径与 skills-manager 对齐;已核实的 MCP 配置见各条目)——
   { id: 'grok', name: 'Grok', skillsDir: '.grok/skills' },
-  { id: 'opencode', name: 'OpenCode', skillsDir: '.config/opencode/skills' },
+  {
+    id: 'opencode',
+    name: 'OpenCode',
+    skillsDir: '.config/opencode/skills',
+    mcpFile: '.config/opencode/opencode.json',
+    mcpFormat: 'json',
+    mcpRootKey: 'mcp',
+    mcpSpecStyle: 'opencode',
+  },
   { id: 'antigravity', name: 'Antigravity', skillsDir: '.gemini/antigravity/skills' },
-  { id: 'amp', name: 'Amp', skillsDir: '.config/agents/skills' },
-  { id: 'kilo_code', name: 'Kilo Code', skillsDir: '.kilocode/skills' },
-  { id: 'roo_code', name: 'Roo Code', skillsDir: '.roo/skills' },
+  {
+    id: 'amp',
+    name: 'Amp',
+    skillsDir: '.config/agents/skills',
+    mcpFile: '.config/amp/settings.json',
+    mcpFormat: 'json',
+    mcpRootKey: 'amp.mcpServers',
+  },
+  {
+    id: 'kilo_code',
+    name: 'Kilo Code',
+    skillsDir: '.kilocode/skills',
+    mcpFile:
+      'Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json',
+    mcpFormat: 'json',
+  },
+  {
+    id: 'roo_code',
+    name: 'Roo Code',
+    skillsDir: '.roo/skills',
+    mcpFile:
+      'Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json',
+    mcpFormat: 'json',
+  },
   { id: 'goose', name: 'Goose', skillsDir: '.config/goose/skills' },
   { id: 'github_copilot', name: 'GitHub Copilot', skillsDir: '.copilot/skills' },
   { id: 'openclaw', name: 'OpenClaw', skillsDir: '.openclaw/skills' },
-  { id: 'droid', name: 'Droid', skillsDir: '.factory/skills' },
-  { id: 'windsurf', name: 'Windsurf', skillsDir: '.codeium/windsurf/skills' },
+  {
+    id: 'droid',
+    name: 'Droid',
+    skillsDir: '.factory/skills',
+    mcpFile: '.factory/mcp.json',
+    mcpFormat: 'json',
+  },
+  {
+    id: 'windsurf',
+    name: 'Windsurf',
+    skillsDir: '.codeium/windsurf/skills',
+    mcpFile: '.codeium/windsurf/mcp_config.json',
+    mcpFormat: 'json',
+  },
   { id: 'trae', name: 'TRAE IDE', skillsDir: '.trae/skills' },
-  { id: 'cline', name: 'Cline', skillsDir: '.agents/skills' },
+  {
+    id: 'cline',
+    name: 'Cline',
+    skillsDir: '.agents/skills',
+    mcpFile:
+      'Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json',
+    mcpFormat: 'json',
+  },
   { id: 'deepagents', name: 'Deep Agents', skillsDir: '.deepagents/agent/skills' },
   { id: 'firebender', name: 'Firebender', skillsDir: '.firebender/skills' },
-  { id: 'kimi', name: 'Kimi Code CLI', skillsDir: '.kimi-code/skills' },
+  {
+    id: 'kimi',
+    name: 'Kimi Code CLI',
+    skillsDir: '.kimi-code/skills',
+    mcpFile: '.kimi-code/mcp.json',
+    mcpFormat: 'json',
+  },
   { id: 'replit', name: 'Replit', skillsDir: '.config/agents/skills' },
-  { id: 'warp', name: 'Warp', skillsDir: '.agents/skills' },
+  {
+    id: 'warp',
+    name: 'Warp',
+    skillsDir: '.agents/skills',
+    mcpFile: '.warp/.mcp.json',
+    mcpFormat: 'json',
+  },
   { id: 'augment', name: 'Augment', skillsDir: '.augment/skills' },
   { id: 'bob', name: 'IBM Bob', skillsDir: '.bob/skills' },
   { id: 'codebuddy', name: 'CodeBuddy', skillsDir: '.codebuddy/skills' },
   { id: 'command_code', name: 'Command Code', skillsDir: '.commandcode/skills' },
   { id: 'continue', name: 'Continue', skillsDir: '.continue/skills' },
   { id: 'cortex', name: 'Cortex Code', skillsDir: '.snowflake/cortex/skills' },
-  { id: 'crush', name: 'Crush', skillsDir: '.config/crush/skills' },
+  {
+    id: 'crush',
+    name: 'Crush',
+    skillsDir: '.config/crush/skills',
+    mcpFile: '.config/crush/crush.json',
+    mcpFormat: 'json',
+    mcpRootKey: 'mcp',
+  },
   { id: 'iflow', name: 'iFlow CLI', skillsDir: '.iflow/skills' },
   { id: 'junie', name: 'Junie', skillsDir: '.junie/skills' },
-  { id: 'kiro', name: 'Kiro CLI', skillsDir: '.kiro/skills' },
+  {
+    id: 'kiro',
+    name: 'Kiro CLI',
+    skillsDir: '.kiro/skills',
+    mcpFile: '.kiro/settings/mcp.json',
+    mcpFormat: 'json',
+  },
   { id: 'kode', name: 'Kode', skillsDir: '.kode/skills' },
   { id: 'mcpjam', name: 'MCPJam', skillsDir: '.mcpjam/skills' },
   { id: 'mistral_vibe', name: 'Mistral Vibe', skillsDir: '.vibe/skills' },
@@ -109,7 +186,13 @@ export const AGENTS: AgentDef[] = [
   { id: 'openhands', name: 'OpenHands', skillsDir: '.openhands/skills' },
   { id: 'pochi', name: 'Pochi', skillsDir: '.pochi/skills' },
   { id: 'qoder', name: 'Qoder', skillsDir: '.qoder/skills' },
-  { id: 'qwen_code', name: 'Qwen Code', skillsDir: '.qwen/skills' },
+  {
+    id: 'qwen_code',
+    name: 'Qwen Code',
+    skillsDir: '.qwen/skills',
+    mcpFile: '.qwen/settings.json',
+    mcpFormat: 'json',
+  },
   { id: 'trae_cn', name: 'TRAE CN', skillsDir: '.trae-cn/skills' },
   { id: 'zencoder', name: 'Zencoder', skillsDir: '.zencoder/skills' },
   { id: 'zcode', name: 'ZCode', skillsDir: '.zcode/skills' },

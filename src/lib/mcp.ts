@@ -27,8 +27,47 @@ export const emptyManifest = (): CentralManifest => ({ servers: [] });
 
 // ---------- 从 agent 配置解析 ----------
 
-/** 解析单个 agent 配置里的 mcpServers 对象，返回 name → spec 与 name → enabled(pi) */
-export function parseMcpServersJson(text: string): {
+export interface McpJsonOptions {
+  /** 顶层键，默认 'mcpServers'；支持点路径嵌套(amp 为 'amp.mcpServers') */
+  rootKey?: string;
+  /** 条目 schema，默认 'standard'；'opencode' 为 {type:'local',command:[…]}/{type:'remote',url} */
+  specStyle?: 'standard' | 'opencode';
+}
+
+/** 按点路径读嵌套对象键（不存在/非对象返回 undefined） */
+function getObjectByPath(
+  root: Record<string, unknown>,
+  path: string,
+): Record<string, unknown> | undefined {
+  let cur: unknown = root;
+  for (const part of path.split('.')) {
+    if (typeof cur !== 'object' || cur === null) return undefined;
+    cur = (cur as Record<string, unknown>)[part];
+  }
+  return typeof cur === 'object' && cur !== null && !Array.isArray(cur)
+    ? (cur as Record<string, unknown>)
+    : undefined;
+}
+
+/** 按点路径写嵌套键（中间层不存在则创建对象） */
+function setByPath(root: Record<string, unknown>, path: string, value: unknown): void {
+  const parts = path.split('.');
+  let cur = root;
+  for (const part of parts.slice(0, -1)) {
+    const next = cur[part];
+    if (typeof next !== 'object' || next === null || Array.isArray(next)) {
+      cur[part] = {};
+    }
+    cur = cur[part] as Record<string, unknown>;
+  }
+  cur[parts[parts.length - 1]] = value;
+}
+
+/** 解析单个 agent 配置里的 MCP servers 对象，返回 name → spec 与 name → enabled(pi) */
+export function parseMcpServersJson(
+  text: string,
+  opts?: McpJsonOptions,
+): {
   servers: Record<string, McpServerSpec>;
   enabled: Record<string, boolean>;
 } {
@@ -42,27 +81,51 @@ export function parseMcpServersJson(text: string): {
     return { servers: {}, enabled: {} };
   }
   const root = parsed as Record<string, unknown>;
-  const mcp = root.mcpServers;
-  if (typeof mcp !== 'object' || mcp === null) return { servers: {}, enabled: {} };
+  const mcp = getObjectByPath(root, opts?.rootKey ?? 'mcpServers');
+  if (!mcp) return { servers: {}, enabled: {} };
   const servers: Record<string, McpServerSpec> = {};
   const enabled: Record<string, boolean> = {};
   for (const [name, raw] of Object.entries(mcp as Record<string, unknown>)) {
     if (typeof raw !== 'object' || raw === null) continue;
     const r = raw as Record<string, unknown>;
-    const spec: McpServerSpec = r.url
-      ? {
-          type: 'http',
-          url: String(r.url),
-          ...(r.headers ? { headers: r.headers as Record<string, string> } : {}),
-        }
-      : {
-          type: 'stdio',
-          ...(r.command ? { command: String(r.command) } : {}),
-          ...(Array.isArray(r.args) ? { args: r.args.map(String) } : {}),
-          ...(r.env ? { env: r.env as Record<string, string> } : {}),
-        };
+    // serverUrl/httpUrl 是部分客户端的远程字段别名（windsurf/gemini）
+    const urlField = r.url ?? r.serverUrl ?? r.httpUrl;
+    let spec: McpServerSpec;
+    if (opts?.specStyle === 'opencode') {
+      spec = urlField
+        ? {
+            type: 'http',
+            url: String(urlField),
+            ...(r.headers ? { headers: r.headers as Record<string, string> } : {}),
+          }
+        : {
+            type: 'stdio',
+            // opencode 的 command 是数组：[可执行文件, ...参数]
+            ...(Array.isArray(r.command) && r.command.length > 0
+              ? {
+                  command: String(r.command[0]),
+                  ...(r.command.length > 1 ? { args: r.command.slice(1).map(String) } : {}),
+                }
+              : {}),
+            ...(r.environment ? { env: r.environment as Record<string, string> } : {}),
+          };
+    } else {
+      spec = urlField
+        ? {
+            type: 'http',
+            url: String(urlField),
+            ...(r.headers ? { headers: r.headers as Record<string, string> } : {}),
+          }
+        : {
+            type: 'stdio',
+            ...(r.command ? { command: String(r.command) } : {}),
+            ...(Array.isArray(r.args) ? { args: r.args.map(String) } : {}),
+            ...(r.env ? { env: r.env as Record<string, string> } : {}),
+          };
+    }
     servers[name] = spec;
-    enabled[name] = r.enabled !== false;
+    // enabled 与 disabled 两种约定都识别（cline/roo/kilo/kiro 用 disabled）
+    enabled[name] = r.enabled !== false && r.disabled !== true;
   }
   return { servers, enabled };
 }
@@ -97,11 +160,28 @@ export function mergeIntoManifest(
 
 // ---------- 写回 agent 配置 ----------
 
-/** 生成单个 server 在 JSON 配置中的条目（pi 额外写 enabled） */
+/** 生成单个 server 在 JSON 配置中的条目（pi 额外写 enabled；opencode 用 local/remote 数组 schema） */
 export function specToJsonEntry(
   spec: McpServerSpec,
   hasEnabledFlag: boolean,
+  specStyle?: 'standard' | 'opencode',
 ): Record<string, unknown> {
+  if (specStyle === 'opencode') {
+    const base: Record<string, unknown> =
+      spec.type === 'http'
+        ? {
+            type: 'remote',
+            url: spec.url,
+            ...(spec.headers ? { headers: spec.headers } : {}),
+          }
+        : {
+            type: 'local',
+            command: [spec.command ?? '', ...(spec.args ?? [])].filter(Boolean),
+            ...(spec.env ? { environment: spec.env } : {}),
+          };
+    base.enabled = true;
+    return base;
+  }
   const base: Record<string, unknown> =
     spec.type === 'http'
       ? {
@@ -129,6 +209,7 @@ export function applyJsonServers(
   originalText: string,
   updates: Record<string, { spec: McpServerSpec; hasEnabledFlag: boolean }>,
   removals: string[],
+  opts?: McpJsonOptions,
 ): string {
   let root: Record<string, unknown> = {};
   if (originalText.trim().length > 0) {
@@ -145,15 +226,14 @@ export function applyJsonServers(
     }
     root = parsed as Record<string, unknown>;
   }
-  const mcp: Record<string, unknown> =
-    typeof root.mcpServers === 'object' && root.mcpServers !== null
-      ? { ...(root.mcpServers as Record<string, unknown>) }
-      : {};
+  const rootKey = opts?.rootKey ?? 'mcpServers';
+  const existing = getObjectByPath(root, rootKey);
+  const mcp: Record<string, unknown> = existing ? { ...existing } : {};
   for (const name of removals) delete mcp[name];
   for (const [name, { spec, hasEnabledFlag }] of Object.entries(updates)) {
-    mcp[name] = specToJsonEntry(spec, hasEnabledFlag);
+    mcp[name] = specToJsonEntry(spec, hasEnabledFlag, opts?.specStyle);
   }
-  root.mcpServers = mcp;
+  setByPath(root, rootKey, mcp);
   return JSON.stringify(root, null, 2) + '\n';
 }
 

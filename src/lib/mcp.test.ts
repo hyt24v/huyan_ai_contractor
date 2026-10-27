@@ -34,6 +34,16 @@ describe('parseMcpServersJson', () => {
   it('非法 JSON 返回空', () => {
     expect(parseMcpServersJson('not json')).toEqual({ servers: {}, enabled: {} });
   });
+
+  it('识别 serverUrl/httpUrl 别名与 disabled 约定', () => {
+    const r = parseMcpServersJson(
+      '{ "mcpServers": { "a": { "serverUrl": "https://x" }, "b": { "httpUrl": "https://y", "disabled": true } } }',
+    );
+    expect(r.servers.a?.url).toBe('https://x');
+    expect(r.servers.b?.url).toBe('https://y');
+    expect(r.enabled.a).toBe(true);
+    expect(r.enabled.b).toBe(false);
+  });
 });
 
 describe('mergeIntoManifest', () => {
@@ -77,6 +87,33 @@ describe('applyJsonServers', () => {
     // 顶层非对象同样抛错
     expect(() => applyJsonServers('[]', {}, [])).toThrow();
     expect(() => applyJsonServers('"str"', {}, [])).toThrow();
+  });
+
+  it('rootKey 点路径：嵌套键读写（amp amp.mcpServers）', () => {
+    const out = applyJsonServers(
+      JSON.stringify({ amp: { mcpServers: { old: { command: 'x' } }, other: 1 } }),
+      { s: { spec: { type: 'stdio', command: 'npx' }, hasEnabledFlag: false } },
+      ['old'],
+      { rootKey: 'amp.mcpServers' },
+    );
+    const root = JSON.parse(out) as { amp: { mcpServers: Record<string, unknown>; other: number } };
+    expect(root.amp.other).toBe(1);
+    expect(root.amp.mcpServers.old).toBeUndefined();
+    expect(root.amp.mcpServers.s).toMatchObject({ command: 'npx' });
+    expect(parseMcpServersJson(out, { rootKey: 'amp.mcpServers' }).servers.s?.command).toBe('npx');
+  });
+
+  it('specStyle opencode：command 数组双向转换', () => {
+    const out = applyJsonServers(
+      '{}',
+      { s: { spec: { type: 'stdio', command: 'npx', args: ['-y', 'pkg'] }, hasEnabledFlag: false } },
+      [],
+      { specStyle: 'opencode', rootKey: 'mcp' },
+    );
+    const root = JSON.parse(out) as { mcp: Record<string, Record<string, unknown>> };
+    expect(root.mcp.s).toMatchObject({ type: 'local', command: ['npx', '-y', 'pkg'], enabled: true });
+    const back = parseMcpServersJson(out, { specStyle: 'opencode', rootKey: 'mcp' });
+    expect(back.servers.s).toEqual({ type: 'stdio', command: 'npx', args: ['-y', 'pkg'] });
   });
 });
 

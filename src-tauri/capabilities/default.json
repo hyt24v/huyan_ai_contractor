@@ -342,6 +342,24 @@
         },
         {
           "path": "$HOME/.omp/agent/**"
+        },
+        {
+          "path": "$HOME/.codeium/**"
+        },
+        {
+          "path": "$HOME/.warp/**"
+        },
+        {
+          "path": "$HOME/.config/amp/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/**"
         }
       ]
     },
@@ -674,6 +692,24 @@
         },
         {
           "path": "$HOME/.omp/agent/**"
+        },
+        {
+          "path": "$HOME/.codeium/**"
+        },
+        {
+          "path": "$HOME/.warp/**"
+        },
+        {
+          "path": "$HOME/.config/amp/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/**"
         }
       ]
     },
@@ -1015,6 +1051,42 @@
         },
         {
           "path": "$HOME/.omp/agent/**"
+        },
+        {
+          "path": "$HOME/.codeium"
+        },
+        {
+          "path": "$HOME/.codeium/**"
+        },
+        {
+          "path": "$HOME/.warp"
+        },
+        {
+          "path": "$HOME/.warp/**"
+        },
+        {
+          "path": "$HOME/.config/amp"
+        },
+        {
+          "path": "$HOME/.config/amp/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/**"
         }
       ]
     },
@@ -1368,6 +1440,42 @@
         },
         {
           "path": "$HOME/.omp/agent/**"
+        },
+        {
+          "path": "$HOME/.codeium"
+        },
+        {
+          "path": "$HOME/.codeium/**"
+        },
+        {
+          "path": "$HOME/.warp"
+        },
+        {
+          "path": "$HOME/.warp/**"
+        },
+        {
+          "path": "$HOME/.config/amp"
+        },
+        {
+          "path": "$HOME/.config/amp/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/**"
         }
       ]
     },
@@ -1715,6 +1823,42 @@
         },
         {
           "path": "$HOME/.omp/agent/**"
+        },
+        {
+          "path": "$HOME/.codeium"
+        },
+        {
+          "path": "$HOME/.codeium/**"
+        },
+        {
+          "path": "$HOME/.warp"
+        },
+        {
+          "path": "$HOME/.warp/**"
+        },
+        {
+          "path": "$HOME/.config/amp"
+        },
+        {
+          "path": "$HOME/.config/amp/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/**"
         }
       ]
     },
@@ -2035,6 +2179,24 @@
         },
         {
           "path": "$HOME/.omp/agent/**"
+        },
+        {
+          "path": "$HOME/.codeium/**"
+        },
+        {
+          "path": "$HOME/.warp/**"
+        },
+        {
+          "path": "$HOME/.config/amp/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/**"
         }
       ]
     },
@@ -2355,6 +2517,24 @@
         },
         {
           "path": "$HOME/.omp/agent/**"
+        },
+        {
+          "path": "$HOME/.codeium/**"
+        },
+        {
+          "path": "$HOME/.warp/**"
+        },
+        {
+          "path": "$HOME/.config/amp/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/**"
         }
       ]
     },
@@ -2675,6 +2855,24 @@
         },
         {
           "path": "$HOME/.omp/agent/**"
+        },
+        {
+          "path": "$HOME/.codeium/**"
+        },
+        {
+          "path": "$HOME/.warp/**"
+        },
+        {
+          "path": "$HOME/.config/amp/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/**"
+        },
+        {
+          "path": "$HOME/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/**"
         }
       ]
     },

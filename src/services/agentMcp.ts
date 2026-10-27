@@ -104,7 +104,10 @@ export async function scanMcp(fs: FsPort = tauriFs): Promise<McpSnapshot> {
     try {
       const text = await fs.readText(p);
       if (agent.mcpFormat === 'json') {
-        scans[agent.id] = parseMcpServersJson(text);
+        scans[agent.id] = parseMcpServersJson(text, {
+          rootKey: agent.mcpRootKey,
+          specStyle: agent.mcpSpecStyle,
+        });
       } else {
         scans[agent.id] = parseTomlMcpServers(text);
       }
@@ -171,7 +174,10 @@ export async function distribute(
         texts[agent.id] = text;
         scans[agent.id] =
           agent.mcpFormat === 'json'
-            ? parseMcpServersJson(text || '{}')
+            ? parseMcpServersJson(text || '{}', {
+                rootKey: agent.mcpRootKey,
+                specStyle: agent.mcpSpecStyle,
+              })
             : parseTomlMcpServers(text);
       } catch (e) {
         errors[agent.id] = `读取配置失败：${errMsg(e)}`;
@@ -184,6 +190,9 @@ export async function distribute(
       const { updates, removals } = plan[agent.id];
       if (Object.keys(updates).length === 0 && removals.length === 0) continue;
       const p = await absPath(agent.mcpFile!);
+      // 配置父目录可能不存在（如 ~/.kiro/settings、VS Code globalStorage），先补建
+      const parent = p.slice(0, p.lastIndexOf('/'));
+      if (!(await fs.exists(parent))) await fs.mkdir(parent);
       try {
         const original = texts[agent.id] ?? '';
         // TOCTOU 防护：写入前再读一次，预读后被外部改动则跳过
@@ -204,6 +213,7 @@ export async function distribute(
                   ]),
                 ),
                 removals,
+                { rootKey: agent.mcpRootKey, specStyle: agent.mcpSpecStyle },
               )
             : replaceTomlServers(original, updates, removals);
         // 备份
