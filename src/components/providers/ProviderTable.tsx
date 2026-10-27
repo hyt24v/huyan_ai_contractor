@@ -148,9 +148,21 @@ export default function ProviderTable({
               </td>
               <td
                 className="max-w-[10rem] truncate px-2 py-2 font-mono text-[11px]"
-                title={p.model ?? ''}
+                title={
+                  p.models && p.models.length > 0
+                    ? `默认：${p.model || '—'}\n全部：${p.models.join(', ')}`
+                    : (p.model ?? '')
+                }
               >
                 {p.model || '—'}
+                {(() => {
+                  const extra =
+                    (p.models?.length ?? 0) -
+                    (p.model && p.models?.includes(p.model) ? 1 : 0);
+                  return extra > 0 ? (
+                    <span className="ml-1 text-muted-foreground">+{extra}</span>
+                  ) : null;
+                })()}
               </td>
               <td className="whitespace-nowrap px-2 py-2">
                 <ApiBadge api={p.api} />

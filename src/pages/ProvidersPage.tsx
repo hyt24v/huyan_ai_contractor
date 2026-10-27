@@ -10,7 +10,9 @@ import {
   RefreshCw,
   Server,
   ShieldAlert,
+  Star,
   Upload,
+  X,
 } from 'lucide-react';
 import { Toolbar, ToolbarButton, ToolbarDivider } from '../components/Toolbar';
 import ConfirmApplyDialog from '../components/ConfirmApplyDialog';
@@ -25,6 +27,7 @@ import {
   exportStoreJson,
   importStoreJson,
   maskKey,
+  normalizeModels,
   updateProvider,
   validateProvider,
   type Provider,
@@ -59,6 +62,7 @@ const emptyDraft = (): ProviderInput => ({
   baseUrl: '',
   apiKey: '',
   model: '',
+  models: [],
   api: 'openai-responses',
 });
 
@@ -68,6 +72,7 @@ const providerToDraft = (p: Provider): ProviderInput => ({
   baseUrl: p.baseUrl,
   apiKey: p.apiKey ?? '',
   model: p.model ?? '',
+  models: p.models ? [...p.models] : [],
   api: p.api ?? 'openai-responses',
 });
 
@@ -103,6 +108,7 @@ export default function ProvidersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState('');
   const [showKey, setShowKey] = useState(false);
+  const [newModel, setNewModel] = useState('');
   const [agentFilter, setAgentFilter] = useState<'all' | AgentId>('all');
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -152,6 +158,7 @@ export default function ProvidersPage() {
     setModelsList([]);
     setModelsMsg('');
     setTestMsg(null);
+    setNewModel('');
   }, []);
 
   const openEdit = useCallback((p: Provider) => {
@@ -163,9 +170,10 @@ export default function ProvidersPage() {
     setModelsList([]);
     setModelsMsg('');
     setTestMsg(null);
+    setNewModel('');
   }, []);
 
-  /** 选预设：自动填名称（未填时）+ Base URL + 建议模型（借鉴 cc-switch 预设一键添加） */
+  /** 选预设：自动填名称（未填时）+ Base URL + 建议模型并入模型列表（借鉴 cc-switch 预设一键添加） */
   const applyPreset = useCallback(
     (id: string) => {
       setPresetId(id);
@@ -176,6 +184,7 @@ export default function ProvidersPage() {
         name: draft.name || preset.name,
         baseUrl: preset.baseUrl,
         model: draft.model || preset.models[0] || '',
+        models: normalizeModels([...(draft.models ?? []), ...preset.models]) ?? [],
       });
       setTestMsg(null);
       setModelsMsg('');
@@ -207,6 +216,36 @@ export default function ProvidersPage() {
       setFetchingModels(false);
     }
   }, [draft]);
+
+  /** 表单内模型列表操作（cc-switch 式：一个服务挂多个模型，★ 为默认） */
+  const addModel = useCallback(() => {
+    if (!draft) return;
+    const name = newModel.trim();
+    setNewModel('');
+    if (!name || name.includes('\n') || (draft.models ?? []).includes(name)) return;
+    const models = [...(draft.models ?? []), name];
+    setDraft({ ...draft, models, model: draft.model || name });
+  }, [draft, newModel]);
+
+  const removeModel = useCallback(
+    (name: string) => {
+      if (!draft) return;
+      const rest = (draft.models ?? []).filter((m) => m !== name);
+      setDraft({
+        ...draft,
+        models: rest,
+        model: draft.model === name ? (rest[0] ?? '') : draft.model,
+      });
+    },
+    [draft],
+  );
+
+  const setDefaultModel = useCallback(
+    (name: string) => {
+      if (draft) setDraft({ ...draft, model: name });
+    },
+    [draft],
+  );
 
   const saveDraft = useCallback(async () => {
     if (!draft) return;
@@ -672,22 +711,77 @@ export default function ProvidersPage() {
                   ))}
                 </select>
               </label>
-              <label className="space-y-1">
-                <span className="text-xs text-muted-foreground">模型（可选）</span>
+              <div className="space-y-1.5 sm:col-span-2">
+                <span className="text-xs text-muted-foreground">
+                  模型列表（可选，一个服务可挂多个模型；★ 为默认模型）
+                </span>
+                {(draft.models ?? []).length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {(draft.models ?? []).map((m) => {
+                      const isDefault =
+                        draft.model === m ||
+                        (!draft.model && m === (draft.models ?? [])[0]);
+                      return (
+                        <span
+                          key={m}
+                          className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px]"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setDefaultModel(m)}
+                            title={isDefault ? '默认模型' : '设为默认模型'}
+                            aria-label={`将 ${m} 设为默认模型`}
+                            className="shrink-0 text-muted-foreground/60 transition-colors hover:text-primary"
+                          >
+                            <Star
+                              className={`h-3 w-3 ${isDefault ? 'fill-primary text-primary' : ''}`}
+                            />
+                          </button>
+                          <span className="max-w-52 truncate font-mono">{m}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeModel(m)}
+                            title="移除该模型"
+                            aria-label={`移除模型 ${m}`}
+                            className="shrink-0 text-muted-foreground/60 transition-colors hover:text-destructive"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
                 <div className="flex gap-1.5">
                   <input
-                    value={draft.model ?? ''}
-                    onChange={(e) => setDraft({ ...draft, model: e.target.value })}
-                    placeholder="如 claude-sonnet-4-5 / gpt-5"
+                    value={newModel}
+                    onChange={(e) => setNewModel(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                        e.preventDefault();
+                        addModel();
+                      }
+                    }}
+                    placeholder="输入模型名，Enter 或＋添加，如 claude-sonnet-4-5"
                     spellCheck={false}
                     list="provider-models"
                     className="h-8 w-full rounded-md border border-input bg-transparent px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   />
                   <button
                     type="button"
+                    onClick={addModel}
+                    disabled={!newModel.trim()}
+                    title="添加到模型列表"
+                    className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-input px-2 text-[11px] transition-colors hover:bg-accent disabled:opacity-40"
+                  >
+                    <Plus className="h-3 w-3" />
+                    添加
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => void pullModels()}
                     disabled={fetchingModels || !draft.baseUrl.trim()}
-                    title="从该供应商拉取模型列表（/v1/models）"
+                    title="从该供应商拉取模型列表（/v1/models），供输入建议"
                     className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-input px-2 text-[11px] transition-colors hover:bg-accent disabled:opacity-40"
                   >
                     {fetchingModels ? (
@@ -706,7 +800,7 @@ export default function ProvidersPage() {
                 {modelsMsg && (
                   <div className="text-[11px] text-muted-foreground">{modelsMsg}</div>
                 )}
-              </label>
+              </div>
 
               <label className="space-y-1 sm:col-span-2">
                 <span className="text-xs text-muted-foreground">API Key（可选，仅存本机）</span>
