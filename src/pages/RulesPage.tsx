@@ -1,6 +1,6 @@
 /** 规则库页面：中心库管理 + 各 agent 目标文件软链引用 */
 import { useEffect, useMemo, useState } from 'react';
-import { Download, FileText, FolderInput, History, Link2, Link2Off, Plus, Save, Trash2 } from 'lucide-react';
+import { Download, FileText, FolderInput, History, Info, Link2, Link2Off, Plus, Save, Tag, Trash2 } from 'lucide-react';
 import { agentShortName, type AgentId } from '../lib/agents';
 import { useAgents } from '../hooks/useAgents';
 import { PROMPT_TARGETS } from '../lib/agentTargets';
@@ -388,31 +388,35 @@ function RulesPage() {
         ) : (
           <>
             <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
-              <div
-                className="h-8 max-w-64 shrink-0 truncate px-1 text-sm font-medium leading-8"
-                title={`${draft.name}（名称不可修改）`}
+              <span
+                className="flex h-8 max-w-72 shrink-0 items-center gap-1.5 truncate px-1 text-sm font-medium"
+                title={`规则名称：${draft.name}（不可修改）`}
               >
-                {draft.name}
-              </div>
+                <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <span className="truncate">{draft.name}</span>
+              </span>
               {draft.tags.length > 0 && (
-                <div className="flex shrink-0 items-center gap-1">
+                <span className="flex shrink-0 items-center gap-1" title="标签（不可修改）">
+                  <Tag className="h-3 w-3 shrink-0 text-muted-foreground" />
                   {draft.tags.map((t) => (
                     <span
                       key={t}
                       className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"
-                      title="标签（不可修改）"
                     >
                       {t}
                     </span>
                   ))}
-                </div>
+                </span>
               )}
-              <Input
-                value={draft.description}
-                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-                placeholder="描述（可选）"
-                className="h-8 min-w-40 flex-1"
-              />
+              {draft.description && (
+                <span
+                  className="flex h-8 min-w-0 flex-1 items-center gap-1.5 text-xs text-muted-foreground"
+                  title={`${draft.description}（来源/描述，不可修改）`}
+                >
+                  <Info className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{draft.description}</span>
+                </span>
+              )}
               <Button size="sm" onClick={save}>
                 <Save className="mr-1 h-3.5 w-3.5" />
                 保存
