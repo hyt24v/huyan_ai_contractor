@@ -104,25 +104,58 @@ export function setAiSettings(s: AiSettings): void {
   window.dispatchEvent(new Event(SETTINGS_CHANGED_EVENT));
 }
 
-// ---------- 知识库设置 ----------
+// ---------- 知识库设置（多库） ----------
 
-const WIKI_PATH_KEY = 'huyan_tool:wiki_path';
+const WIKI_PATHS_KEY = 'huyan_tool:wiki_paths';
+const WIKI_ACTIVE_KEY = 'huyan_tool:wiki_active';
+const WIKI_LEGACY_KEY = 'huyan_tool:wiki_path';
 export const DEFAULT_WIKI_PATH = '~/Desktop/huyan_wiki';
 
-export function getWikiPath(): string {
+/** 知识库路径列表（自动从旧单路径配置迁移） */
+export function getWikiPaths(): string[] {
   try {
-    const v = window.localStorage.getItem(WIKI_PATH_KEY);
-    if (v && v.trim()) return v.trim();
+    const raw = window.localStorage.getItem(WIKI_PATHS_KEY);
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        const list = parsed.filter((x): x is string => typeof x === 'string' && !!x.trim());
+        if (list.length > 0) return list;
+      }
+    }
+    // 迁移旧单路径
+    const legacy = window.localStorage.getItem(WIKI_LEGACY_KEY);
+    if (legacy?.trim()) return [legacy.trim()];
   } catch {
     // ignore
   }
-  return DEFAULT_WIKI_PATH;
+  return [DEFAULT_WIKI_PATH];
 }
 
-export function setWikiPath(p: string): void {
+export function setWikiPaths(paths: string[]): void {
   try {
-    if (p.trim()) window.localStorage.setItem(WIKI_PATH_KEY, p.trim());
-    else window.localStorage.removeItem(WIKI_PATH_KEY);
+    const clean = paths.map((p) => p.trim()).filter(Boolean);
+    window.localStorage.setItem(WIKI_PATHS_KEY, JSON.stringify(clean.length ? clean : [DEFAULT_WIKI_PATH]));
+  } catch {
+    // ignore
+  }
+  window.dispatchEvent(new Event(SETTINGS_CHANGED_EVENT));
+}
+
+/** 当前选中的知识库（必须存在于列表，否则取第一个） */
+export function getActiveWikiPath(): string {
+  const list = getWikiPaths();
+  try {
+    const v = window.localStorage.getItem(WIKI_ACTIVE_KEY);
+    if (v && list.includes(v)) return v;
+  } catch {
+    // ignore
+  }
+  return list[0];
+}
+
+export function setActiveWikiPath(p: string): void {
+  try {
+    window.localStorage.setItem(WIKI_ACTIVE_KEY, p);
   } catch {
     // ignore
   }

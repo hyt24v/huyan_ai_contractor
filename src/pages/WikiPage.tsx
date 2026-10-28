@@ -11,8 +11,13 @@ import {
   Search,
   Tag,
 } from 'lucide-react';
-import { tauriFs } from '../lib/fsPort';
-import { getWikiPath, onSettingsChanged } from '../lib/settings';
+import { rawFs, tauriFs, type FsPort } from '../lib/fsPort';
+import {
+  getActiveWikiPath,
+  getWikiPaths,
+  onSettingsChanged,
+  setActiveWikiPath,
+} from '../lib/settings';
 import {
   resolveWikiPath,
   scanWiki,
@@ -38,7 +43,9 @@ function confidenceClass(c?: number): string {
 
 export default function WikiPage() {
   const { toast, showToast } = useToast();
-  const [wikiPath, setWikiPathState] = useState(getWikiPath());
+  const [libs, setLibs] = useState<string[]>(getWikiPaths());
+  const [wikiPath, setWikiPathState] = useState(getActiveWikiPath());
+  const [readOnly, setReadOnly] = useState(false);
   const [scan, setScan] = useState<WikiScan | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -62,12 +69,27 @@ export default function WikiPage() {
     setError('');
     try {
       const root = await resolveWikiPath(path);
-      if (!(await tauriFs.exists(`${root}/wiki`))) {
+      let fs: FsPort = tauriFs;
+      let ro = false;
+      let found = false;
+      try {
+        found = await tauriFs.exists(`${root}/wiki`);
+      } catch {
+        found = false; // plugin-fs 无授权
+      }
+      if (!found && (await rawFs.exists(`${root}/wiki`))) {
+        fs = rawFs;
+        ro = true; // 授权范围外：只读降级
+        found = true;
+      }
+      if (!found) {
         setScan(null);
+        setReadOnly(false);
         setError(`未找到知识库目录：${root}/wiki（可在 设置 → 知识库 修改路径）`);
         return;
       }
-      setScan(await scanWiki(root));
+      setReadOnly(ro);
+      setScan(await scanWiki(root, fs));
     } catch (e) {
       setError(`扫描失败：${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -76,13 +98,16 @@ export default function WikiPage() {
   }, []);
 
   useEffect(() => {
-    void refresh(getWikiPath());
+    void refresh(getActiveWikiPath());
     return onSettingsChanged(() => {
-      const p = getWikiPath();
+      setLibs(getWikiPaths());
+      const p = getActiveWikiPath();
       setWikiPathState(p);
       void refresh(p);
     });
   }, [refresh]);
+
+  const activeFs = readOnly ? rawFs : tauriFs;
 
   const articles = useMemo(() => {
     if (!scan) return [];
@@ -95,8 +120,8 @@ export default function WikiPage() {
     async (a: WikiArticle) => {
       if (dirty && !window.confirm('当前文章有未保存的修改，切换将丢弃，继续？')) return;
       try {
-        const root = await resolveWikiPath(getWikiPath());
-        const text = await tauriFs.readText(`${root}/wiki/${a.relPath}`);
+        const root = await resolveWikiPath(wikiPath);
+        const text = await activeFs.readText(`${root}/wiki/${a.relPath}`);
         setSelected(a);
         setFmRaw(parseFrontmatter(text).raw);
         setBody(stripFrontmatter(text));
@@ -106,26 +131,34 @@ export default function WikiPage() {
         showToast(`读取失败：${e instanceof Error ? e.message : String(e)}`, 'err');
       }
     },
-    [dirty, showToast],
+    [dirty, showToast, wikiPath, activeFs],
   );
 
   const save = useCallback(async () => {
     if (!selected) return;
+    if (readOnly) {
+      showToast('该知识库未获写入授权，仅可浏览', 'err');
+      return;
+    }
     try {
-      const root = await resolveWikiPath(getWikiPath());
+      const root = await resolveWikiPath(wikiPath);
       await tauriFs.writeText(`${root}/wiki/${selected.relPath}`, fmRaw + body);
       setDirty(false);
       showToast('已保存（index/log 簿记由 wiki agent 维护）');
-      await refresh(getWikiPath());
+      await refresh(wikiPath);
     } catch (e) {
       showToast(`保存失败：${e instanceof Error ? e.message : String(e)}`, 'err');
     }
-  }, [selected, fmRaw, body, refresh, showToast]);
+  }, [selected, readOnly, wikiPath, fmRaw, body, refresh, showToast]);
 
   const toggleArchive = useCallback(async () => {
     if (!selected) return;
+    if (readOnly) {
+      showToast('该知识库未获写入授权，仅可浏览', 'err');
+      return;
+    }
     try {
-      const root = await resolveWikiPath(getWikiPath());
+      const root = await resolveWikiPath(wikiPath);
       const path = `${root}/wiki/${selected.relPath}`;
       const text = await tauriFs.readText(path);
       const fm = parseFrontmatter(text);
@@ -140,11 +173,11 @@ export default function WikiPage() {
       await tauriFs.writeText(path, next);
       showToast(selected.archived ? '已取消归档' : '已归档（不物理删除，遵守 wiki 规范）');
       setSelected(null);
-      await refresh(getWikiPath());
+      await refresh(wikiPath);
     } catch (e) {
       showToast(`操作失败：${e instanceof Error ? e.message : String(e)}`, 'err');
     }
-  }, [selected, refresh, showToast]);
+  }, [selected, readOnly, wikiPath, refresh, showToast]);
 
   const createArticle = useCallback(async () => {
     const t = newTopic.trim();
@@ -153,8 +186,12 @@ export default function WikiPage() {
       showToast('主题和标题不能为空', 'err');
       return;
     }
+    if (readOnly) {
+      showToast('该知识库未获写入授权，仅可浏览', 'err');
+      return;
+    }
     try {
-      const root = await resolveWikiPath(getWikiPath());
+      const root = await resolveWikiPath(wikiPath);
       const dir = `${root}/wiki/${t}`;
       const path = `${dir}/${title}.md`;
       if (await tauriFs.exists(path)) {
@@ -170,11 +207,11 @@ export default function WikiPage() {
       setCreateOpen(false);
       setNewTitle('');
       showToast(`已创建 ${t}/${title}.md`);
-      await refresh(getWikiPath());
+      await refresh(wikiPath);
     } catch (e) {
       showToast(`创建失败：${e instanceof Error ? e.message : String(e)}`, 'err');
     }
-  }, [newTopic, newTitle, refresh, showToast]);
+  }, [newTopic, newTitle, readOnly, wikiPath, refresh, showToast]);
 
   const modeBtn = (m: EditMode, label: string) => (
     <button
@@ -201,6 +238,21 @@ export default function WikiPage() {
         <span className="text-[11px] text-muted-foreground">
           {scan ? `${scan.articles.length} 篇 · ${scan.topics.length} 主题 · ${scan.canvases.length} 画布` : wikiPath}
         </span>
+        <select
+          value={wikiPath}
+          onChange={(e) => setActiveWikiPath(e.target.value)}
+          className="h-7 max-w-40 rounded-md border border-border bg-background px-1.5 text-xs"
+          title={wikiPath}
+        >
+          {libs.map((p) => (
+            <option key={p} value={p}>
+              {p.split('/').filter(Boolean).pop()}
+            </option>
+          ))}
+        </select>
+        {readOnly && (
+          <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] text-warning">只读</span>
+        )}
         <div className="flex-1" />
         <div className="relative">
           <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -211,7 +263,12 @@ export default function WikiPage() {
             className="h-7 w-56 pl-7 text-xs"
           />
         </div>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
+        <Button
+          size="sm"
+          onClick={() => setCreateOpen(true)}
+          disabled={readOnly}
+          title={readOnly ? '该知识库未获写入授权' : undefined}
+        >
           <FilePlus2 className="h-3.5 w-3.5" /> 新建文章
         </Button>
       </div>
