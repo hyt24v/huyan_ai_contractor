@@ -103,3 +103,28 @@ export function setAiSettings(s: AiSettings): void {
   }
   window.dispatchEvent(new Event(SETTINGS_CHANGED_EVENT));
 }
+
+// ---------- 知识库设置 ----------
+
+const WIKI_PATH_KEY = 'huyan_tool:wiki_path';
+export const DEFAULT_WIKI_PATH = '~/Desktop/huyan_wiki';
+
+export function getWikiPath(): string {
+  try {
+    const v = window.localStorage.getItem(WIKI_PATH_KEY);
+    if (v && v.trim()) return v.trim();
+  } catch {
+    // ignore
+  }
+  return DEFAULT_WIKI_PATH;
+}
+
+export function setWikiPath(p: string): void {
+  try {
+    if (p.trim()) window.localStorage.setItem(WIKI_PATH_KEY, p.trim());
+    else window.localStorage.removeItem(WIKI_PATH_KEY);
+  } catch {
+    // ignore
+  }
+  window.dispatchEvent(new Event(SETTINGS_CHANGED_EVENT));
+}

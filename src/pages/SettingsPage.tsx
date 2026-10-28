@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import {
   ArrowUpCircle,
+  BookOpen,
   Bot,
   Database,
   Info,
@@ -17,6 +18,7 @@ import AgentsSection from '../components/settings/AgentsSection';
 import AiSection from '../components/settings/AiSection';
 import NavSection from '../components/settings/NavSection';
 import DataSection from '../components/settings/DataSection';
+import WikiSection from '../components/settings/WikiSection';
 import AboutSection from '../components/settings/AboutSection';
 
 interface SectionDef {
@@ -32,6 +34,7 @@ const SECTIONS: SectionDef[] = [
   { id: 'updates', name: '软件更新', icon: ArrowUpCircle, element: UpdatesSection },
   { id: 'agents', name: 'Agent 管理', icon: Bot, element: AgentsSection },
   { id: 'ai', name: 'AI 助手', icon: Sparkles, element: AiSection },
+  { id: 'wiki', name: '知识库', icon: BookOpen, element: WikiSection },
   { id: 'data', name: '数据与备份', icon: Database, element: DataSection },
   { id: 'about', name: '关于', icon: Info, element: AboutSection },
 ];

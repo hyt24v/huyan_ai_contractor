@@ -379,6 +379,9 @@
         },
         {
           "path": "$HOME/.kode.json"
+        },
+        {
+          "path": "$HOME/Desktop/huyan_wiki/**"
         }
       ]
     },
@@ -747,6 +750,9 @@
         },
         {
           "path": "$HOME/.kode.json"
+        },
+        {
+          "path": "$HOME/Desktop/huyan_wiki/**"
         }
       ]
     },
@@ -1154,6 +1160,12 @@
         },
         {
           "path": "$HOME/.snowflake/**"
+        },
+        {
+          "path": "$HOME/Desktop/huyan_wiki"
+        },
+        {
+          "path": "$HOME/Desktop/huyan_wiki/**"
         }
       ]
     },
@@ -1576,6 +1588,12 @@
         },
         {
           "path": "$HOME/.kode.json"
+        },
+        {
+          "path": "$HOME/Desktop/huyan_wiki"
+        },
+        {
+          "path": "$HOME/Desktop/huyan_wiki/**"
         }
       ]
     },
@@ -1989,6 +2007,12 @@
         },
         {
           "path": "$HOME/.snowflake/**"
+        },
+        {
+          "path": "$HOME/Desktop/huyan_wiki"
+        },
+        {
+          "path": "$HOME/Desktop/huyan_wiki/**"
         }
       ]
     },
