@@ -136,10 +136,19 @@ export async function buildSkillCatalog(
   };
 }
 
+/** 上次扫描结果的内存缓存（页面切回时先秒开旧数据，后台再重扫更新） */
+let lastScan: SkillCatalogScan | null = null;
+
+export function peekSkillCatalogScan(): SkillCatalogScan | null {
+  return lastScan;
+}
+
 /** 扫描一次并生成目录（页面刷新入口） */
 export async function scanSkillCatalog(fs: FsPort = tauriFs): Promise<SkillCatalogScan> {
   const snapshot = await scanAll(fs);
-  return { snapshot, catalog: await buildSkillCatalog(snapshot, fs) };
+  const scan: SkillCatalogScan = { snapshot, catalog: await buildSkillCatalog(snapshot, fs) };
+  if (fs === tauriFs) lastScan = scan;
+  return scan;
 }
 
 /** 读取某个 skill 的 SKILL.md 原始内容（详情抽屉预览用） */

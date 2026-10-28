@@ -89,7 +89,7 @@ import {
   skillGitStatus,
   updateSkillFromGit,
 } from '../services/agentSkills';
-import { scanSkillCatalog } from '../services/skillCatalog';
+import { peekSkillCatalogScan, scanSkillCatalog } from '../services/skillCatalog';
 import { auditSnapshot } from '../services/skillAudit';
 import { listCurated, searchRepos } from '../services/skillRegistry';
 import {
@@ -299,8 +299,11 @@ export default function SkillsManagerPage() {
   const agentIds = agents.map((a) => a.id);
   // 只用于审计按钮的可用性判断，不需要保留快照本体
   const [snapReady, setSnapReady] = useState(false);
-  const [catalog, setCatalog] = useState<SkillCatalog | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [catalog, setCatalog] = useState<SkillCatalog | null>(
+    () => peekSkillCatalogScan()?.catalog ?? null,
+  );
+  // 有缓存则先展示缓存、后台静默重扫；无缓存才显示加载态
+  const [loading, setLoading] = useState(() => peekSkillCatalogScan() == null);
   const [error, setError] = useState('');
   const { toast, showToast } = useToast(3200);
   const [busy, setBusy] = useState(false);

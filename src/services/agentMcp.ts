@@ -101,6 +101,13 @@ export async function saveManifest(
 }
 
 /** 扫描各 agent 配置 → 与现有清单合并（清单已有的保留其 agents 勾选） */
+/** 上次扫描快照的内存缓存（页面切回时秒开，后台重扫更新） */
+let lastSnapshot: McpSnapshot | null = null;
+
+export function peekMcpSnapshot(): McpSnapshot | null {
+  return lastSnapshot;
+}
+
 export async function scanMcp(fs: FsPort = tauriFs): Promise<McpSnapshot> {
   const manifest = await loadManifest(fs);
   const scans: Partial<Record<AgentId, { servers: Record<string, McpServerSpec>; enabled: Record<string, boolean> }>> = {};
@@ -152,7 +159,14 @@ export async function scanMcp(fs: FsPort = tauriFs): Promise<McpSnapshot> {
       ? { ...s, agents: { ...s.agents, ...existing.agents } }
       : s;
   });
-  return { manifest: { servers }, current, installed: await detectInstalledAgents(fs), errors };
+  const snapshot: McpSnapshot = {
+    manifest: { servers },
+    current,
+    installed: await detectInstalledAgents(fs),
+    errors,
+  };
+  if (fs === tauriFs) lastSnapshot = snapshot;
+  return snapshot;
 }
 
 /** 每个配置文件最多保留的 .bak 份数（快照体系之外的轻量兜底，防只增不减） */

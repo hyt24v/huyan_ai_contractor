@@ -8,7 +8,7 @@ import { useAgents } from '../hooks/useAgents';
 import { snapshotDisplayTime, type SnapshotRecord } from '../lib/backups';
 import { joinArgs, splitArgs, type CentralManifest, type CentralServer } from '../lib/mcp';
 import { computeMcpDiff, type McpDiff, type PerAgentServers } from '../lib/mcpDiff';
-import { distribute, loadManifest, saveManifest, scanMcp } from '../services/agentMcp';
+import { distribute, loadManifest, peekMcpSnapshot, saveManifest, scanMcp } from '../services/agentMcp';
 import {
   createSnapshot,
   listSnapshots,
@@ -116,15 +116,20 @@ export default function McpManagerPage() {
   // 会使 refresh 的 useCallback 依赖失效 → useEffect 每次渲染都重跑 → 无限扫描循环，
   // 表现为勾选框点了立即被重置、主线程被扫描占满
   const mcpAgents = useMemo(() => agents.filter(hasMcpSupport), [agents]);
-  const [manifest, setManifest] = useState<CentralManifest | null>(null);
+  const [manifest, setManifest] = useState<CentralManifest | null>(
+    () => peekMcpSnapshot()?.manifest ?? null,
+  );
   const [error, setError] = useState('');
-  const [scanErrors, setScanErrors] = useState<Record<string, string>>({});
+  // 有缓存快照先展示（页面切回秒开），后台 refresh 再校正
+  const [scanErrors, setScanErrors] = useState<Record<string, string>>(
+    () => peekMcpSnapshot()?.errors ?? {},
+  );
   const { toast, showToast } = useToast(2500);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<EditDraft | null>(null);
   const [dirty, setDirty] = useState(false);
-  const [current, setCurrent] = useState<PerAgentServers>({});
-  const [installed, setInstalled] = useState<AgentId[]>([]);
+  const [current, setCurrent] = useState<PerAgentServers>(() => peekMcpSnapshot()?.current ?? {});
+  const [installed, setInstalled] = useState<AgentId[]>(() => peekMcpSnapshot()?.installed ?? []);
   const [diff, setDiff] = useState<McpDiff | null>(null);
   const [driftCount, setDriftCount] = useState(0);
   const [historyOpen, setHistoryOpen] = useState(false);
