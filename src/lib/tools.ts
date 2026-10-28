@@ -1,7 +1,6 @@
 import {
   Braces,
   Cable,
-  FileText,
   Layers,
   PenLine,
   Puzzle,
@@ -22,7 +21,6 @@ export const TOOLS: ToolDef[] = [
   { path: '/markdown', name: 'Markdown', icon: PenLine, group: '编辑器' },
   { path: '/skills', name: 'Skills 管理', icon: Puzzle, group: '管理' },
   { path: '/mcp', name: 'MCP 管理', icon: Cable, group: '管理' },
-  { path: '/prompts', name: '提示词', icon: FileText, group: '管理' },
   { path: '/rules', name: '规则库', icon: ScrollText, group: '管理' },
   { path: '/profiles', name: '配置套餐', icon: Layers, group: '管理' },
   { path: '/providers', name: '模型服务', icon: Server, group: '管理' },

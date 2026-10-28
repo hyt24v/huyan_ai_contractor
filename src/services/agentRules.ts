@@ -1,15 +1,19 @@
 /** 规则库服务：中心库读写 + 各 agent 规则文件软链管理 */
 import type { AgentId } from '../lib/agents';
-import { promptTargetFile } from '../lib/agentTargets';
+import { promptTargetFile, PROMPT_TARGETS } from '../lib/agentTargets';
 import { absPath, tauriFs, type FsPort } from '../lib/fsPort';
 import {
+  currentVersionId,
   emptyRulesLibrary,
   normalizeRule,
   parseRulesLibrary,
   ruleCentralFileName,
+  ruleHistoryRelPath,
   serializeRulesLibrary,
+  versionMetaOf,
   type RuleEntry,
   type RulesLibrary,
+  type RuleVersionMeta,
 } from '../lib/rules';
 
 const CENTRAL_DIR = '.ai-baogongtou';
@@ -104,9 +108,14 @@ export async function linkRuleToAgent(
       if (link === central) return { agent, file: rel, status: 'unchanged' };
       await fs.remove(target, false); // 软链可直接删
     } else if (await fs.exists(target)) {
-      // 真实文件：内容相同视为已链接（不动），不同则拒绝覆盖
+      // 真实文件：内容相同 → 备份后收养为软链（行为不变）；不同则拒绝覆盖
       const existing = await fs.readText(target);
-      if (existing === content) return { agent, file: rel, status: 'unchanged' };
+      if (existing === content) {
+        await backupTarget(agent, existing, fs);
+        await fs.remove(target, false);
+        await fs.symlink(central, target);
+        return { agent, file: rel, status: 'linked' };
+      }
       return {
         agent,
         file: rel,
@@ -149,14 +158,42 @@ export async function saveRule(
 ): Promise<RulesLibrary> {
   const lib = await loadRulesLibrary(fs);
   const now = new Date().toISOString();
-  const next = normalizeRule({ ...rule, updatedAt: now });
-  const idx = lib.rules.findIndex((r) => r.id === next.id);
+  const idx = lib.rules.findIndex((r) => r.id === rule.id);
+  const prev = idx >= 0 ? lib.rules[idx] : null;
+  // 内容变化 → 自动记一个版本快照（当前内容 = 最新一版）
+  let versions: RuleVersionMeta[] = rule.versions ?? [];
+  const contentChanged = prev !== null && prev.content !== rule.content;
+  if (contentChanged) {
+    versions = [...versions, versionMetaOf(rule.content, now)];
+  }
+  const next = normalizeRule({ ...rule, updatedAt: now, versions });
   // 中心库文件先落盘（软链目标），再更新索引
   const central = await ruleCentralPath(next.id, fs);
   const content = next.content.endsWith('\n') ? next.content : `${next.content}\n`;
   const existingCentral = (await fs.exists(central)) ? await fs.readText(central) : null;
   if (existingCentral !== content) {
     await fs.writeText(central, content);
+  }
+  if (contentChanged) {
+    // 历史快照落盘（best-effort，失败不阻塞保存）
+    try {
+      const meta = versions[versions.length - 1];
+      const histAbs = `${await rulesDirPath(fs)}/${ruleHistoryRelPath(next.id, meta.id)}`;
+      const histDir = histAbs.slice(0, histAbs.lastIndexOf('/'));
+      if (!(await fs.exists(histDir))) await fs.mkdir(histDir);
+      await fs.writeText(histAbs, content);
+      // 版本上限 50：裁剪最旧的快照文件
+      const overflow = next.versions.slice(0, Math.max(0, next.versions.length - 50));
+      for (const old of overflow) {
+        const p = `${await rulesDirPath(fs)}/${ruleHistoryRelPath(next.id, old.id)}`;
+        if (await fs.exists(p)) await fs.remove(p, false);
+      }
+      if (overflow.length > 0) {
+        next.versions = next.versions.slice(-50);
+      }
+    } catch {
+      // 快照失败不影响主保存
+    }
   }
   const rules = idx >= 0 ? lib.rules.map((r, i) => (i === idx ? next : r)) : [...lib.rules, next];
   const nextLib: RulesLibrary = { version: 1, rules };
@@ -199,8 +236,15 @@ export async function setRuleAgentEnabled(
   if (enabled) {
     const r = await linkRuleToAgent(next, agent, fs);
     if (r.status === 'error') throw new Error(r.error);
+    next.syncs = {
+      ...next.syncs,
+      [agent]: { version: currentVersionId(next) ?? next.updatedAt, at: new Date().toISOString() },
+    };
   } else {
     await unlinkRuleFromAgent(next, agent, fs);
+    const syncs = { ...next.syncs };
+    delete syncs[agent];
+    next.syncs = syncs;
   }
   const nextLib: RulesLibrary = {
     version: 1,
@@ -219,10 +263,49 @@ export async function syncRule(id: string, fs: FsPort = tauriFs): Promise<RuleSy
     .filter(([, v]) => v)
     .map(([k]) => k);
   const results: RuleSyncResult[] = [];
+  const syncs = { ...rule.syncs };
+  const now = new Date().toISOString();
+  const ver = currentVersionId(rule) ?? rule.updatedAt;
   for (const t of targets) {
-    results.push(await linkRuleToAgent(rule, t, fs));
+    const r = await linkRuleToAgent(rule, t, fs);
+    results.push(r);
+    if (r.status !== 'error') syncs[t] = { version: ver, at: now };
   }
+  const next = normalizeRule({ ...rule, syncs });
+  const nextLib: RulesLibrary = {
+    version: 1,
+    rules: lib.rules.map((r) => (r.id === id ? next : r)),
+  };
+  await saveRulesLibrary(nextLib, fs);
   return results;
+}
+
+/** 历史版本列表（新的在前） */
+export function listRuleVersions(rule: RuleEntry): RuleVersionMeta[] {
+  return [...rule.versions].reverse();
+}
+
+/** 读取某个历史版本的内容 */
+export async function readRuleVersion(
+  ruleId: string,
+  versionId: string,
+  fs: FsPort = tauriFs,
+): Promise<string> {
+  const p = `${await rulesDirPath(fs)}/${ruleHistoryRelPath(ruleId, versionId)}`;
+  return fs.readText(p);
+}
+
+/** 回滚到某个历史版本（内容读出来后走 saveRule，会再记一个新版本，非破坏性） */
+export async function restoreRuleVersion(
+  ruleId: string,
+  versionId: string,
+  fs: FsPort = tauriFs,
+): Promise<RulesLibrary> {
+  const lib = await loadRulesLibrary(fs);
+  const rule = lib.rules.find((r) => r.id === ruleId);
+  if (!rule) throw new Error(`规则不存在：${ruleId}`);
+  const content = await readRuleVersion(ruleId, versionId, fs);
+  return saveRule({ ...rule, content }, fs);
 }
 
 /** 读取 agent 当前规则文件内容（软链穿透读中心库内容；不存在返回 null） */
@@ -319,6 +402,59 @@ export async function importProjectRule(
   });
   await saveRule(rule, libFs);
   return rule;
+}
+
+// —— 提示词页并入：导入各 agent 现有的提示词文件 ——
+
+export interface ImportPromptsResult {
+  imported: string[];
+  skipped: string[];
+  empty: string[];
+  failed: Array<{ agent: string; error: string }>;
+}
+
+/**
+ * 扫描所有可写 agent 的现有提示词文件，导入为中心库规则并收养为软链。
+ * 幂等：内容已存在于库中的跳过。
+ */
+export async function importExistingAgentPrompts(fs: FsPort = tauriFs): Promise<ImportPromptsResult> {
+  const result: ImportPromptsResult = { imported: [], skipped: [], empty: [], failed: [] };
+  const knownContents = new Set<string>();
+  try {
+    const lib = await loadRulesLibrary(fs);
+    for (const r of lib.rules) knownContents.add(r.content.trim());
+  } catch {
+    // 空库
+  }
+  for (const t of PROMPT_TARGETS) {
+    if (!t.writable || !t.file) continue;
+    try {
+      const content = await readRuleTarget(t.agent, fs);
+      if (!content || !content.trim()) {
+        result.empty.push(t.agent);
+        continue;
+      }
+      if (knownContents.has(content.trim())) {
+        result.skipped.push(t.agent);
+        continue;
+      }
+      const rule = normalizeRule({
+        id: `rule-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+        name: `${t.label} 提示词`,
+        content: content.replace(/\n+$/, ''),
+        tags: ['agent 提示词'],
+        description: `导入自 ~/${t.file}`,
+        agents: {},
+      });
+      await saveRule(rule, fs);
+      await setRuleAgentEnabled(rule.id, t.agent, true, fs);
+      knownContents.add(content.trim());
+      result.imported.push(t.agent);
+    } catch (e) {
+      result.failed.push({ agent: t.agent, error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  return result;
 }
 
 export { backupTarget };
