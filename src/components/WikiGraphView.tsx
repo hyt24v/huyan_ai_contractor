@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Maximize, RotateCcw, Search, ZoomIn, ZoomOut } from 'lucide-react';
+import { Maximize, RotateCcw, Search, SlidersHorizontal, ZoomIn, ZoomOut } from 'lucide-react';
 import type { WikiGraph, WikiEntity, WikiRelation } from '../lib/wikiGraph';
 import { entityTypeColor } from '../lib/wikiGraph';
 import { Button } from './ui/controls';
 
 // ════════════════════════════════════════════════════════════════════════════
-// d3-force 风格力导向模拟（保证收敛：alpha 指数衰减到 alphaMin 后硬停）
+// d3-force 风格力导向模拟（alpha 指数衰减到 alphaMin 后硬停，保证收敛）
 // ════════════════════════════════════════════════════════════════════════════
 
 const ALPHA_INITIAL = 1.0;
@@ -13,12 +13,23 @@ const ALPHA_MIN = 0.001;
 const ALPHA_DECAY = 0.0228;
 const ALPHA_TARGET = 0;
 const VELOCITY_DECAY = 0.4;
-const CHARGE = -400;
-const LINK_DIST = 100;
-const LINK_STRENGTH = 0.08;
-const CENTER_GRAVITY = 0.06;
 const COLLIDE_RADIUS = 28;
 const MAX_VELOCITY = 15;
+const LABEL_FADE_K = 0.45; // 缩放低于此值隐藏标签
+
+export interface ForceParams {
+  charge: number; // 排斥力（负值）
+  linkDist: number; // 弹簧距离
+  linkStrength: number; // 弹簧强度
+  centerGravity: number; // 中心引力
+}
+
+const DEFAULT_FORCES: ForceParams = {
+  charge: -400,
+  linkDist: 100,
+  linkStrength: 0.08,
+  centerGravity: 0.06,
+};
 
 interface SimNode {
   id: string;
@@ -26,7 +37,7 @@ interface SimNode {
   y: number;
   vx: number;
   vy: number;
-  fx?: number; // 拖拽固定位置
+  fx?: number;
   fy?: number;
 }
 
@@ -40,35 +51,23 @@ interface SimState {
 }
 
 function initSimState(graph: WikiGraph): SimState {
-  // 初始位置：围绕原点的圆形随机分布（避免全部挤在 0,0）
   const nodes: SimNode[] = graph.entities.map((e, i) => {
-    const angle = (2 * Math.PI * i) / graph.entities.length;
+    const angle = (2 * Math.PI * i) / Math.max(1, graph.entities.length);
     const r = 50 + Math.random() * 150;
-    return {
-      id: e.id,
-      x: r * Math.cos(angle),
-      y: r * Math.sin(angle),
-      vx: 0,
-      vy: 0,
-    };
+    return { id: e.id, x: r * Math.cos(angle), y: r * Math.sin(angle), vx: 0, vy: 0 };
   });
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
   const edges = graph.relations
     .filter((r) => nodeMap.has(r.from) && nodeMap.has(r.to))
-    .map((r) => ({
-      source: nodeMap.get(r.from)!,
-      target: nodeMap.get(r.to)!,
-      relation: r,
-    }));
+    .map((r) => ({ source: nodeMap.get(r.from)!, target: nodeMap.get(r.to)!, relation: r }));
   return { nodes, nodeMap, edges, alpha: ALPHA_INITIAL, running: true, frame: 0 };
 }
 
-/** 单步模拟 tick（d3-force 模型） */
-function simTick(sim: SimState): void {
+function simTick(sim: SimState, f: ForceParams): void {
   const { nodes, edges, alpha } = sim;
 
-  // 1. Many-body 排斥（O(n²)，264 节点可接受）
-  const chargeForce = CHARGE * alpha;
+  // 1. Many-body 排斥（charge 为负，-= 得排斥）
+  const chargeForce = f.charge * alpha;
   for (let i = 0; i < nodes.length; i++) {
     const a = nodes[i];
     for (let j = i + 1; j < nodes.length; j++) {
@@ -77,11 +76,11 @@ function simTick(sim: SimState): void {
       let dy = a.y - b.y;
       let d2 = dx * dx + dy * dy;
       if (d2 < 1) { d2 = 1; dx = Math.random() - 0.5; dy = Math.random() - 0.5; }
-      const f = chargeForce / d2; // chargeForce 为负 → 用 -= 得排斥（方向背离对方）
-      a.vx -= dx * f;
-      a.vy -= dy * f;
-      b.vx += dx * f;
-      b.vy += dy * f;
+      const fr = chargeForce / d2;
+      a.vx -= dx * fr;
+      a.vy -= dy * fr;
+      b.vx += dx * fr;
+      b.vy += dy * fr;
     }
   }
 
@@ -90,21 +89,21 @@ function simTick(sim: SimState): void {
     const dx = t.x - s.x;
     const dy = t.y - s.y;
     const d = Math.sqrt(dx * dx + dy * dy) || 1;
-    const f = ((d - LINK_DIST) / d) * LINK_STRENGTH * alpha;
-    s.vx += dx * f;
-    s.vy += dy * f;
-    t.vx -= dx * f;
-    t.vy -= dy * f;
+    const fs = ((d - f.linkDist) / d) * f.linkStrength * alpha;
+    s.vx += dx * fs;
+    s.vy += dy * fs;
+    t.vx -= dx * fs;
+    t.vy -= dy * fs;
   }
 
   // 3. 向心力
-  const cg = CENTER_GRAVITY * alpha;
+  const cg = f.centerGravity * alpha;
   for (const n of nodes) {
     n.vx -= n.x * cg;
     n.vy -= n.y * cg;
   }
 
-  // 4. 碰撞检测
+  // 4. 碰撞
   const cr2 = COLLIDE_RADIUS * COLLIDE_RADIUS;
   for (let i = 0; i < nodes.length; i++) {
     for (let j = i + 1; j < nodes.length; j++) {
@@ -115,7 +114,7 @@ function simTick(sim: SimState): void {
       const d2 = dx * dx + dy * dy;
       if (d2 < cr2 && d2 > 0.01) {
         const d = Math.sqrt(d2);
-        const push = (COLLIDE_RADIUS - d) / d * 0.5 * alpha;
+        const push = ((COLLIDE_RADIUS - d) / d) * 0.5 * alpha;
         a.vx -= dx * push;
         a.vy -= dy * push;
         b.vx += dx * push;
@@ -157,7 +156,12 @@ export function WikiGraphView({
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const [selected, setSelected] = useState<WikiEntity | null>(null);
   const [selectedRelation, setSelectedRelation] = useState<WikiRelation | null>(null);
+  const [hoverId, setHoverId] = useState<string | null>(null);
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
+  const [hideOrphans, setHideOrphans] = useState(false);
+  const [localDepth, setLocalDepth] = useState<0 | 1 | 2>(0); // 0=全局 1/2=局部图谱
+  const [showForces, setShowForces] = useState(false);
+  const [forces, setForces] = useState<ForceParams>(DEFAULT_FORCES);
   const [q, setQ] = useState('');
   const [, setTick] = useState(0);
   const dragNodeRef = useRef<string | null>(null);
@@ -165,18 +169,20 @@ export function WikiGraphView({
   const panningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0 });
 
+  const forcesRef = useRef(forces);
+  forcesRef.current = forces;
+
   // ── 模拟状态 ──
   const simRef = useRef<SimState | null>(null);
   const rafRef = useRef(0);
 
-  // 初始化/重建模拟
   useEffect(() => {
-    simRef.current = initSimState(graph);
+    const sim = initSimState(graph);
+    simRef.current = sim;
     dragNodeRef.current = null;
-    // 立即运行模拟直到收敛（无动画直接算到停）
-    const sim = simRef.current;
+    // 预计算到收敛（无动画直接出稳定布局）
     while (sim.alpha > ALPHA_MIN && sim.frame < 400) {
-      simTick(sim);
+      simTick(sim, forcesRef.current);
       sim.alpha += (ALPHA_TARGET - sim.alpha) * ALPHA_DECAY;
       sim.frame++;
     }
@@ -185,7 +191,6 @@ export function WikiGraphView({
     return () => cancelAnimationFrame(rafRef.current);
   }, [graph]);
 
-  // 加热模拟（拖拽后调用）
   const reheat = useCallback((target: number) => {
     const sim = simRef.current;
     if (!sim) return;
@@ -193,18 +198,18 @@ export function WikiGraphView({
     sim.running = true;
   }, []);
 
-  // 模拟循环（仅在有交互时运行）
   useEffect(() => {
     const loop = () => {
       const sim = simRef.current;
-      if (!sim) return;
-      if (sim.running && sim.alpha > ALPHA_MIN) {
-        simTick(sim);
-        sim.alpha += (ALPHA_TARGET - sim.alpha) * ALPHA_DECAY;
-        sim.frame++;
-        setTick((t) => t + 1);
-      } else if (sim.running) {
-        sim.running = false; // 收敛停止
+      if (sim) {
+        if (sim.running && sim.alpha > ALPHA_MIN) {
+          simTick(sim, forcesRef.current);
+          sim.alpha += (ALPHA_TARGET - sim.alpha) * ALPHA_DECAY;
+          sim.frame++;
+          setTick((t) => t + 1);
+        } else if (sim.running) {
+          sim.running = false;
+        }
       }
       rafRef.current = requestAnimationFrame(loop);
     };
@@ -214,12 +219,11 @@ export function WikiGraphView({
 
   const sim = simRef.current;
   const positions = useMemo(() => {
-    if (!sim) return new Map<string, { x: number; y: number }>();
     const m = new Map<string, { x: number; y: number }>();
-    for (const n of sim.nodes) m.set(n.id, { x: n.x, y: n.y });
+    if (sim) for (const n of sim.nodes) m.set(n.id, { x: n.x, y: n.y });
     return m;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sim, sim?.frame]); // sim.frame 变化触发重新读取
+  }, [sim, sim?.frame]);
 
   const entityById = useMemo(() => {
     const m = new Map<string, WikiEntity>();
@@ -227,7 +231,6 @@ export function WikiGraphView({
     return m;
   }, [graph]);
 
-  // 连接数（节点大小）
   const connCount = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of graph.relations) {
@@ -248,9 +251,43 @@ export function WikiGraphView({
     return [...counts.entries()].sort((a, b) => b[1] - a[1]);
   }, [graph]);
 
+  // 局部图谱：选中节点的 N 跳邻居
+  const localSet = useMemo(() => {
+    if (!selected || localDepth === 0) return null;
+    const keep = new Set<string>([selected.id]);
+    let frontier = [selected.id];
+    for (let d = 0; d < localDepth; d++) {
+      const next: string[] = [];
+      for (const r of graph.relations) {
+        if (frontier.includes(r.from) && !keep.has(r.to)) { keep.add(r.to); next.push(r.to); }
+        if (frontier.includes(r.to) && !keep.has(r.from)) { keep.add(r.from); next.push(r.from); }
+      }
+      frontier = next;
+    }
+    return keep;
+  }, [selected, localDepth, graph]);
+
+  // 悬停邻居高亮集
+  const hoverSet = useMemo(() => {
+    if (!hoverId) return null;
+    const s = new Set<string>([hoverId]);
+    for (const r of graph.relations) {
+      if (r.from === hoverId) s.add(r.to);
+      if (r.to === hoverId) s.add(r.from);
+    }
+    return s;
+  }, [hoverId, graph]);
+
   const visibleIds = useMemo(
-    () => new Set(graph.entities.filter((e) => !hiddenTypes.has(e.type)).map((e) => e.id)),
-    [graph, hiddenTypes],
+    () =>
+      new Set(
+        graph.entities
+          .filter((e) => !hiddenTypes.has(e.type))
+          .filter((e) => !hideOrphans || (connCount.get(e.id) ?? 0) > 0)
+          .filter((e) => !localSet || localSet.has(e.id))
+          .map((e) => e.id),
+      ),
+    [graph, hiddenTypes, hideOrphans, connCount, localSet],
   );
   const visibleRelations = useMemo(
     () => graph.relations.filter((r) => visibleIds.has(r.from) && visibleIds.has(r.to)),
@@ -269,15 +306,19 @@ export function WikiGraphView({
     return graph.relations.filter((r) => r.from === selected.id || r.to === selected.id);
   }, [graph, selected]);
 
-  // ── 视图操作 ──
-  const applyView = useCallback(
-    (v: { x: number; y: number; k: number }) => {
-      setView(v);
-      const g = svgRef.current?.querySelector('g');
-      if (g) g.setAttribute('transform', `translate(${v.x},${v.y}) scale(${v.k})`);
-    },
-    [],
+  const orphanCount = useMemo(
+    () => graph.entities.filter((e) => (connCount.get(e.id) ?? 0) === 0).length,
+    [graph, connCount],
   );
+
+  const showLabels = view.k >= LABEL_FADE_K;
+
+  // ── 视图操作 ──
+  const applyView = useCallback((v: { x: number; y: number; k: number }) => {
+    setView(v);
+    const g = svgRef.current?.querySelector('g');
+    if (g) g.setAttribute('transform', `translate(${v.x},${v.y}) scale(${v.k})`);
+  }, []);
 
   const fitView = useCallback(() => {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -291,18 +332,11 @@ export function WikiGraphView({
     const w = maxX - minX + pad * 2 || 1;
     const h = maxY - minY + pad * 2 || 1;
     const k = Math.max(0.05, Math.min(2, Math.min(rect.width / w, rect.height / h)));
-    applyView({
-      k,
-      x: rect.width / 2 - ((minX + maxX) / 2) * k,
-      y: rect.height / 2 - ((minY + maxY) / 2) * k,
-    });
+    applyView({ k, x: rect.width / 2 - ((minX + maxX) / 2) * k, y: rect.height / 2 - ((minY + maxY) / 2) * k });
   }, [applyView, positions]);
 
-  // 图数据变化时自动适配
   const didFit = useRef(false);
-  useEffect(() => {
-    didFit.current = false;
-  }, [graph]);
+  useEffect(() => { didFit.current = false; }, [graph]);
   useEffect(() => {
     if (!didFit.current && positions.size > 0) {
       didFit.current = true;
@@ -323,11 +357,7 @@ export function WikiGraphView({
     [applyView, view],
   );
 
-  const resetView = useCallback(() => {
-    fitView();
-  }, [fitView]);
-
-  // 滚轮缩放（以光标为中心）
+  // 滚轮缩放
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -350,12 +380,10 @@ export function WikiGraphView({
     if ((e.target as HTMLElement).closest('button')) return;
     const nodeEl = (e.target as Element).closest('[data-node-id]');
     if (nodeEl) {
-      // 拖拽节点
       const nodeId = nodeEl.getAttribute('data-node-id')!;
       dragNodeRef.current = nodeId;
-      const sim = simRef.current;
-      const node = sim?.nodeMap.get(nodeId);
-      if (node && sim) {
+      const node = simRef.current?.nodeMap.get(nodeId);
+      if (node) {
         const rect = containerRef.current!.getBoundingClientRect();
         const gx = (e.clientX - rect.left - view.x) / view.k;
         const gy = (e.clientY - rect.top - view.y) / view.k;
@@ -367,7 +395,6 @@ export function WikiGraphView({
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
       return;
     }
-    // 平移
     panningRef.current = true;
     panStartRef.current = { x: e.clientX - view.x, y: e.clientY - view.y };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -375,14 +402,11 @@ export function WikiGraphView({
 
   const onPointerMove = (e: React.PointerEvent) => {
     if (dragNodeRef.current) {
-      const sim = simRef.current;
-      const node = sim?.nodeMap.get(dragNodeRef.current);
+      const node = simRef.current?.nodeMap.get(dragNodeRef.current);
       if (node) {
         const rect = containerRef.current!.getBoundingClientRect();
-        const gx = (e.clientX - rect.left - view.x) / view.k;
-        const gy = (e.clientY - rect.top - view.y) / view.k;
-        node.fx = gx - dragOffsetRef.current.dx;
-        node.fy = gy - dragOffsetRef.current.dy;
+        node.fx = (e.clientX - rect.left - view.x) / view.k - dragOffsetRef.current.dx;
+        node.fy = (e.clientY - rect.top - view.y) / view.k - dragOffsetRef.current.dy;
         reheat(0.3);
       }
       return;
@@ -394,11 +418,10 @@ export function WikiGraphView({
 
   const onPointerUp = () => {
     if (dragNodeRef.current) {
-      const sim = simRef.current;
-      const node = sim?.nodeMap.get(dragNodeRef.current);
+      const node = simRef.current?.nodeMap.get(dragNodeRef.current);
       if (node) { node.fx = undefined; node.fy = undefined; }
       dragNodeRef.current = null;
-      reheat(0.1); // 松手后短暂回弹
+      reheat(0.1);
     }
     panningRef.current = false;
   };
@@ -410,8 +433,20 @@ export function WikiGraphView({
       return n;
     });
 
+  const updateForce = (key: keyof ForceParams, value: number) => {
+    setForces((prev) => ({ ...prev, [key]: value }));
+    reheat(0.5); // 滑块调整后重新模拟
+  };
+
   const toolBtn = 'h-7 w-7 inline-flex items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:text-foreground transition-colors';
   const inputCls = 'h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring';
+
+  const FORCE_FIELDS: { key: keyof ForceParams; label: string; min: number; max: number; step: number }[] = [
+    { key: 'charge', label: '排斥力', min: -1200, max: -50, step: 10 },
+    { key: 'linkDist', label: '弹簧距离', min: 30, max: 300, step: 5 },
+    { key: 'linkStrength', label: '弹簧强度', min: 0.01, max: 0.3, step: 0.01 },
+    { key: 'centerGravity', label: '中心引力', min: 0, max: 0.2, step: 0.005 },
+  ];
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -421,9 +456,34 @@ export function WikiGraphView({
           <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
           <input className={`${inputCls} w-full pl-6`} placeholder="搜索实体…" value={q} onChange={(e) => setQ(e.target.value.toLowerCase())} />
         </div>
+        {selected && (
+          <div className="flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-[11px]">
+            <span className="text-muted-foreground">局部</span>
+            {([0, 1, 2] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                className={`rounded px-1.5 py-0.5 ${localDepth === d ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                onClick={() => setLocalDepth(d)}
+              >
+                {d === 0 ? '全局' : `${d}跳`}
+              </button>
+            ))}
+          </div>
+        )}
+        <button
+          type="button"
+          className={`rounded-md border px-2 py-1 text-[11px] transition-colors ${hideOrphans ? 'border-primary text-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}
+          title="隐藏没有任何关联的孤立节点"
+          onClick={() => setHideOrphans((v) => !v)}
+        >
+          隐藏孤儿（{orphanCount}）
+        </button>
+        <div className="h-4 w-px bg-border" />
+        <Button variant="ghost" size="icon-sm" className={toolBtn} title="力度调节" onClick={() => setShowForces((v) => !v)}><SlidersHorizontal className="h-4 w-4" /></Button>
         <Button variant="ghost" size="icon-sm" className={toolBtn} title="放大" onClick={() => zoomBy(1.25)}><ZoomIn className="h-4 w-4" /></Button>
         <Button variant="ghost" size="icon-sm" className={toolBtn} title="缩小" onClick={() => zoomBy(0.9)}><ZoomOut className="h-4 w-4" /></Button>
-        <Button variant="ghost" size="icon-sm" className={toolBtn} title="重置视图" onClick={resetView}><RotateCcw className="h-4 w-4" /></Button>
+        <Button variant="ghost" size="icon-sm" className={toolBtn} title="重置视图" onClick={fitView}><RotateCcw className="h-4 w-4" /></Button>
         <Button variant="ghost" size="icon-sm" className={toolBtn} title="适配窗口" onClick={fitView}><Maximize className="h-4 w-4" /></Button>
       </div>
 
@@ -437,10 +497,44 @@ export function WikiGraphView({
           onPointerUp={onPointerUp}
           onPointerLeave={onPointerUp}
         >
+          {/* 力度调节面板 */}
+          {showForces && (
+            <div className="absolute right-2 top-2 z-10 w-56 rounded-lg border border-border bg-card p-3 text-xs shadow-none">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="font-medium text-foreground">力度调节</span>
+                <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => { setForces(DEFAULT_FORCES); reheat(0.8); }}>
+                  重置
+                </button>
+              </div>
+              {FORCE_FIELDS.map((f) => (
+                <div key={f.key} className="mb-2">
+                  <div className="mb-0.5 flex justify-between text-muted-foreground">
+                    <span>{f.label}</span>
+                    <span>{forces[f.key]}</span>
+                  </div>
+                  <input
+                    type="range"
+                    className="w-full"
+                    min={f.min}
+                    max={f.max}
+                    step={f.step}
+                    value={forces[f.key]}
+                    onChange={(e) => updateForce(f.key, Number(e.target.value))}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
           {positions.size === 0 ? (
             <div className="flex h-full items-center justify-center text-xs text-muted-foreground">暂无图谱数据</div>
           ) : (
             <svg ref={svgRef} className="h-full w-full">
+              <defs>
+                <marker id="wiki-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" className="fill-muted-foreground" opacity={0.7} />
+                </marker>
+              </defs>
               <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
                 {/* 边 */}
                 {visibleRelations.map((r, i) => {
@@ -448,10 +542,18 @@ export function WikiGraphView({
                   const b = positions.get(r.to);
                   if (!a || !b) return null;
                   const isSel = selectedRelation === r;
-                  const dimmed = matched && !matched.has(r.from) && !matched.has(r.to);
+                  const dimmed =
+                    (matched && !matched.has(r.from) && !matched.has(r.to)) ||
+                    (hoverSet && !hoverSet.has(r.from) && !hoverSet.has(r.to));
+                  // 缩短终点避免箭头盖住节点
+                  const dx = b.x - a.x;
+                  const dy = b.y - a.y;
+                  const d = Math.sqrt(dx * dx + dy * dy) || 1;
+                  const tr = nodeRadius(r.to) + 6;
+                  const ex = b.x - (dx / d) * tr;
+                  const ey = b.y - (dy / d) * tr;
                   return (
                     <g key={i}>
-                      {/* 透明粗线作为点击热区 */}
                       <line
                         x1={a.x} y1={a.y} x2={b.x} y2={b.y}
                         stroke="transparent"
@@ -461,15 +563,14 @@ export function WikiGraphView({
                       >
                         <title>{r.type}</title>
                       </line>
-                      {/* 可见线 */}
                       <line
-                        x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+                        x1={a.x} y1={a.y} x2={ex} y2={ey}
                         stroke={isSel ? 'hsl(var(--primary))' : 'hsl(var(--border))'}
                         strokeWidth={isSel ? 2 : 1}
-                        strokeOpacity={dimmed ? 0.1 : isSel ? 1 : 0.5}
+                        strokeOpacity={dimmed ? 0.06 : isSel ? 1 : 0.5}
+                        markerEnd="url(#wiki-arrow)"
                         pointerEvents="none"
                       />
-                      {/* 选中边中点显示关系标签 */}
                       {isSel && (
                         <text
                           x={(a.x + b.x) / 2} y={(a.y + b.y) / 2}
@@ -490,8 +591,9 @@ export function WikiGraphView({
                   if (!visibleIds.has(e.id)) return null;
                   const p = positions.get(e.id);
                   if (!p) return null;
-                  const dimmed = matched && !matched.has(e.id);
+                  const dimmed = (matched && !matched.has(e.id)) || (hoverSet && !hoverSet.has(e.id));
                   const isSel = selected?.id === e.id;
+                  const isHover = hoverId === e.id;
                   const r = nodeRadius(e.id);
                   return (
                     <g
@@ -500,25 +602,30 @@ export function WikiGraphView({
                       className="cursor-pointer"
                       data-node-id={e.id}
                       onClick={() => { setSelected(isSel ? null : e); setSelectedRelation(null); }}
+                      onDoubleClick={() => onSelectEntity?.(e)}
+                      onMouseEnter={() => setHoverId(e.id)}
+                      onMouseLeave={() => setHoverId(null)}
                     >
                       <circle
                         r={r}
                         fill={entityTypeColor(e.type)}
-                        fillOpacity={dimmed ? 0.2 : 0.85}
-                        stroke={isSel ? 'hsl(var(--primary))' : 'hsl(var(--background))'}
-                        strokeWidth={isSel ? 2.5 : 1.5}
+                        fillOpacity={dimmed ? 0.15 : 0.85}
+                        stroke={isSel || isHover ? 'hsl(var(--primary))' : 'hsl(var(--background))'}
+                        strokeWidth={isSel || isHover ? 2.5 : 1.5}
                       />
-                      <text
-                        y={r + 12}
-                        textAnchor="middle"
-                        fontSize={10}
-                        className="fill-foreground"
-                        opacity={dimmed ? 0.2 : 0.9}
-                        pointerEvents="none"
-                      >
-                        {e.name.length > 12 ? e.name.slice(0, 11) + '…' : e.name}
-                      </text>
-                      <title>{`${e.name} (${e.type})`}</title>
+                      {(showLabels || isSel || isHover) && (
+                        <text
+                          y={r + 12}
+                          textAnchor="middle"
+                          fontSize={10}
+                          className="fill-foreground"
+                          opacity={dimmed ? 0.15 : 0.9}
+                          pointerEvents="none"
+                        >
+                          {e.name.length > 12 ? e.name.slice(0, 11) + '…' : e.name}
+                        </text>
+                      )}
+                      <title>{`${e.name} (${e.type})${onSelectEntity ? ' · 双击打开文章' : ''}`}</title>
                     </g>
                   );
                 })}
@@ -564,11 +671,7 @@ export function WikiGraphView({
                     </button>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  className="mt-4 text-muted-foreground hover:text-foreground"
-                  onClick={() => setSelectedRelation(null)}
-                >
+                <button type="button" className="mt-4 text-muted-foreground hover:text-foreground" onClick={() => setSelectedRelation(null)}>
                   ✕ 关闭
                 </button>
               </>
@@ -633,4 +736,3 @@ export function WikiGraphView({
     </div>
   );
 }
-
