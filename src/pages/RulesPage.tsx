@@ -387,12 +387,12 @@ function RulesPage() {
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+            <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
               <Input
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                 placeholder="规则名称"
-                className="h-8 w-56 font-medium"
+                className="h-8 w-56 shrink-0 font-medium"
               />
               <Input
                 value={draft.tags.join(', ')}
@@ -409,7 +409,7 @@ function RulesPage() {
                 value={draft.description}
                 onChange={(e) => setDraft({ ...draft, description: e.target.value })}
                 placeholder="描述（可选）"
-                className="h-8 min-w-0 flex-1"
+                className="h-8 min-w-40 flex-1"
               />
               <Button size="sm" onClick={save}>
                 <Save className="mr-1 h-3.5 w-3.5" />
@@ -428,12 +428,12 @@ function RulesPage() {
               <Button size="sm" variant="outline" onClick={sync} title="把所有已链接 agent 的目标文件指向中心库当前内容">
                 同步
               </Button>
-              <div className="flex items-center rounded-md border border-border p-0.5">
+              <div className="flex shrink-0 items-center rounded-md border border-border p-0.5">
                 {(['edit', 'split', 'preview'] as const).map((m) => (
                   <button
                     key={m}
                     onClick={() => setEditMode(m)}
-                    className={`rounded px-2 py-0.5 text-[11px] transition-colors ${
+                    className={`whitespace-nowrap rounded px-2 py-0.5 text-[11px] transition-colors ${
                       editMode === m ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
