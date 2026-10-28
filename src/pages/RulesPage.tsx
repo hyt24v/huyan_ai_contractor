@@ -76,8 +76,8 @@ function RulesPage() {
     setImporting(true);
     try {
       const rule = await importProjectRule(importDir.trim(), file, rawFs);
-      await refresh();
-      select(rule.id);
+      const lib = await refresh();
+      select(rule.id, lib);
       setImportOpen(false);
       setImportFiles(null);
       setImportDir('');
@@ -114,12 +114,22 @@ function RulesPage() {
     [rules],
   );
 
-  const select = (id: string | null) => {
+  const select = (id: string | null, lib?: Awaited<ReturnType<typeof loadRulesLibrary>>) => {
     setSelectedId(id);
     setSyncResults(null);
-    const r = rules.find((x) => x.id === id);
+    const source = lib ?? library;
+    const r = source?.rules.find((x) => x.id === id);
     setDraft(r ? { ...r } : null);
   };
+
+  /** 库操作后合并：保留未保存的本地编辑（名称/标签/描述/内容），只回写服务端状态字段 */
+  const mergeSaved = (saved: RuleEntry, prev: RuleEntry): RuleEntry => ({
+    ...saved,
+    name: prev.name,
+    tags: prev.tags,
+    description: prev.description,
+    content: prev.content,
+  });
 
   const create = () => {
     const r: RuleEntry = {
@@ -134,9 +144,16 @@ function RulesPage() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    setSelectedId(r.id);
-    setDraft(r);
-    setSyncResults(null);
+    // 立即落库：链接/同步/历史等按钮都要求规则已存在于库中
+    void (async () => {
+      try {
+        const lib = await saveRule(r);
+        setLibrary(lib);
+        select(r.id, lib);
+      } catch (e) {
+        showToast(`创建失败：${errMsg(e)}`, 'err');
+      }
+    })();
   };
 
   const save = async () => {
@@ -164,20 +181,30 @@ function RulesPage() {
 
   const toggleAgent = async (agentId: AgentId, enabled: boolean) => {
     if (!draft) return;
+    const id = draft.id;
     try {
-      const lib = await setRuleAgentEnabled(draft.id, agentId, enabled);
+      const lib = await setRuleAgentEnabled(id, agentId, enabled);
       setLibrary(lib);
-      const saved = lib.rules.find((r) => r.id === draft.id);
-      if (saved) setDraft({ ...saved });
+      const saved = lib.rules.find((r) => r.id === id);
+      // 不覆盖用户未保存的名称/内容编辑
+      if (saved) setDraft((prev) => (prev ? mergeSaved(saved, prev) : { ...saved }));
       showToast(enabled ? `已链接到 ${agentShortName(agentId)}` : `已断开 ${agentShortName(agentId)}`);
     } catch (e) { showToast(`操作失败：${errMsg(e)}`, 'err'); }
   };
 
   const sync = async () => {
     if (!draft) return;
+    const id = draft.id;
     try {
-      const results = await syncRule(draft.id);
+      const results = await syncRule(id);
       setSyncResults(results);
+      // syncRule 会更新库里的 syncs，重载让版本标识立刻刷新
+      const lib = await loadRulesLibrary();
+      setLibrary(lib);
+      setDraft((prev) => {
+        const saved = lib.rules.find((r) => r.id === id);
+        return prev && saved ? mergeSaved(saved, prev) : prev;
+      });
       const failed = results.filter((r) => r.status === 'error');
       showToast(
         failed.length ? `${failed.length} 个 agent 同步失败` : '同步完成',
