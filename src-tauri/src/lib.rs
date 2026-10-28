@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
-use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
+use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri::tray::TrayIconBuilder;
 use tauri::{Emitter, Manager};
 
@@ -634,27 +634,71 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     .enabled(false)
     .build(app)?;
     let show_item = MenuItemBuilder::with_id("tray-show", "打开主窗口").build(app)?;
-    let quit_item = MenuItemBuilder::with_id("tray-quit", "退出").build(app)?;
-    let separator = PredefinedMenuItem::separator(app)?;
+    // 快速打开各工具页：点击后唤醒窗口并导航到对应路由
+    let nav_targets: [(&str, &str); 7] = [
+        ("tray-nav:/json", "JSON 编辑器"),
+        ("tray-nav:/markdown", "Markdown 编辑器"),
+        ("tray-nav:/skills", "Skills 管理"),
+        ("tray-nav:/mcp", "MCP 管理"),
+        ("tray-nav:/prompts", "提示词"),
+        ("tray-nav:/providers", "模型服务"),
+        ("tray-nav:/profiles", "配置套餐"),
+    ];
+    let nav_items: Vec<tauri::menu::MenuItem<tauri::Wry>> = nav_targets
+        .iter()
+        .map(|(id, label)| MenuItemBuilder::with_id(*id, *label).build(app))
+        .collect::<tauri::Result<_>>()?;
+    let nav_refs: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> =
+        nav_items.iter().map(|i| i as &dyn tauri::menu::IsMenuItem<tauri::Wry>).collect();
+    let quick_menu = SubmenuBuilder::new(app, "快速打开")
+        .items(&nav_refs)
+        .build()?;
+    let update_item = MenuItemBuilder::with_id("tray-nav:/settings/updates", "检查更新…").build(app)?;
+    let settings_item = MenuItemBuilder::with_id("tray-nav:/settings", "设置…").build(app)?;
+    let quit_item = MenuItemBuilder::with_id("tray-quit", "退出 AI 包工头").build(app)?;
+    let sep1 = PredefinedMenuItem::separator(app)?;
+    let sep2 = PredefinedMenuItem::separator(app)?;
+    let sep3 = PredefinedMenuItem::separator(app)?;
     let menu = MenuBuilder::new(app)
-        .items(&[&version_item, &show_item, &separator, &quit_item])
+        .items(&[
+            &version_item,
+            &show_item,
+            &sep1,
+            &quick_menu,
+            &sep2,
+            &update_item,
+            &settings_item,
+            &sep3,
+            &quit_item,
+        ])
         .build()?;
     let mut tray = TrayIconBuilder::new()
         .menu(&menu)
         .tooltip("AI 包工头")
         .show_menu_on_left_click(true)
-        .on_menu_event(|app, event| match event.id().as_ref() {
-            "tray-show" => show_main_window(app),
-            "tray-quit" => app.exit(0),
-            _ => {}
+        .on_menu_event(|app, event| {
+            let id = event.id().as_ref();
+            if let Some(path) = id.strip_prefix("tray-nav:") {
+                show_main_window(app);
+                // 前端 Layout 监听该事件并导航
+                let _ = app.emit("tray:navigate", path.to_string());
+            } else {
+                match id {
+                    "tray-show" => show_main_window(app),
+                    "tray-quit" => app.exit(0),
+                    _ => {}
+                }
+            }
         });
-    if let Some(icon) = app.default_window_icon() {
-        tray = tray.icon(icon.clone());
-    }
-    // macOS 菜单栏图标用模板渲染以适配深浅色菜单栏
+    // macOS 菜单栏专用模板图标：安全帽剪影，适配深浅色菜单栏
     #[cfg(target_os = "macos")]
     {
-        tray = tray.icon_as_template(true);
+        let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray-icon.png"))?;
+        tray = tray.icon(icon).icon_as_template(true);
+    }
+    #[cfg(not(target_os = "macos"))]
+    if let Some(icon) = app.default_window_icon() {
+        tray = tray.icon(icon.clone());
     }
     tray.build(app)?;
     Ok(())

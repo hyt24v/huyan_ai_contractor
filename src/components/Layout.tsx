@@ -14,6 +14,7 @@ import { TOOLS, TOOL_GROUPS } from '../lib/tools';
 import { useNavTools } from '../lib/navConfig';
 import { checkForUpdate, currentVersion } from '../lib/updater';
 import { isTauri } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
   dismissUpdate,
@@ -47,6 +48,22 @@ export default function Layout() {
   const [aiDockOpen, setAiDockOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // 托盘菜单「快速打开」：Rust 侧唤醒窗口后发 tray:navigate 事件
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    listen<string>('tray:navigate', (e) => navigate(e.payload))
+      .then((u) => {
+        if (disposed) u();
+        else unlisten = u;
+      })
+      .catch(() => undefined);
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [navigate]);
   const navTools = useNavTools();
   const currentTool = TOOLS.find((t) => location.pathname.startsWith(t.path));
   const isSettings = location.pathname.startsWith('/settings');
