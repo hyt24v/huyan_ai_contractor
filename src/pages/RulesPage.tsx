@@ -1,6 +1,6 @@
 /** 规则库页面：中心库管理 + 各 agent 目标文件软链引用 */
 import { useEffect, useMemo, useState } from 'react';
-import { FileText, Link2, Link2Off, Plus, Save, Trash2 } from 'lucide-react';
+import { FileText, FolderInput, Link2, Link2Off, Plus, Save, Trash2 } from 'lucide-react';
 import { agentShortName, type AgentId } from '../lib/agents';
 import { useAgents } from '../hooks/useAgents';
 import { PROMPT_TARGETS } from '../lib/agentTargets';
@@ -9,12 +9,16 @@ import { Button, Input } from '../components/ui/controls';
 import { useToast } from '../hooks/useToast';
 import {
   deleteRule,
+  importProjectRule,
   loadRulesLibrary,
   saveRule,
+  scanProjectRuleFiles,
   setRuleAgentEnabled,
   syncRule,
+  type ProjectRuleFile,
   type RuleSyncResult,
 } from '../services/agentRules';
+import { rawFs } from '../lib/fsPort';
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -33,6 +37,42 @@ function RulesPage() {
   // 编辑草稿（选中规则时同步）
   const [draft, setDraft] = useState<RuleEntry | null>(null);
   const [syncResults, setSyncResults] = useState<RuleSyncResult[] | null>(null);
+  // 从项目导入
+  const [importOpen, setImportOpen] = useState(false);
+  const [importDir, setImportDir] = useState('');
+  const [importFiles, setImportFiles] = useState<ProjectRuleFile[] | null>(null);
+  const [importing, setImporting] = useState(false);
+
+  const scanProject = async () => {
+    if (!importDir.trim()) return;
+    setImporting(true);
+    try {
+      const files = await scanProjectRuleFiles(importDir.trim(), rawFs);
+      setImportFiles(files);
+      if (files.length === 0) showToast('该项目下没有找到规则文件', 'err');
+    } catch (e) {
+      showToast(`扫描失败：${errMsg(e)}`, 'err');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const doImport = async (file: string) => {
+    setImporting(true);
+    try {
+      const rule = await importProjectRule(importDir.trim(), file, rawFs);
+      await refresh();
+      select(rule.id);
+      setImportOpen(false);
+      setImportFiles(null);
+      setImportDir('');
+      showToast(`已导入「${rule.name}」`);
+    } catch (e) {
+      showToast(`导入失败：${errMsg(e)}`, 'err');
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const refresh = async () => {
     const lib = await loadRulesLibrary();
@@ -145,6 +185,14 @@ function RulesPage() {
           />
           <Button size="sm" onClick={create} title="新建规则">
             <Plus className="h-4 w-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setImportOpen(true)}
+            title="从现有项目导入 AGENTS.md 等规则文件"
+          >
+            <FolderInput className="h-4 w-4" />
           </Button>
         </div>
         {allTags.length > 0 && (
@@ -329,6 +377,50 @@ function RulesPage() {
           </>
         )}
       </div>
+
+      {importOpen && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setImportOpen(false)} />
+          <div className="fixed left-1/2 top-24 z-50 w-[420px] -translate-x-1/2 rounded-lg border bg-card p-4 shadow-xl">
+            <div className="mb-1 text-sm font-medium">从项目导入规则</div>
+            <p className="mb-3 text-xs text-muted-foreground">
+              输入项目路径，扫描其中的 AGENTS.md / CLAUDE.md / .cursor/rules 等规则文件
+            </p>
+            <div className="flex gap-2">
+              <Input
+                value={importDir}
+                onChange={(e) => { setImportDir(e.target.value); setImportFiles(null); }}
+                placeholder="/Users/you/some-project"
+                className="h-8 flex-1 font-mono text-xs"
+                onKeyDown={(e) => { if (e.key === 'Enter') void scanProject(); }}
+              />
+              <Button size="sm" variant="outline" onClick={() => void scanProject()} disabled={importing}>
+                扫描
+              </Button>
+            </div>
+            {importFiles && importFiles.length > 0 && (
+              <div className="mt-3 max-h-56 overflow-y-auto rounded-md border">
+                {importFiles.map((f) => (
+                  <button
+                    key={f.file}
+                    onClick={() => void doImport(f.file)}
+                    disabled={importing}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-accent"
+                  >
+                    <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate font-mono">{f.file}</span>
+                    {f.size > 0 && (
+                      <span className="text-[10px] text-muted-foreground">
+                        {f.size > 1024 ? `${(f.size / 1024).toFixed(1)}KB` : `${f.size}B`}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {toast && (
         <div

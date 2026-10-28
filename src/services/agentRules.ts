@@ -239,4 +239,86 @@ export async function readRuleTarget(
   }
 }
 
+// —— 从现有项目导入规则文件 ——
+
+/** 项目级规则文件的常见文件名（按优先级排序） */
+export const PROJECT_RULE_CANDIDATES = [
+  'AGENTS.md',
+  'CLAUDE.md',
+  'GEMINI.md',
+  'QWEN.md',
+  'IFLOW.md',
+  '.cursorrules',
+  '.windsurfrules',
+] as const;
+
+export interface ProjectRuleFile {
+  /** 相对项目根的路径 */
+  file: string;
+  /** 内容大小（字节） */
+  size: number;
+}
+
+/**
+ * 扫描项目目录里的规则文件（项目目录在 fs scope 外，调用方传 rawFs）。
+ * 检查根目录常见文件名 + .cursor/rules/ 下的 .md/.mdc。
+ */
+export async function scanProjectRuleFiles(
+  projectDir: string,
+  fs: FsPort,
+): Promise<ProjectRuleFile[]> {
+  const dir = projectDir.replace(/\/+$/, '');
+  const found: ProjectRuleFile[] = [];
+  for (const name of PROJECT_RULE_CANDIDATES) {
+    const p = `${dir}/${name}`;
+    try {
+      if (await fs.exists(p)) {
+        const text = await fs.readText(p);
+        if (text.trim()) found.push({ file: name, size: text.length });
+      }
+    } catch {
+      // 单个文件不可读不影响其他
+    }
+  }
+  try {
+    const cursorRules = `${dir}/.cursor/rules`;
+    if (await fs.exists(cursorRules)) {
+      for (const e of await fs.readDir(cursorRules)) {
+        if (!e.isDirectory && /\.(md|mdc)$/i.test(e.name)) {
+          found.push({ file: `.cursor/rules/${e.name}`, size: 0 });
+        }
+      }
+    }
+  } catch {
+    // .cursor/rules 不可读忽略
+  }
+  return found;
+}
+
+/**
+ * 把项目里的规则文件导入中心库：读取内容 → 新建规则。
+ * 返回新建的规则条目。
+ */
+export async function importProjectRule(
+  projectDir: string,
+  file: string,
+  readFs: FsPort,
+  libFs: FsPort = tauriFs,
+): Promise<RuleEntry> {
+  const dir = projectDir.replace(/\/+$/, '');
+  const content = await readFs.readText(`${dir}/${file}`);
+  if (!content.trim()) throw new Error(`${file} 内容为空`);
+  const projectName = dir.split('/').pop() ?? 'project';
+  const rule: RuleEntry = normalizeRule({
+    id: `rule-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    name: `${projectName} / ${file}`,
+    content,
+    tags: [projectName],
+    description: `导入自 ${dir}/${file}`,
+    agents: {},
+  });
+  await saveRule(rule, libFs);
+  return rule;
+}
+
 export { backupTarget };
