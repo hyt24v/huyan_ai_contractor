@@ -583,7 +583,7 @@ export default function McpManagerPage() {
         <table className="w-full table-fixed text-sm">
           <thead className="sticky top-0 z-10 bg-muted/50 backdrop-blur">
             <tr className="text-left text-xs text-muted-foreground">
-              <th className="relative w-44 px-4 py-2 font-medium">
+              <th className="relative w-44 whitespace-nowrap px-4 py-2 font-medium">
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
@@ -616,7 +616,7 @@ export default function McpManagerPage() {
                   </>
                 )}
               </th>
-              <th className="relative w-20 px-2 py-2 font-medium">
+              <th className="relative w-20 whitespace-nowrap px-2 py-2 font-medium">
                 <div className="flex items-center gap-1">
                   类型
                   <button
@@ -649,8 +649,8 @@ export default function McpManagerPage() {
                   </>
                 )}
               </th>
-              <th className="px-2 py-2 font-medium">命令 / URL</th>
-              <th className="w-12 px-1 py-2 text-center font-medium">
+              <th className="w-56 whitespace-nowrap px-2 py-2 font-medium">命令 / URL</th>
+              <th className="w-12 whitespace-nowrap px-1 py-2 text-center font-medium">
                 <button
                   type="button"
                   onClick={() => toggleSort('agents')}
@@ -661,7 +661,7 @@ export default function McpManagerPage() {
                 </button>
               </th>
               {mcpAgents.map((a) => (
-                <th key={a.id} className="relative w-16 px-1 py-2 text-center font-medium">
+                <th key={a.id} className="relative whitespace-nowrap px-2 py-2 text-center font-medium">
                   <button
                     type="button"
                     onClick={() => setColMenu(colMenu === a.id ? null : a.id)}
@@ -699,7 +699,7 @@ export default function McpManagerPage() {
                   )}
                 </th>
               ))}
-              <th className="w-20 px-2 py-2 text-center font-medium">操作</th>
+              <th className="w-20 whitespace-nowrap px-2 py-2 text-center font-medium">操作</th>
             </tr>
           </thead>
           <tbody>
