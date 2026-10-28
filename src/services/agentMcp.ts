@@ -1,7 +1,7 @@
 /** MCP 管理服务：fsPort + mcp.ts 纯逻辑的粘合层 */
 import { hasMcpSupport, type AgentDef, type AgentId } from '../lib/agents';
 import { effectiveAgents } from '../lib/agentVisibility';
-import { absPath, tauriFs, type FsPort } from '../lib/fsPort';
+import { absPath, home, tauriFs, type FsPort } from '../lib/fsPort';
 import {
   applyJsonServers,
   backupPath,
@@ -201,7 +201,8 @@ export async function distribute(
       const p = await absPath(agent.mcpFile!);
       // 配置父目录可能不存在（如 ~/.kiro/settings、VS Code globalStorage），先补建
       const parent = p.slice(0, p.lastIndexOf('/'));
-      if (!(await fs.exists(parent))) await fs.mkdir(parent);
+      // 裸文件直接在 $HOME 下（如 .kode.json）时父目录即 home，跳过（fs scope 也不允许操作 $HOME 本身）
+      if (parent !== (await home()) && !(await fs.exists(parent))) await fs.mkdir(parent);
       try {
         const original = texts[agent.id] ?? '';
         // TOCTOU 防护：写入前再读一次，预读后被外部改动则跳过
