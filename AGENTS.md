@@ -61,4 +61,5 @@ cd src-tauri && cargo check   # 改 Rust 时
 - **context-mode hook 拦截裸 curl**：直接 `curl URL` 会被拦，用 `curl -s -o /tmp/xx URL` 落盘再读文件。
 - **useSyncExternalStore 的 getSnapshot 必须返回缓存引用**：返回新数组/新对象字面量会导致无限重渲染白屏（session.ts 用模块级冻结常量 `EMPTY_MESSAGES` 兜底空会话）。
 - **playwright run-code 不回传 console.log**：断言式验证用「失败即 throw」+ 返回值，不要靠 console.log。
+- **npm 内网镜像污染 lockfile**：本机 npm 配了阿里内网 registry 时，`npm install` 会把 tarball resolved URL 写进 package-lock.json（registry.anpm.alibaba-inc.com），GitHub CI 拉不到报 EALLOWREMOTE。提交 package-lock.json 前 `grep anpm package-lock.json`，有则把 host 改回 registry.npmjs.org（integrity 哈希一致，只改 host 即可）。
 - **git push 偶发 git-lfs locks/verify 网络 EOF**：仓库级 `git config lfs.locksverify false` 后重推（已配置）。
