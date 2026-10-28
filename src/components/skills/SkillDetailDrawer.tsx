@@ -1,9 +1,10 @@
 /** Skill 详情抽屉：文件树浏览(SKILL.md 等 md 渲染预览)、查看路径 / 来源 / 标签、逐 agent 部署移除 */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowUpCircle,
   Cable,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   FileText,
   FolderInput,
@@ -25,11 +26,13 @@ import {
 } from '../../lib/skillCatalog';
 import type { SkillAgentState } from '../../lib/skills';
 import {
+  detectFileLanguage,
   isTextFileName,
   listSkillFiles,
   readSkillFileText,
   type SkillFileEntry,
 } from '../../services/skillCatalog';
+import CodeEditor from '../CodeEditor';
 import MarkdownPreview from '../MarkdownPreview';
 import AgentBadge from './AgentBadge';
 import { TagPill } from './SkillCard';
@@ -117,6 +120,7 @@ export default function SkillDetailDrawer({
   const [fileError, setFileError] = useState('');
   const [agentQuery, setAgentQuery] = useState('');
   const [showUndeployed, setShowUndeployed] = useState(false);
+  const [collapsedDirs, setCollapsedDirs] = useState<ReadonlySet<string>>(new Set());
 
   // 打开时加载文件树,默认选中 SKILL.md(没有则第一个 md)
   useEffect(() => {
@@ -128,6 +132,7 @@ export default function SkillDetailDrawer({
     setFileError('');
     setAgentQuery('');
     setShowUndeployed(false);
+    setCollapsedDirs(new Set());
     listSkillFiles(skill)
       .then((list) => {
         if (!alive) return;
@@ -174,6 +179,31 @@ export default function SkillDetailDrawer({
       alive = false;
     };
   }, [open, skill, selected]);
+
+  const toggleDir = (path: string) => {
+    setCollapsedDirs((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  };
+
+  /** 折叠过滤：任一祖先目录被折叠则隐藏 */
+  const visibleFiles = useMemo(() => {
+    if (!files) return null;
+    if (collapsedDirs.size === 0) return files;
+    return files.filter((f) => {
+      const parts = f.path.replace(/\/$/, '').split('/');
+      parts.pop();
+      let prefix = '';
+      for (const part of parts) {
+        prefix += `${part}/`;
+        if (collapsedDirs.has(prefix)) return false;
+      }
+      return true;
+    });
+  }, [files, collapsedDirs]);
 
   if (!open || !skill) return null;
 
@@ -400,20 +430,19 @@ export default function SkillDetailDrawer({
                 该 skill 不在本机或目录为空
               </div>
             ) : (
-              <div className="overflow-hidden rounded-md border">
-                {/* 文件树 */}
-                <div className="max-h-56 overflow-auto border-b bg-muted/20 py-1">
-                  {files.map((f) => {
+              <div className="flex h-[46vh] overflow-hidden rounded-md border">
+                {/* 文件树（左侧，目录可折叠） */}
+                <div className="w-48 shrink-0 overflow-auto border-r bg-muted/20 py-1">
+                  {visibleFiles!.map((f) => {
                     const name = f.path.replace(/\/$/, '').split('/').pop() ?? f.path;
                     return (
                       <button
                         key={f.path}
                         type="button"
-                        disabled={f.isDirectory}
-                        onClick={() => setSelected(f.path)}
+                        onClick={() => (f.isDirectory ? toggleDir(f.path) : setSelected(f.path))}
                         className={`flex w-full items-center gap-1.5 px-2 py-1 text-left text-[11px] transition-colors ${
                           f.isDirectory
-                            ? 'cursor-default font-medium text-muted-foreground'
+                            ? 'font-medium text-foreground/80 hover:bg-accent/60'
                             : selected === f.path
                               ? 'bg-accent text-accent-foreground'
                               : 'text-foreground hover:bg-accent/60'
@@ -421,7 +450,14 @@ export default function SkillDetailDrawer({
                         style={{ paddingLeft: `${8 + f.depth * 14}px` }}
                       >
                         {f.isDirectory ? (
-                          <Folder className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          <>
+                            {collapsedDirs.has(f.path) ? (
+                              <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+                            )}
+                            <Folder className="h-3 w-3 shrink-0 text-primary/70" />
+                          </>
                         ) : (
                           <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
                         )}
@@ -430,8 +466,8 @@ export default function SkillDetailDrawer({
                     );
                   })}
                 </div>
-                {/* 预览区 */}
-                <div className="max-h-[45vh] overflow-auto p-3">
+                {/* 预览区（右侧） */}
+                <div className="min-w-0 flex-1 overflow-auto p-3">
                   {fileError ? (
                     <div className="rounded-md bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive">
                       {fileError}
@@ -447,9 +483,14 @@ export default function SkillDetailDrawer({
                   ) : selected.toLowerCase().endsWith('.md') ? (
                     <MarkdownPreview content={fileContent} />
                   ) : isTextFileName(selected) ? (
-                    <pre className="whitespace-pre-wrap break-words font-mono text-[10.5px] leading-5">
-                      {fileContent}
-                    </pre>
+                    <div className="-m-3 h-full">
+                      <CodeEditor
+                        value={fileContent}
+                        onChange={() => undefined}
+                        language={detectFileLanguage(selected, fileContent)}
+                        readOnly
+                      />
+                    </div>
                   ) : (
                     <div className="py-6 text-center text-[11px] text-muted-foreground">
                       该文件类型不支持预览

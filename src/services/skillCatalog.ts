@@ -3,6 +3,7 @@
  * 读不到 SKILL.md / git 信息时降级为空值，绝不因单个 skill 抛错拖垮整个目录。
  */
 import type { AgentId } from '../lib/agents';
+import { rawFs } from '../lib/fsPort';
 import { effectiveAgents } from '../lib/agentVisibility';
 import { absPath, tauriFs, type FsPort, type DirItem } from '../lib/fsPort';
 import type {
@@ -178,7 +179,7 @@ const SKILL_TREE_MAX_ENTRIES = 500;
  */
 export async function listSkillFiles(
   skill: CatalogSkill,
-  fs: FsPort = tauriFs,
+  fs: FsPort = rawFs, // rawFs：软链目标常在 plugin-fs scope 外（如 cc-switch 的库），走自定义 Rust 命令不受限
 ): Promise<SkillFileEntry[]> {
   const root = skillDirOf(skill);
   if (!root) return [];
@@ -208,6 +209,59 @@ export async function listSkillFiles(
   return out;
 }
 
+/** 扩展名 → Monaco 语言 id */
+const LANG_BY_EXT: Record<string, string> = {
+  ts: 'typescript',
+  tsx: 'typescript',
+  js: 'javascript',
+  jsx: 'javascript',
+  mjs: 'javascript',
+  cjs: 'javascript',
+  py: 'python',
+  sh: 'shell',
+  bash: 'shell',
+  zsh: 'shell',
+  json: 'json',
+  jsonl: 'json',
+  md: 'markdown',
+  yaml: 'yaml',
+  yml: 'yaml',
+  toml: 'ini',
+  xml: 'xml',
+  css: 'css',
+  html: 'html',
+  sql: 'sql',
+  rs: 'rust',
+  go: 'go',
+  java: 'java',
+  c: 'c',
+  h: 'c',
+  cpp: 'cpp',
+  rb: 'ruby',
+};
+
+/**
+ * 按文件名 + 内容嗅探 Monaco 语言：
+ * 扩展名优先；无扩展名/未知扩展名时看 shebang（#!/bin/bash、env python、env node）
+ * 和内容特征（{/[ → json，<?xml → xml，<!DOCTYPE/<html → html）。
+ */
+export function detectFileLanguage(name: string, content: string): string {
+  const ext = name.includes('.') ? name.split('.').pop()!.toLowerCase() : '';
+  if (LANG_BY_EXT[ext]) return LANG_BY_EXT[ext];
+  const head = content.slice(0, 256).trimStart();
+  if (head.startsWith('#!')) {
+    const line = head.split('\n', 1)[0].toLowerCase();
+    if (/\b(bash|sh|zsh)\b/.test(line)) return 'shell';
+    if (line.includes('python')) return 'python';
+    if (line.includes('node')) return 'javascript';
+    return 'shell';
+  }
+  if (head.startsWith('<?xml')) return 'xml';
+  if (/^<!doctype html/i.test(head) || /^<html[\s>]/i.test(head)) return 'html';
+  if (head.startsWith('{') || head.startsWith('[')) return 'json';
+  return 'plaintext';
+}
+
 const TEXT_FILE_MAX_BYTES = 512 * 1024;
 const TEXT_EXTENSIONS = new Set([
   'md', 'txt', 'json', 'jsonl', 'yaml', 'yml', 'toml', 'xml', 'csv',
@@ -225,7 +279,7 @@ export function isTextFileName(name: string): boolean {
 export async function readSkillFileText(
   skill: CatalogSkill,
   relPath: string,
-  fs: FsPort = tauriFs,
+  fs: FsPort = rawFs,
 ): Promise<string> {
   const root = skillDirOf(skill);
   if (!root) throw new Error('该 skill 不在本机');

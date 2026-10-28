@@ -32,7 +32,7 @@ export default function CodeEditor({
 }: {
   value: string;
   onChange: (value: string) => void;
-  language: 'json' | 'plaintext' | 'markdown';
+  language: string;
   onMount?: OnMount;
   readOnly?: boolean;
 }) {
