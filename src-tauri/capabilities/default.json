@@ -360,6 +360,24 @@
         },
         {
           "path": "$HOME/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/**"
+        },
+        {
+          "path": "$HOME/.deepagents/**"
+        },
+        {
+          "path": "$HOME/.xum/**"
+        },
+        {
+          "path": "$HOME/.gitlab/**"
+        },
+        {
+          "path": "$HOME/.omp/**"
+        },
+        {
+          "path": "$HOME/.snowflake/**"
+        },
+        {
+          "path": "$HOME/.kode.json"
         }
       ]
     },
@@ -710,6 +728,24 @@
         },
         {
           "path": "$HOME/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/**"
+        },
+        {
+          "path": "$HOME/.deepagents/**"
+        },
+        {
+          "path": "$HOME/.xum/**"
+        },
+        {
+          "path": "$HOME/.gitlab/**"
+        },
+        {
+          "path": "$HOME/.omp/**"
+        },
+        {
+          "path": "$HOME/.snowflake/**"
+        },
+        {
+          "path": "$HOME/.kode.json"
         }
       ]
     },
@@ -1087,6 +1123,36 @@
         },
         {
           "path": "$HOME/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/**"
+        },
+        {
+          "path": "$HOME/.deepagents"
+        },
+        {
+          "path": "$HOME/.deepagents/**"
+        },
+        {
+          "path": "$HOME/.xum"
+        },
+        {
+          "path": "$HOME/.xum/**"
+        },
+        {
+          "path": "$HOME/.gitlab"
+        },
+        {
+          "path": "$HOME/.gitlab/**"
+        },
+        {
+          "path": "$HOME/.omp"
+        },
+        {
+          "path": "$HOME/.omp/**"
+        },
+        {
+          "path": "$HOME/.snowflake"
+        },
+        {
+          "path": "$HOME/.snowflake/**"
         }
       ]
     },
@@ -1476,6 +1542,39 @@
         },
         {
           "path": "$HOME/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/**"
+        },
+        {
+          "path": "$HOME/.deepagents"
+        },
+        {
+          "path": "$HOME/.deepagents/**"
+        },
+        {
+          "path": "$HOME/.xum"
+        },
+        {
+          "path": "$HOME/.xum/**"
+        },
+        {
+          "path": "$HOME/.gitlab"
+        },
+        {
+          "path": "$HOME/.gitlab/**"
+        },
+        {
+          "path": "$HOME/.omp"
+        },
+        {
+          "path": "$HOME/.omp/**"
+        },
+        {
+          "path": "$HOME/.snowflake"
+        },
+        {
+          "path": "$HOME/.snowflake/**"
+        },
+        {
+          "path": "$HOME/.kode.json"
         }
       ]
     },
@@ -1859,6 +1958,36 @@
         },
         {
           "path": "$HOME/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/**"
+        },
+        {
+          "path": "$HOME/.deepagents"
+        },
+        {
+          "path": "$HOME/.deepagents/**"
+        },
+        {
+          "path": "$HOME/.xum"
+        },
+        {
+          "path": "$HOME/.xum/**"
+        },
+        {
+          "path": "$HOME/.gitlab"
+        },
+        {
+          "path": "$HOME/.gitlab/**"
+        },
+        {
+          "path": "$HOME/.omp"
+        },
+        {
+          "path": "$HOME/.omp/**"
+        },
+        {
+          "path": "$HOME/.snowflake"
+        },
+        {
+          "path": "$HOME/.snowflake/**"
         }
       ]
     },

@@ -135,3 +135,36 @@ describe('specToJsonEntry 双 schema', () => {
     });
   });
 });
+
+// beta.4 第二波：23 个新 agent。直接从注册表驱动，新增 agent 自动纳入 round-trip 覆盖
+describe('注册表驱动的全量 JSON round-trip', () => {
+  const spec: McpServerSpec = { type: 'stdio', command: 'npx', args: ['-y', 'srv'] };
+
+  it('所有 json 格式 agent：写入 → 解析字段不丢失', () => {
+    const jsonAgents = AGENTS.filter((a) => a.mcpFile && a.mcpFormat === 'json');
+    expect(jsonAgents.length).toBeGreaterThanOrEqual(30);
+    for (const a of jsonAgents) {
+      const opts = { rootKey: a.mcpRootKey, specStyle: a.mcpSpecStyle };
+      const out = applyJsonServers('{}', { s: { spec, hasEnabledFlag: !!a.hasEnabledFlag } }, [], opts);
+      const back = parseMcpServersJson(out, opts);
+      expect(back.servers.s, `${a.id} (${a.mcpFile})`).toEqual(spec);
+    }
+  });
+
+  it('toml 格式 agent 仅有 codex 与 grok', () => {
+    const toml = AGENTS.filter((a) => a.mcpFormat === 'toml').map((a) => a.id);
+    expect(toml.sort()).toEqual(['codex', 'grok']);
+  });
+
+  it('关键新 agent 路径正确', () => {
+    const byId = Object.fromEntries(AGENTS.map((a) => [a.id, a]));
+    expect(byId.kode.mcpFile).toBe('.kode.json'); // $HOME 下裸文件
+    expect(byId.mux.mcpRootKey).toBe('servers');
+    expect(byId.openclaw.mcpRootKey).toBe('mcp.servers');
+    expect(byId.zcode.mcpRootKey).toBe('mcp.servers');
+    expect(byId.grok.mcpFile).toBe('.grok/config.toml');
+    // workbuddy 与 codebuddy 同产品系共用同一配置文件
+    expect(byId.workbuddy.mcpFile).toBe('.codebuddy/.mcp.json');
+    expect(byId.workbuddy_overseas.mcpFile).toBe('.codebuddy/.mcp.json');
+  });
+});

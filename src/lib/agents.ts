@@ -18,7 +18,7 @@ export interface AgentDef {
   hasEnabledFlag?: boolean;
   /** MCP 服务器在 JSON 配置中的顶层键,默认 'mcpServers';支持点路径嵌套(amp 为 'amp.mcpServers') */
   mcpRootKey?: string;
-  /** 服务器条目 schema:'standard'=mcpServers 标准(command/args/env/url);'opencode'=mcp 键下 {type:'local',command:[…]}/{type:'remote',url} */
+  /** 服务器条目 schema:'standard'=mcpServers 标准(command/args/env/url，条目自带 type:'stdio'/'http');'opencode'=mcp 键下 {type:'local',command:[…]}/{type:'remote',url} */
   mcpSpecStyle?: 'standard' | 'opencode';
 }
 
@@ -77,7 +77,14 @@ export const AGENTS: AgentDef[] = [
     mcpFormat: 'json',
   },
   // —— 扩展 51 个(路径与 skills-manager 对齐;已核实的 MCP 配置见各条目)——
-  { id: 'grok', name: 'Grok', skillsDir: '.grok/skills' },
+  {
+    id: 'grok',
+    name: 'Grok',
+    skillsDir: '.grok/skills',
+    // docs.x.ai/build/features/mcp-servers：TOML [mcp_servers.<name>]，与 codex 同构
+    mcpFile: '.grok/config.toml',
+    mcpFormat: 'toml',
+  },
   {
     id: 'opencode',
     name: 'OpenCode',
@@ -87,7 +94,14 @@ export const AGENTS: AgentDef[] = [
     mcpRootKey: 'mcp',
     mcpSpecStyle: 'opencode',
   },
-  { id: 'antigravity', name: 'Antigravity', skillsDir: '.gemini/antigravity/skills' },
+  {
+    id: 'antigravity',
+    name: 'Antigravity',
+    skillsDir: '.gemini/antigravity/skills',
+    // antigravity.google/docs/mcp：App/IDE/CLI 共用
+    mcpFile: '.gemini/config/mcp_config.json',
+    mcpFormat: 'json',
+  },
   {
     id: 'amp',
     name: 'Amp',
@@ -113,8 +127,23 @@ export const AGENTS: AgentDef[] = [
     mcpFormat: 'json',
   },
   { id: 'goose', name: 'Goose', skillsDir: '.config/goose/skills' },
-  { id: 'github_copilot', name: 'GitHub Copilot', skillsDir: '.copilot/skills' },
-  { id: 'openclaw', name: 'OpenClaw', skillsDir: '.openclaw/skills' },
+  {
+    id: 'github_copilot',
+    name: 'GitHub Copilot',
+    skillsDir: '.copilot/skills',
+    // docs.github.com copilot-cli：copilot mcp add 写入此文件
+    mcpFile: '.copilot/mcp-config.json',
+    mcpFormat: 'json',
+  },
+  {
+    id: 'openclaw',
+    name: 'OpenClaw',
+    skillsDir: '.openclaw/skills',
+    // docs.openclaw.ai：JSON5（含注释时读取会失败并按错误跳过，不会清空）
+    mcpFile: '.openclaw/openclaw.json',
+    mcpFormat: 'json',
+    mcpRootKey: 'mcp.servers',
+  },
   {
     id: 'droid',
     name: 'Droid',
@@ -138,8 +167,22 @@ export const AGENTS: AgentDef[] = [
       'Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json',
     mcpFormat: 'json',
   },
-  { id: 'deepagents', name: 'Deep Agents', skillsDir: '.deepagents/agent/skills' },
-  { id: 'firebender', name: 'Firebender', skillsDir: '.firebender/skills' },
+  {
+    id: 'deepagents',
+    name: 'Deep Agents',
+    skillsDir: '.deepagents/agent/skills',
+    // docs.langchain.com/oss/deepagents/code/mcp-tools
+    mcpFile: '.deepagents/.mcp.json',
+    mcpFormat: 'json',
+  },
+  {
+    id: 'firebender',
+    name: 'Firebender',
+    skillsDir: '.firebender/skills',
+    // docs.firebender.com/api-reference/syntax
+    mcpFile: '.firebender/firebender.json',
+    mcpFormat: 'json',
+  },
   {
     id: 'kimi',
     name: 'Kimi Code CLI',
@@ -156,11 +199,15 @@ export const AGENTS: AgentDef[] = [
     mcpFormat: 'json',
   },
   { id: 'augment', name: 'Augment', skillsDir: '.augment/skills' },
-  { id: 'bob', name: 'IBM Bob', skillsDir: '.bob/skills' },
-  { id: 'codebuddy', name: 'CodeBuddy', skillsDir: '.codebuddy/skills' },
-  { id: 'command_code', name: 'Command Code', skillsDir: '.commandcode/skills' },
+  // bob.ibm.com/docs：远程条目用 httpURL 字段
+  { id: 'bob', name: 'IBM Bob', skillsDir: '.bob/skills', mcpFile: '.bob/settings/mcp.json', mcpFormat: 'json' },
+  // codebuddy.ai/docs/zh/cli/mcp：USER 作用域推荐 ~/.codebuddy/.mcp.json
+  { id: 'codebuddy', name: 'CodeBuddy', skillsDir: '.codebuddy/skills', mcpFile: '.codebuddy/.mcp.json', mcpFormat: 'json' },
+  // commandcode.ai/docs/mcp：条目用 transport 字段，type 为兼容别名
+  { id: 'command_code', name: 'Command Code', skillsDir: '.commandcode/skills', mcpFile: '.commandcode/mcp.json', mcpFormat: 'json' },
   { id: 'continue', name: 'Continue', skillsDir: '.continue/skills' },
-  { id: 'cortex', name: 'Cortex Code', skillsDir: '.snowflake/cortex/skills' },
+  // docs.snowflake.com cortex-code-mcp：type 为必填字段
+  { id: 'cortex', name: 'Cortex Code', skillsDir: '.snowflake/cortex/skills', mcpFile: '.snowflake/cortex/mcp.json', mcpFormat: 'json' },
   {
     id: 'crush',
     name: 'Crush',
@@ -169,8 +216,10 @@ export const AGENTS: AgentDef[] = [
     mcpFormat: 'json',
     mcpRootKey: 'mcp',
   },
-  { id: 'iflow', name: 'iFlow CLI', skillsDir: '.iflow/skills' },
-  { id: 'junie', name: 'Junie', skillsDir: '.junie/skills' },
+  // iflow-cli：~/.iflow/settings.json 顶层 mcpServers（2026-04 官方公告停服，配置仍有效）
+  { id: 'iflow', name: 'iFlow CLI', skillsDir: '.iflow/skills', mcpFile: '.iflow/settings.json', mcpFormat: 'json' },
+  // junie.jetbrains.com/docs/junie-cli-mcp-configuration
+  { id: 'junie', name: 'Junie', skillsDir: '.junie/skills', mcpFile: '.junie/mcp/mcp.json', mcpFormat: 'json' },
   {
     id: 'kiro',
     name: 'Kiro CLI',
@@ -178,14 +227,18 @@ export const AGENTS: AgentDef[] = [
     mcpFile: '.kiro/settings/mcp.json',
     mcpFormat: 'json',
   },
-  { id: 'kode', name: 'Kode', skillsDir: '.kode/skills' },
+  // Kode-CLI：user scope 写在 ~/.kode.json（中置信度）
+  { id: 'kode', name: 'Kode', skillsDir: '.kode/skills', mcpFile: '.kode.json', mcpFormat: 'json' },
   { id: 'mcpjam', name: 'MCPJam', skillsDir: '.mcpjam/skills' },
   { id: 'mistral_vibe', name: 'Mistral Vibe', skillsDir: '.vibe/skills' },
-  { id: 'mux', name: 'Mux', skillsDir: '.mux/skills' },
-  { id: 'neovate', name: 'Neovate', skillsDir: '.neovate/skills' },
+  // mux.coder.com/config/mcp-servers：JSONC，顶层键是 servers（非 mcpServers）
+  { id: 'mux', name: 'Mux', skillsDir: '.mux/skills', mcpFile: '.mux/mcp.jsonc', mcpFormat: 'json', mcpRootKey: 'servers' },
+  // neovate config.ts：顶层 mcpServers，type 必填
+  { id: 'neovate', name: 'Neovate', skillsDir: '.neovate/skills', mcpFile: '.neovate/config.json', mcpFormat: 'json' },
   { id: 'openhands', name: 'OpenHands', skillsDir: '.openhands/skills' },
   { id: 'pochi', name: 'Pochi', skillsDir: '.pochi/skills' },
-  { id: 'qoder', name: 'Qoder', skillsDir: '.qoder/skills' },
+  // docs.qoder.com/cli/mcp-reference
+  { id: 'qoder', name: 'Qoder', skillsDir: '.qoder/skills', mcpFile: '.qoder/settings.json', mcpFormat: 'json' },
   {
     id: 'qwen_code',
     name: 'Qwen Code',
@@ -195,18 +248,24 @@ export const AGENTS: AgentDef[] = [
   },
   { id: 'trae_cn', name: 'TRAE CN', skillsDir: '.trae-cn/skills' },
   { id: 'zencoder', name: 'Zencoder', skillsDir: '.zencoder/skills' },
-  { id: 'zcode', name: 'ZCode', skillsDir: '.zcode/skills' },
-  { id: 'adal', name: 'AdaL', skillsDir: '.adal/skills' },
+  // zcode.z.ai/docs/mcp-services：~/.zcode/cli/config.json 的 mcp.servers
+  { id: 'zcode', name: 'ZCode', skillsDir: '.zcode/skills', mcpFile: '.zcode/cli/config.json', mcpFormat: 'json', mcpRootKey: 'mcp.servers' },
+  // adal-cli issue #125：~/.adal/settings.json 的 mcpServers（中置信度）
+  { id: 'adal', name: 'AdaL', skillsDir: '.adal/skills', mcpFile: '.adal/settings.json', mcpFormat: 'json' },
   { id: 'hermes', name: 'Hermes Agent', skillsDir: '.hermes/skills' },
   { id: 'qclaw', name: 'QClaw', skillsDir: '.qclaw/skills' },
   { id: 'easyclaw', name: 'EasyClaw', skillsDir: '.easyclaw/skills' },
   { id: 'autoclaw', name: 'AutoClaw', skillsDir: '.openclaw-autoclaw/skills' },
-  { id: 'workbuddy', name: 'WorkBuddy', skillsDir: '.workbuddy/skills' },
-  { id: 'workbuddy_overseas', name: 'WorkBuddy AI', skillsDir: '.workbuddy-ai/skills' },
+  // 腾讯同产品系：与 codebuddy 共用 ~/.codebuddy/.mcp.json（幂等写入）
+  { id: 'workbuddy', name: 'WorkBuddy', skillsDir: '.workbuddy/skills', mcpFile: '.codebuddy/.mcp.json', mcpFormat: 'json' },
+  { id: 'workbuddy_overseas', name: 'WorkBuddy AI', skillsDir: '.workbuddy-ai/skills', mcpFile: '.codebuddy/.mcp.json', mcpFormat: 'json' },
   { id: 'deepseek_harness', name: 'DeepSeek Harness', skillsDir: '.dsh/skills' },
-  { id: 'gitlab_duo', name: 'GitLab Duo', skillsDir: '.gitlab/duo/skills' },
-  { id: 'minimax_code', name: 'MiniMax Code', skillsDir: '.minimax/skills' },
-  { id: 'omp_agent', name: 'OMP Agent', skillsDir: '.omp/agent/skills' },
+  // docs.gitlab.com gitlab_duo/mcp_clients
+  { id: 'gitlab_duo', name: 'GitLab Duo', skillsDir: '.gitlab/duo/skills', mcpFile: '.gitlab/duo/mcp.json', mcpFormat: 'json' },
+  // agent.minimax.io/docs：用户级 mcp.json（中置信度）
+  { id: 'minimax_code', name: 'MiniMax Code', skillsDir: '.minimax/skills', mcpFile: '.minimax/mcp.json', mcpFormat: 'json' },
+  // omp.sh/docs：顶层 mcpServers + disabledServers/enabledServers
+  { id: 'omp_agent', name: 'OMP Agent', skillsDir: '.omp/agent/skills', mcpFile: '.omp/agent/mcp.json', mcpFormat: 'json' },
 ];
 
 export const agentById = (id: AgentId): AgentDef => {
