@@ -21,10 +21,12 @@ export function useToast(timeoutMs = 3000) {
     (msg: string, tone: 'ok' | 'err' = 'ok') => {
       clear();
       setToast({ msg, tone });
+      // 错误提示停留更久：2~3 秒根本读不完失败原因，至少 10 秒
+      const ms = tone === 'err' ? Math.max(timeoutMs, 10_000) : timeoutMs;
       timer.current = window.setTimeout(() => {
         timer.current = null;
         setToast(null);
-      }, timeoutMs);
+      }, ms);
     },
     [clear, timeoutMs],
   );

@@ -93,6 +93,23 @@ function serverToDraft(s: CentralServer): EditDraft {
   };
 }
 
+/** 打开编辑时，清单里缺失的字段从 agent 实际配置带入（密钥等常只存在于 agent 配置文件里） */
+function serverToDraftMerged(s: CentralServer, current: PerAgentServers): EditDraft {
+  const d = serverToDraft(s);
+  const enabled = Object.entries(s.agents).filter(([, v]) => v).map(([k]) => k);
+  const candidates = enabled.length > 0 ? enabled : Object.keys(current);
+  for (const id of candidates) {
+    const spec = current[id as AgentId]?.[s.name];
+    if (!spec) continue;
+    if (!d.env.trim() && spec.env && Object.keys(spec.env).length > 0) d.env = kvToText(spec.env);
+    if (!d.headers.trim() && spec.headers && Object.keys(spec.headers).length > 0) d.headers = kvToText(spec.headers);
+    if (!d.command.trim() && spec.command) d.command = spec.command;
+    if (!d.args.trim() && spec.args && spec.args.length > 0) d.args = joinArgs(spec.args);
+    if (!d.url.trim() && spec.url) d.url = spec.url;
+  }
+  return d;
+}
+
 export default function McpManagerPage() {
   const agents = useAgents();
   // 必须 useMemo 稳定引用：inline filter 每次渲染都产生新数组，
@@ -614,7 +631,7 @@ export default function McpManagerPage() {
                 ))}
                 <td className="px-2 py-1.5 text-center">
                   <button
-                    onClick={() => setDraft(serverToDraft(s))}
+                    onClick={() => setDraft(serverToDraftMerged(s, current))}
                     title="编辑"
                     className="mr-1 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   >
