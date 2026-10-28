@@ -173,96 +173,109 @@ export function layoutGraph(graph: WikiGraph): Map<string, { x: number; y: numbe
   return positions;
 }
 
-// ── 树状布局（BFS 分层，左→右排列，静态无动画）──
+// ── 树状布局（Tidy Tree：子节点聚拢在父节点下方，父居中，森林垂直排列）──
 
-const LEVEL_W = 200;
-const NODE_H = 50;
+const LEVEL_W = 220;
+const LEAF_H = 40;
+const SIBLING_GAP = 6;
 
-/** BFS 分层树状布局：入度 0 或连接数 top 2% 为根，每层内按父节点位置排序减少交叉 */
-export function layoutTree(graph: WikiGraph): Map<string, { x: number; y: number }> {
+/** 树节点（内部使用） */
+interface TreeNode {
+  id: string;
+  children: TreeNode[];
+  depth: number;
+  /** 布局结果 */
+  x: number;
+  y: number;
+}
+
+/** 从图构建树（BFS，每节点只访问一次；多根为森林） */
+function buildForest(graph: WikiGraph): TreeNode[] {
   const { entities, relations } = graph;
-  const result = new Map<string, { x: number; y: number }>();
-  if (entities.length === 0) return result;
-
   // 邻接表（双向）
   const adj = new Map<string, string[]>();
-  const inDegree = new Map<string, number>();
-  for (const e of entities) { adj.set(e.id, []); inDegree.set(e.id, 0); }
+  const inDeg = new Map<string, number>();
+  for (const e of entities) { adj.set(e.id, []); inDeg.set(e.id, 0); }
   for (const r of relations) {
     if (adj.has(r.from) && adj.has(r.to)) {
       adj.get(r.from)!.push(r.to);
       adj.get(r.to)!.push(r.from);
-      inDegree.set(r.to, (inDegree.get(r.to) ?? 0) + 1);
+      inDeg.set(r.to, (inDeg.get(r.to) ?? 0) + 1);
     }
   }
 
-  // 根节点
-  let roots = entities.filter((e) => (inDegree.get(e.id) ?? 0) === 0).map((e) => e.id);
-  if (roots.length === 0) {
+  // 根：入度 0，或连接数 top 2%
+  let rootIds = entities.filter((e) => (inDeg.get(e.id) ?? 0) === 0).map((e) => e.id);
+  if (rootIds.length === 0) {
     const conn = new Map<string, number>();
     for (const r of relations) {
       conn.set(r.from, (conn.get(r.from) ?? 0) + 1);
       conn.set(r.to, (conn.get(r.to) ?? 0) + 1);
     }
-    const sorted = [...conn.entries()].sort((a, b) => b[1] - a[1]);
-    roots = sorted.slice(0, Math.max(1, Math.ceil(entities.length * 0.02))).map(([id]) => id);
+    rootIds = [...conn.entries()].sort((a, b) => b[1] - a[1])
+      .slice(0, Math.max(1, Math.ceil(entities.length * 0.02)))
+      .map(([id]) => id);
   }
 
-  // BFS 分层
-  const level = new Map<string, number>();
+  // BFS 构建树
   const visited = new Set<string>();
-  let queue = roots.map((id) => ({ id, lv: 0 }));
-  for (const { id, lv } of queue) { level.set(id, lv); visited.add(id); }
-  while (queue.length > 0) {
-    const next: typeof queue = [];
-    for (const { id, lv } of queue) {
-      for (const cid of adj.get(id) ?? []) {
-        if (!visited.has(cid)) {
-          visited.add(cid);
-          level.set(cid, lv + 1);
-          next.push({ id: cid, lv: lv + 1 });
-        }
+  const makeNode = (id: string, depth: number): TreeNode => {
+    visited.add(id);
+    const children: TreeNode[] = [];
+    for (const cid of adj.get(id) ?? []) {
+      if (!visited.has(cid)) {
+        children.push(makeNode(cid, depth + 1));
       }
     }
-    queue = next;
-  }
-  const maxLv = Math.max(0, ...level.values());
-  for (const e of entities) if (!level.has(e.id)) level.set(e.id, maxLv + 1);
+    return { id, children, depth, x: 0, y: 0 };
+  };
 
-  // 按层分组
-  const layers = new Map<number, string[]>();
-  for (const [id, lv] of level) {
-    if (!layers.has(lv)) layers.set(lv, []);
-    layers.get(lv)!.push(id);
+  const forest: TreeNode[] = [];
+  for (const rid of rootIds) {
+    if (!visited.has(rid)) forest.push(makeNode(rid, 0));
+  }
+  // 未访问的节点（断连组件）各自成树
+  for (const e of entities) {
+    if (!visited.has(e.id)) forest.push(makeNode(e.id, 0));
+  }
+  return forest;
+}
+
+/** Tidy tree 后序遍历分配 y 坐标 */
+function assignY(node: TreeNode, nextY: { value: number }): void {
+  if (node.children.length === 0) {
+    node.y = nextY.value;
+    nextY.value += LEAF_H + SIBLING_GAP;
+    return;
+  }
+  for (const child of node.children) {
+    assignY(child, nextY);
+  }
+  // 父节点居中于子节点
+  const first = node.children[0].y;
+  const last = node.children[node.children.length - 1].y;
+  node.y = (first + last) / 2;
+}
+
+/** Tidy Tree 布局：左→右，每层一列，子树紧凑排列 */
+export function layoutTree(graph: WikiGraph): Map<string, { x: number; y: number }> {
+  const result = new Map<string, { x: number; y: number }>();
+  if (graph.entities.length === 0) return result;
+
+  const forest = buildForest(graph);
+  const nextY = { value: 0 };
+
+  for (const root of forest) {
+    assignY(root, nextY);
+    nextY.value += LEAF_H; // 树之间留空
   }
 
-  // 布局：x = 层 * 宽度，y 在层内按父节点位置排序
-  const sortedLvs = [...layers.keys()].sort((a, b) => a - b);
-  for (const lv of sortedLvs) {
-    const ids = layers.get(lv)!;
-    if (lv === 0) {
-      ids.sort();
-    } else {
-      const parentY = new Map<string, number>();
-      for (const id of ids) {
-        let sum = 0, cnt = 0;
-        for (const r of relations) {
-          if (r.to === id && level.get(r.from) === lv - 1 && result.has(r.from)) {
-            sum += result.get(r.from)!.y; cnt++;
-          }
-          if (r.from === id && level.get(r.to) === lv - 1 && result.has(r.to)) {
-            sum += result.get(r.to)!.y; cnt++;
-          }
-        }
-        parentY.set(id, cnt > 0 ? sum / cnt : 0);
-      }
-      ids.sort((a, b) => (parentY.get(a) ?? 0) - (parentY.get(b) ?? 0));
-    }
-    const totalH = ids.length * NODE_H;
-    for (let i = 0; i < ids.length; i++) {
-      result.set(ids[i], { x: lv * LEVEL_W, y: i * NODE_H - totalH / 2 });
-    }
-  }
+  // 收集结果
+  const collect = (node: TreeNode) => {
+    result.set(node.id, { x: node.depth * LEVEL_W, y: node.y });
+    for (const c of node.children) collect(c);
+  };
+  for (const root of forest) collect(root);
 
   return result;
 }
