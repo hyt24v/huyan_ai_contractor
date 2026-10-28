@@ -388,12 +388,12 @@ function RulesPage() {
         ) : (
           <>
             <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
-              <Input
-                value={draft.name}
-                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                placeholder="规则名称"
-                className="h-8 w-56 shrink-0 font-medium"
-              />
+              <div
+                className="h-8 max-w-64 shrink-0 truncate px-1 text-sm font-medium leading-8"
+                title={`${draft.name}（名称不可修改）`}
+              >
+                {draft.name}
+              </div>
               <Input
                 value={draft.tags.join(', ')}
                 onChange={(e) =>
