@@ -5,7 +5,7 @@
 ## 项目速览
 
 - Tauri 桌面应用「AI包工头」：React 18 + TS + Vite 前端，Rust 后端（`src-tauri/`）
-- 纯本地工具集：JSON/JSONL 编辑器、Markdown 编辑器、Skills/MCP/提示词/配置套餐/模型服务管理、AI 助手对话面板（AiDock）
+- 纯本地工具集：JSON/JSONL 编辑器、Markdown 编辑器、Skills/MCP/规则库（提示词已并入）/配置套餐/模型服务管理、AI 助手对话面板（AiDock，流式）
 - 测试：`npm test`（Vitest）；类型：`npx tsc -b --force`；后端：`cd src-tauri && cargo check`
 
 ## 分支与发布规则（重要）
@@ -29,7 +29,7 @@
 
 版本号约定：正式版之前一直保持 `0.x`；不自动升 `1.0`，必须用户明确说发正式版。版本号本身也由用户在发版时给出，agent 不主动升号。
 
-**合并规则**：test 验证稳定后合回 main 发正式版；用户未明确要求时不要主动合 main。
+**合并规则**：test 验证稳定后合回 main 发正式版；用户未明确要求时不要主动合 main。**发正式版（main 线 `vX.Y.Z`）时必须同步更新 README.md 功能列表**（README 面向用户，正式版用户对它就是文档）。
 
 ## 提交前必做验证
 
@@ -50,7 +50,8 @@ cd src-tauri && cargo check   # 改 Rust 时
 - **文件系统**：前端只通过 `src/lib/fsPort.ts`（FsPort）访问 fs，不直接调 invoke；新增路径要同步加 `src-tauri/capabilities/default.json` 对应命令的 allow 列表。fs:scope 里**禁止**重新引入 `$HOME/**` 这种宽泛授权。
 - **用户数据安全**：任何批量/套餐操作**禁止**删除用户本地的真实目录（skill 目录等）；对真实目录只能报错提示用户处理，只有软链可以直接删。
 - **编辑器防抖快照**：`editorHistory.ts` 配额写满时自动减半重试，单条 >512KB 不存，最多 50 条。
-- **AI 模块**：服务层在 `src/services/ai/`（`client.ts` 适配 openai-responses / openai-completions / anthropic-messages 三协议，`prompts.ts` 系统提示词，`session.ts` 内存会话 Map<scope>）；UI 为 `src/components/AiDock.tsx` + 设置页 `AiSection`。网络一律走 Rust `http_request`（支持 method/body/headers/timeout_ms，POST 自动带 `Content-Type: application/json`）；API key 只在 Rust 侧拼 Authorization / x-api-key 头，**不进前端日志、不写 localStorage**；当前非流式。
+- **AI 模块**：服务层在 `src/services/ai/`（`client.ts` 适配 openai-responses / openai-completions / anthropic-messages 三协议，`prompts.ts` 系统提示词，`session.ts` 内存会话 Map<scope>）；UI 为 `src/components/AiDock.tsx` + 设置页 `AiSection`。网络一律走 Rust `http_request`（支持 method/body/headers/timeout_ms，POST 自动带 `Content-Type: application/json`）；AI 对话流式走 `ai_sse_request`（Rust 逐行转发 SSE + 60s 停滞看门狗 + `ai_sse_abort` 中止），API key 只在 Rust 侧拼 Authorization / x-api-key 头，**不进前端日志、不写 localStorage**。
+- **规则库**：`src/pages/RulesPage.tsx` + `src/services/agentRules.ts` + `src/lib/rules.ts`。中心库 `~/.ai-baogongtou/rules/`（rules.json 索引 + 每规则 `<id>.md` + `<id>.history/` 版本快照上限 50）；勾选 agent 后**软链**分发到其 promptPath，真实文件内容不同**拒绝覆盖**（备份后收养仅限内容相同）；「同步」把中心库最新内容写入已链接目标并记录 syncs 版本；「导入」支持扫项目目录的 AGENTS.md/CLAUDE.md 等（`PROJECT_RULE_CANDIDATES`）；原提示词页已退役，agent 存量提示词用「导入现有提示词」收编。
 - **窗口拖拽**（macOS Overlay 隐藏标题栏）：`start_dragging` 不在 `core:default` 默认权限集，必须显式加 `core:window:allow-start-dragging`（缺失时原生 drag-region 和 JS 都被 ACL 静默拦截）；可拖区域元素标 `data-tauri-drag-region`，Layout.tsx 另有 document mousedown `closest()` 兜底覆盖未标记的子元素。
 - **JSON 保留转义语义**（对齐 json.cn）：`formatJson/minifyJson` 的 keepEscape=true 走 `formatPreservingStrings`——字符串 token 逐字复制（`\n`/`\uXXXX` 原样保留、非 ASCII 不转义），只重排结构空白；**禁止**恢复「所有非 ASCII 强制转 \uXXXX」的旧行为。keepEscape=false 才走 `decodeStringEscapes` 解码。
 - **Agent 注册表与可见性**：`src/lib/agents.ts` 注册 56 个 agent（id 兼容：原有 5 个 claude/codex/pi/cursor/gemini 勿改）。可见性走 `src/lib/agentVisibility.ts`：默认显示「检测到的」（detectDir/skillsDir 存在），用户在 设置→Agent 管理 用开关自定义；组件用 `useAgents()` hook，服务层用 `effectiveAgents()`，MCP/提示词等只对有配置路径的 agent 开放（`hasMcpSupport`/`PROMPT_TARGETS`）。agents 记录只含可见 agent，读 `skill.agents[x]` 必须 `(… ?? 'none')` 兜底。新增 agent 目录时同步跑 `default.json` 的 fs allow 追加（见 git 历史中的生成脚本）。**禁止把 `useAgents().filter(...)` 这类 inline 派生数组直接喂给 useCallback/useEffect 依赖**——每次渲染都是新引用会造成无限 effect 循环（MCP 页勾选失效事故，见 451a043）；派生列表一律 `useMemo(() => agents.filter(...), [agents]`。
