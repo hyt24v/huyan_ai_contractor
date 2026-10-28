@@ -1,0 +1,346 @@
+/** 规则库页面：中心库管理 + 各 agent 目标文件软链引用 */
+import { useEffect, useMemo, useState } from 'react';
+import { FileText, Link2, Link2Off, Plus, Save, Trash2 } from 'lucide-react';
+import { agentShortName, type AgentId } from '../lib/agents';
+import { useAgents } from '../hooks/useAgents';
+import { PROMPT_TARGETS } from '../lib/agentTargets';
+import { type RuleEntry, ruleTargetFiles, RULE_FILE_TEMPLATES } from '../lib/rules';
+import { Button, Input } from '../components/ui/controls';
+import { useToast } from '../hooks/useToast';
+import {
+  deleteRule,
+  loadRulesLibrary,
+  saveRule,
+  setRuleAgentEnabled,
+  syncRule,
+  type RuleSyncResult,
+} from '../services/agentRules';
+
+const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/** 有提示词文件的 agent（软链目标候选），按注册顺序 */
+const LINKABLE = PROMPT_TARGETS.filter((t) => t.writable && t.file);
+
+function RulesPage() {
+  const { toast, showToast } = useToast(2000);
+  const agents = useAgents();
+  const visibleIds = useMemo(() => new Set(agents.map((a) => a.id)), [agents]);
+
+  const [library, setLibrary] = useState<Awaited<ReturnType<typeof loadRulesLibrary>> | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [tagFilter, setTagFilter] = useState('all');
+  // 编辑草稿（选中规则时同步）
+  const [draft, setDraft] = useState<RuleEntry | null>(null);
+  const [syncResults, setSyncResults] = useState<RuleSyncResult[] | null>(null);
+
+  const refresh = async () => {
+    const lib = await loadRulesLibrary();
+    setLibrary(lib);
+    return lib;
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { void refresh().catch((e) => showToast(`加载失败：${errMsg(e)}`, 'err')); }, []);
+
+  const rules = useMemo(() => library?.rules ?? [], [library]);
+  const filtered = useMemo(() => {
+    let list = rules;
+    if (tagFilter !== 'all') list = list.filter((r) => r.tags.includes(tagFilter));
+    const q = query.trim().toLowerCase();
+    if (query.trim()) {
+      list = list.filter(
+        (r) => r.name.toLowerCase().includes(q) || r.description.toLowerCase().includes(q),
+      );
+    }
+    return list;
+  }, [rules, query, tagFilter]);
+  const allTags = useMemo(
+    () => [...new Set(rules.flatMap((r) => r.tags))].sort(),
+    [rules],
+  );
+
+  const select = (id: string | null) => {
+    setSelectedId(id);
+    setSyncResults(null);
+    const r = rules.find((x) => x.id === id);
+    setDraft(r ? { ...r } : null);
+  };
+
+  const create = () => {
+    const r: RuleEntry = {
+      id: `rule-${Date.now().toString(36)}`,
+      name: '新规则',
+      content: '# 项目规则\n\n',
+      tags: [],
+      description: '',
+      agents: {},
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setSelectedId(r.id);
+    setDraft(r);
+    setSyncResults(null);
+  };
+
+  const save = async () => {
+    if (!draft) return;
+    if (!draft.name.trim()) { showToast('规则名称不能为空', 'err'); return; }
+    try {
+      const lib = await saveRule(draft);
+      setLibrary(lib);
+      const saved = lib.rules.find((r) => r.id === draft.id);
+      if (saved) setDraft({ ...saved });
+      showToast('已保存');
+    } catch (e) { showToast(`保存失败：${errMsg(e)}`, 'err'); }
+  };
+
+  const remove = async () => {
+    if (!draft) return;
+    if (!confirm(`删除规则「${draft.name}」？\n已建立的软链会被移除，不会删除任何真实文件。`)) return;
+    try {
+      const lib = await deleteRule(draft.id);
+      setLibrary(lib);
+      select(null);
+      showToast('已删除');
+    } catch (e) { showToast(`删除失败：${errMsg(e)}`, 'err'); }
+  };
+
+  const toggleAgent = async (agentId: AgentId, enabled: boolean) => {
+    if (!draft) return;
+    try {
+      const lib = await setRuleAgentEnabled(draft.id, agentId, enabled);
+      setLibrary(lib);
+      const saved = lib.rules.find((r) => r.id === draft.id);
+      if (saved) setDraft({ ...saved });
+      showToast(enabled ? `已链接到 ${agentShortName(agentId)}` : `已断开 ${agentShortName(agentId)}`);
+    } catch (e) { showToast(`操作失败：${errMsg(e)}`, 'err'); }
+  };
+
+  const sync = async () => {
+    if (!draft) return;
+    try {
+      const results = await syncRule(draft.id);
+      setSyncResults(results);
+      const failed = results.filter((r) => r.status === 'error');
+      showToast(
+        failed.length ? `${failed.length} 个 agent 同步失败` : '同步完成',
+        failed.length ? 'err' : 'ok',
+      );
+    } catch (e) { showToast(`同步失败：${errMsg(e)}`, 'err'); }
+  };
+
+  const targetFiles = draft ? ruleTargetFiles(draft) : [];
+  const enabledAgents = targetFiles.filter((t) => t.enabled);
+
+  return (
+    <div className="flex h-full min-h-0">
+      {/* 左侧：规则列表 */}
+      <div className="flex w-72 shrink-0 flex-col border-r border-border">
+        <div className="flex items-center gap-2 border-b border-border p-3">
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="搜索名称/描述"
+            className="h-8 flex-1"
+          />
+          <Button size="sm" onClick={create} title="新建规则">
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+        {allTags.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-3 py-2">
+            {['all', ...allTags].map((t) => (
+              <button
+                key={t}
+                onClick={() => setTagFilter(t)}
+                className={`rounded-full border px-2.5 py-0.5 text-[11px] transition-colors ${
+                  tagFilter === t
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {t === 'all' ? '全部' : t}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="flex-1 overflow-y-auto p-2">
+          {filtered.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+              <FileText className="mb-2 h-8 w-8 opacity-30" />
+              <p className="text-xs">{rules.length ? '没有匹配的规则' : '还没有规则，点右上角 + 新建'}</p>
+            </div>
+          )}
+          {filtered.map((r) => {
+            const enabledCount = Object.values(r.agents).filter(Boolean).length;
+            return (
+              <button
+                key={r.id}
+                onClick={() => select(r.id)}
+                className={`mb-1 flex w-full flex-col gap-1 rounded-md border px-3 py-2 text-left transition-colors ${
+                  selectedId === r.id
+                    ? 'border-primary/40 bg-accent'
+                    : 'border-transparent hover:bg-accent/50'
+                }`}
+              >
+                <div className="flex w-full items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{r.name}</span>
+                  {enabledCount > 0 && (
+                    <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
+                      <Link2 className="h-3 w-3" />
+                      {enabledCount}
+                    </span>
+                  )}
+                </div>
+                {r.description && (
+                  <div className="truncate text-xs text-muted-foreground">{r.description}</div>
+                )}
+                {r.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {r.tags.map((t) => (
+                      <span key={t} className="rounded bg-muted px-1.5 py-px text-[10px] text-muted-foreground">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 右侧：编辑器 */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {!draft ? (
+          <div className="flex flex-1 flex-col items-center justify-center text-center text-muted-foreground">
+            <FileText className="mb-3 h-10 w-10 opacity-30" />
+            <p className="text-sm">选择或新建一条规则</p>
+            <p className="mt-1 text-xs">
+              规则内容集中存放在中心库，勾选 agent 后以软链方式写入其规则文件
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+              <Input
+                value={draft.name}
+                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                placeholder="规则名称"
+                className="h-8 w-56 font-medium"
+              />
+              <Input
+                value={draft.tags.join(', ')}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    tags: e.target.value.split(/[,，]/).map((s) => s.trim()).filter(Boolean),
+                  })
+                }
+                placeholder="标签（逗号分隔）"
+                className="h-8 w-44"
+              />
+              <Input
+                value={draft.description}
+                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                placeholder="描述（可选）"
+                className="h-8 min-w-0 flex-1"
+              />
+              <Button size="sm" onClick={save}>
+                <Save className="mr-1 h-3.5 w-3.5" />
+                保存
+              </Button>
+              <Button size="sm" variant="outline" onClick={sync} title="把所有已链接 agent 的目标文件指向中心库当前内容">
+                同步
+              </Button>
+              <Button size="icon-sm" variant="ghost" onClick={remove} title="删除规则">
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </div>
+
+            {/* agent 链接开关 */}
+            <div className="border-b border-border px-4 py-2.5">
+              <div className="mb-1.5 text-xs font-medium text-muted-foreground">
+                链接到 agent（写入各自的规则文件，软链到中心库）
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {LINKABLE.map((t) => {
+                  const enabled = draft.agents[t.agent] === true;
+                  const installed = visibleIds.has(t.agent);
+                  return (
+                    <button
+                      key={t.agent}
+                      disabled={!installed}
+                      onClick={() => void toggleAgent(t.agent, !enabled)}
+                      title={
+                        !installed
+                          ? `${t.label} 未检测到（在设置 → Agent 管理中确认启用）`
+                          : `${t.label} → ${t.file}`
+                      }
+                      className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
+                        !installed
+                          ? 'cursor-not-allowed border-border/50 text-muted-foreground/40'
+                          : enabled
+                            ? 'border-primary/50 bg-primary/10 text-primary'
+                            : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                      }`}
+                    >
+                      {enabled ? <Link2 className="h-3 w-3" /> : <Link2Off className="h-3 w-3" />}
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {enabledAgents.length > 0 && (
+                <div className="mt-1.5 space-y-0.5 text-[11px] text-muted-foreground">
+                  {enabledAgents.map((t) => (
+                    <div key={t.agent}>
+                      {agentShortName(t.agent)} → <span className="font-mono">~/{t.file}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {syncResults && (
+                <div className="mt-1.5 space-y-0.5 text-[11px]">
+                  {syncResults.map((r) => (
+                    <div
+                      key={r.agent}
+                      className={r.status === 'error' ? 'text-destructive' : 'text-muted-foreground'}
+                    >
+                      {agentShortName(r.agent)}：
+                      {r.status === 'linked'
+                        ? '已建立链接'
+                        : r.status === 'unchanged'
+                          ? '已是最新'
+                          : `失败：${r.error}`}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 内容编辑 */}
+            <textarea
+              value={draft.content}
+              onChange={(e) => setDraft({ ...draft, content: e.target.value })}
+              placeholder={RULE_FILE_TEMPLATES.codex}
+              className="min-h-0 flex-1 resize-none bg-transparent p-4 font-mono text-[13px] leading-relaxed outline-none placeholder:text-muted-foreground/50"
+            />
+          </>
+        )}
+      </div>
+
+      {toast && (
+        <div
+          className={`fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-md px-4 py-2 text-sm shadow-lg ${
+            toast.tone === 'err' ? 'bg-destructive text-destructive-foreground' : 'bg-foreground text-background'
+          }`}
+        >
+          {toast.msg}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default RulesPage;

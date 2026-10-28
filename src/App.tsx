@@ -7,6 +7,7 @@ import SkillsManagerPage from './pages/SkillsManagerPage';
 import ProfilesPage from './pages/ProfilesPage';
 import ProvidersPage from './pages/ProvidersPage';
 import PromptsPage from './pages/PromptsPage';
+import RulesPage from './pages/RulesPage';
 import SettingsPage from './pages/SettingsPage';
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/profiles" element={<ProfilesPage />} />
           <Route path="/providers" element={<ProvidersPage />} />
           <Route path="/prompts" element={<PromptsPage />} />
+          <Route path="/rules" element={<RulesPage />} />
           <Route path="/settings/*" element={<SettingsPage />} />
           {/* 旧路由兼容：重定向到统一编辑器 */}
           <Route path="/jsonl" element={<Navigate to="/json" replace />} />
