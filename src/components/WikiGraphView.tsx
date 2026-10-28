@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Maximize, RotateCcw, Search, ZoomIn, ZoomOut } from 'lucide-react';
+import { Maximize, RotateCcw, Search, Zap, ZoomIn, ZoomOut } from 'lucide-react';
 import { entityTypeColor, layoutGraph } from '../lib/wikiGraph';
 import type { WikiEntity, WikiGraph, WikiRelation } from '../lib/wikiGraph';
 
@@ -57,7 +57,17 @@ export function WikiGraphView({
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
 
-  const positions = useMemo(() => layoutGraph(graph), [graph]);
+  // ── 力导向模拟 ──
+  const [, setTick] = useState(0);
+  const simPos = useRef(new Map<string, { x: number; y: number }>());
+  const simVel = useRef(new Map<string, { x: number; y: number }>());
+  const dragNodeRef = useRef<string | null>(null);
+  const dragOffsetRef = useRef({ dx: 0, dy: 0 });
+  const simSleeping = useRef(false);
+  const relationsRef = useRef(graph.relations);
+  relationsRef.current = graph.relations;
+
+  const positions = simPos.current; // alias，模拟每帧更新 + setTick 触发重渲
   const entityById = useMemo(() => {
     const m = new Map<string, WikiEntity>();
     for (const e of graph.entities) m.set(e.id, e);
@@ -105,7 +115,7 @@ export function WikiGraphView({
     let maxX = -Infinity;
     let maxY = -Infinity;
     for (const e of visibleEntities) {
-      const p = positions.get(e.id);
+      const p = simPos.current.get(e.id);
       if (!p) continue;
       minX = Math.min(minX, p.x);
       maxX = Math.max(maxX, p.x);
@@ -125,13 +135,108 @@ export function WikiGraphView({
     });
   };
 
-  // 图数据变化时自动适配
+  // 图数据变化时自动适配 + 初始化力导向模拟
   const graphKey = `${graph.entities.length}:${graph.relations.length}`;
   useEffect(() => {
     setSelectedId(null);
     setHiddenTypes(new Set());
     setQuery('');
+    const layout = layoutGraph(graph);
+    simPos.current = new Map(layout);
+    simVel.current = new Map();
+    for (const id of layout.keys()) simVel.current.set(id, { x: 0, y: 0 });
+    simSleeping.current = false;
+    dragNodeRef.current = null;
+    setTick((t) => t + 1);
     applyView('fit');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graphKey]);
+
+  // 力导向模拟循环（排斥 + 弹簧 + 向心力，settles 后休眠，拖拽时唤醒）
+  useEffect(() => {
+    let running = true;
+    let rafId = 0;
+
+    const step = () => {
+      if (!running) return;
+      const pos = simPos.current;
+      const vel = simVel.current;
+      const rels = relationsRef.current;
+      const ids = [...pos.keys()];
+      const n = ids.length;
+      const dragged = dragNodeRef.current;
+
+      // 休眠检查：无拖拽且速度都小 → 跳过物理
+      if (simSleeping.current && !dragged) {
+        rafId = requestAnimationFrame(step);
+        return;
+      }
+
+      let maxV = 0;
+
+      // 排斥力（O(n²)，264 节点约 35k 对，每帧毫秒级）
+      for (let i = 0; i < n; i++) {
+        const a = pos.get(ids[i])!;
+        const va = vel.get(ids[i])!;
+        for (let j = i + 1; j < n; j++) {
+          const b = pos.get(ids[j])!;
+          const vb = vel.get(ids[j])!;
+          let dx = a.x - b.x;
+          let dy = a.y - b.y;
+          const d2 = dx * dx + dy * dy || 1;
+          const d = Math.sqrt(d2);
+          const f = 2000 / d2;
+          dx = (dx / d) * f;
+          dy = (dy / d) * f;
+          va.x += dx;
+          va.y += dy;
+          vb.x -= dx;
+          vb.y -= dy;
+        }
+      }
+
+      // 弹簧力（沿边）
+      for (const r of rels) {
+        const a = pos.get(r.from);
+        const b = pos.get(r.to);
+        if (!a || !b) continue;
+        const va = vel.get(r.from)!;
+        const vb = vel.get(r.to)!;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const d = Math.sqrt(dx * dx + dy * dy) || 1;
+        const f = (d - 80) * 0.03;
+        va.x += (dx / d) * f;
+        va.y += (dy / d) * f;
+        vb.x -= (dx / d) * f;
+        vb.y -= (dy / d) * f;
+      }
+
+      // 向心力 + 阻尼 + 位置更新
+      for (const id of ids) {
+        if (id === dragged) continue; // 拖拽节点不动
+        const p = pos.get(id)!;
+        const v = vel.get(id)!;
+        v.x -= p.x * 0.001;
+        v.y -= p.y * 0.001;
+        v.x *= 0.85;
+        v.y *= 0.85;
+        p.x += v.x;
+        p.y += v.y;
+        maxV = Math.max(maxV, Math.abs(v.x) + Math.abs(v.y));
+      }
+
+      setTick((t) => t + 1);
+
+      if (maxV < 0.05 && !dragged) simSleeping.current = true;
+      rafId = requestAnimationFrame(step);
+    };
+
+    rafId = requestAnimationFrame(step);
+    return () => {
+      running = false;
+      cancelAnimationFrame(rafId);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graphKey]);
 
@@ -198,9 +303,26 @@ export function WikiGraphView({
       className="relative h-full w-full cursor-grab touch-none overflow-hidden bg-background active:cursor-grabbing"
       onPointerDown={(e) => {
         if (e.button !== 0) return;
-        // 点在工具条按钮/输入框上时不启动拖拽（否则 setPointerCapture 会吞掉按钮的 click）
         if ((e.target as HTMLElement).closest('button')) return;
         if ((e.target as HTMLElement).closest('input')) return;
+
+        // 点在节点上 → 拖拽节点（力导向）
+        const nodeEl = (e.target as Element).closest('[data-node-id]');
+        if (nodeEl) {
+          const nodeId = nodeEl.getAttribute('data-node-id')!;
+          dragNodeRef.current = nodeId;
+          const rect = containerRef.current!.getBoundingClientRect();
+          const zoom = viewRef.current.zoom;
+          const x = (e.clientX - rect.left - viewRef.current.x) / zoom;
+          const y = (e.clientY - rect.top - viewRef.current.y) / zoom;
+          const pos = simPos.current.get(nodeId);
+          if (pos) dragOffsetRef.current = { dx: pos.x - x, dy: pos.y - y };
+          simSleeping.current = false; // 唤醒模拟
+          e.currentTarget.setPointerCapture(e.pointerId);
+          return;
+        }
+
+        // 点在空白 → 平移
         panRef.current = {
           px: e.clientX,
           py: e.clientY,
@@ -211,6 +333,24 @@ export function WikiGraphView({
         e.currentTarget.setPointerCapture(e.pointerId);
       }}
       onPointerMove={(e) => {
+        // 节点拖拽：直接更新位置，唤醒模拟让其他节点响应
+        if (dragNodeRef.current) {
+          const rect = containerRef.current!.getBoundingClientRect();
+          const zoom = viewRef.current.zoom;
+          const x = (e.clientX - rect.left - viewRef.current.x) / zoom;
+          const y = (e.clientY - rect.top - viewRef.current.y) / zoom;
+          const pos = simPos.current.get(dragNodeRef.current);
+          if (pos) {
+            pos.x = x + dragOffsetRef.current.dx;
+            pos.y = y + dragOffsetRef.current.dy;
+            const vel = simVel.current.get(dragNodeRef.current);
+            if (vel) { vel.x = 0; vel.y = 0; }
+            suppressClickRef.current = true;
+            setTick((t) => t + 1);
+          }
+          return;
+        }
+        // 平移
         const pan = panRef.current;
         if (!pan) return;
         if (Math.abs(e.clientX - pan.px) + Math.abs(e.clientY - pan.py) > 4) pan.moved = true;
@@ -221,6 +361,10 @@ export function WikiGraphView({
         }));
       }}
       onPointerUp={(e) => {
+        if (dragNodeRef.current) {
+          dragNodeRef.current = null;
+          simSleeping.current = false; // 松手后继续模拟（弹簧回弹）
+        }
         if (panRef.current?.moved) suppressClickRef.current = true;
         panRef.current = null;
         e.currentTarget.releasePointerCapture(e.pointerId);
@@ -264,6 +408,7 @@ export function WikiGraphView({
             return (
               <g
                 key={e.id}
+                data-node-id={e.id}
                 opacity={dimmed ? 0.15 : 1}
                 className="cursor-pointer"
                 onClick={() => {
@@ -347,6 +492,20 @@ export function WikiGraphView({
           </button>
           <button type="button" className={toolBtn} title="适配视图" onClick={() => applyView('fit')}>
             <Maximize className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className={toolBtn}
+            title="重新布局（力导向）"
+            onClick={() => {
+              for (const [, v] of simVel.current) {
+                v.x = (Math.random() - 0.5) * 4;
+                v.y = (Math.random() - 0.5) * 4;
+              }
+              simSleeping.current = false;
+            }}
+          >
+            <Zap className="h-4 w-4" />
           </button>
         </div>
         <div className="max-h-56 overflow-auto rounded-md border border-border bg-card/95 p-2 text-[11px] shadow-sm">

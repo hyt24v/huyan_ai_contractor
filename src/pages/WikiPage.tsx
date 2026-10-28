@@ -2,6 +2,7 @@
 // 遵守仓库规范：不物理删除（归档=frontmatter archived:true）、不写 index.md/log.md
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AlertTriangle,
   Archive,
   ArchiveRestore,
   BarChart3,
@@ -79,6 +80,7 @@ export default function WikiPage() {
   const [logEntries, setLogEntries] = useState<WikiLogEntry[] | null>(null);
   const [canvasSel, setCanvasSel] = useState<{ name: string; relPath: string } | null>(null);
   const [canvasContent, setCanvasContent] = useState('');
+  const [graphError, setGraphError] = useState('');
 
   const refresh = useCallback(async (path: string) => {
     setLoading(true);
@@ -129,21 +131,36 @@ export default function WikiPage() {
 
   const activeFs = readOnly ? rawFs : tauriFs;
 
+  /** 读 wiki 内文件：主通道失败时回退 rawFs（自定义 Rust 命令，不受 scope 限制） */
+  const readWikiFile = useCallback(
+    async (rel: string): Promise<string> => {
+      const root = await resolveWikiPath(wikiPath);
+      const p = `${root}/wiki/${rel}`;
+      try {
+        return await activeFs.readText(p);
+      } catch (e) {
+        if (activeFs === rawFs) throw e;
+        return rawFs.readText(p);
+      }
+    },
+    [wikiPath, activeFs],
+  );
+
   const openView = useCallback(
     async (v: ViewMode) => {
       setView(v);
       if (v === 'graph' && !graph) {
         try {
-          const root = await resolveWikiPath(wikiPath);
-          setGraph(parseWikiGraph(await activeFs.readText(`${root}/wiki/.entities.json`)));
-        } catch {
+          setGraph(parseWikiGraph(await readWikiFile('.entities.json')));
+          setGraphError('');
+        } catch (e) {
           setGraph({ entities: [], relations: [] });
+          setGraphError(e instanceof Error ? e.message : String(e));
         }
       }
       if (v === 'log' && !logEntries) {
         try {
-          const root = await resolveWikiPath(wikiPath);
-          setLogEntries(parseWikiLog(await activeFs.readText(`${root}/wiki/log.md`)));
+          setLogEntries(parseWikiLog(await readWikiFile('log.md')));
         } catch {
           setLogEntries([]);
         }
@@ -364,6 +381,12 @@ export default function WikiPage() {
         </div>
       )}
 
+      {graphError && view === 'graph' && (
+        <div className="flex items-center gap-1.5 border-b border-warning/40 bg-warning/10 px-3 py-1.5 text-xs text-warning">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">图谱数据读取失败：{graphError}</span>
+        </div>
+      )}
       {view !== 'browse' ? (
         view === 'graph' ? (
           graph ? (
