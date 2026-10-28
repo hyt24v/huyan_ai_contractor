@@ -4,9 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Archive,
   ArchiveRestore,
+  BarChart3,
   BookOpen,
   FilePlus2,
+  History,
   Library,
+  Network,
+  Presentation,
   Save,
   Search,
   Tag,
@@ -28,6 +32,11 @@ import {
   type WikiScan,
 } from '../lib/wiki';
 import MarkdownPreview from '../components/MarkdownPreview';
+import { WikiGraphView } from '../components/WikiGraphView';
+import WikiStatsView from '../components/WikiStatsView';
+import WikiCanvasView from '../components/WikiCanvasView';
+import { parseWikiGraph, type WikiGraph, type WikiEntity } from '../lib/wikiGraph';
+import { parseWikiLog, type WikiLogEntry } from '../lib/wikiLog';
 import { Button, Input } from '../components/ui/controls';
 import { useToast } from '../hooks/useToast';
 
@@ -64,6 +73,13 @@ export default function WikiPage() {
   const [newTitle, setNewTitle] = useState('');
   const bodyRef = useRef('');
 
+  type ViewMode = 'browse' | 'graph' | 'log' | 'stats';
+  const [view, setView] = useState<ViewMode>('browse');
+  const [graph, setGraph] = useState<WikiGraph | null>(null);
+  const [logEntries, setLogEntries] = useState<WikiLogEntry[] | null>(null);
+  const [canvasSel, setCanvasSel] = useState<{ name: string; relPath: string } | null>(null);
+  const [canvasContent, setCanvasContent] = useState('');
+
   const refresh = useCallback(async (path: string) => {
     setLoading(true);
     setError('');
@@ -90,6 +106,10 @@ export default function WikiPage() {
       }
       setReadOnly(ro);
       setScan(await scanWiki(root, fs));
+      setGraph(null);
+      setLogEntries(null);
+      setCanvasSel(null);
+      setSelected(null);
     } catch (e) {
       setError(`扫描失败：${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -109,6 +129,48 @@ export default function WikiPage() {
 
   const activeFs = readOnly ? rawFs : tauriFs;
 
+  const openView = useCallback(
+    async (v: ViewMode) => {
+      setView(v);
+      if (v === 'graph' && !graph) {
+        try {
+          const root = await resolveWikiPath(wikiPath);
+          setGraph(parseWikiGraph(await activeFs.readText(`${root}/wiki/.entities.json`)));
+        } catch {
+          setGraph({ entities: [], relations: [] });
+        }
+      }
+      if (v === 'log' && !logEntries) {
+        try {
+          const root = await resolveWikiPath(wikiPath);
+          setLogEntries(parseWikiLog(await activeFs.readText(`${root}/wiki/log.md`)));
+        } catch {
+          setLogEntries([]);
+        }
+      }
+    },
+    [graph, logEntries, wikiPath, activeFs],
+  );
+
+  const openCanvas = useCallback(
+    async (c: { name: string; relPath: string }) => {
+      try {
+        const root = await resolveWikiPath(wikiPath);
+        setCanvasContent(await activeFs.readText(`${root}/wiki/${c.relPath}`));
+        setCanvasSel(c);
+        setSelected(null);
+      } catch (e) {
+        showToast(`画布读取失败：${e instanceof Error ? e.message : String(e)}`, 'err');
+      }
+    },
+    [wikiPath, activeFs, showToast],
+  );
+
+  const jumpToEntity = useCallback((e: WikiEntity) => {
+    setView('browse');
+    setQuery(e.name);
+  }, []);
+
   const articles = useMemo(() => {
     if (!scan) return [];
     let list = topic ? scan.articles.filter((a) => a.topic === topic) : scan.articles;
@@ -123,6 +185,7 @@ export default function WikiPage() {
         const root = await resolveWikiPath(wikiPath);
         const text = await activeFs.readText(`${root}/wiki/${a.relPath}`);
         setSelected(a);
+        setCanvasSel(null);
         setFmRaw(parseFrontmatter(text).raw);
         setBody(stripFrontmatter(text));
         bodyRef.current = stripFrontmatter(text);
@@ -253,6 +316,28 @@ export default function WikiPage() {
         {readOnly && (
           <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] text-warning">只读</span>
         )}
+        <div className="ml-1 flex items-center gap-0.5 rounded-md border border-border p-0.5">
+          {(
+            [
+              ['browse', '浏览', BookOpen],
+              ['graph', '图谱', Network],
+              ['log', '日志', History],
+              ['stats', '统计', BarChart3],
+            ] as const
+          ).map(([v, label, Icon]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => void openView(v)}
+              className={`flex items-center gap-1 rounded px-2 py-0.5 text-[11px] whitespace-nowrap ${
+                view === v ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Icon className="h-3 w-3" />
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="flex-1" />
         <div className="relative">
           <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -279,6 +364,37 @@ export default function WikiPage() {
         </div>
       )}
 
+      {view !== 'browse' ? (
+        view === 'graph' ? (
+          graph ? (
+            <WikiGraphView graph={graph} onSelectEntity={jumpToEntity} />
+          ) : (
+            <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">图谱加载中…</div>
+          )
+        ) : view === 'log' ? (
+          <div className="flex-1 overflow-y-auto p-3">
+            {!logEntries ? (
+              <p className="text-xs text-muted-foreground">加载中…</p>
+            ) : logEntries.length === 0 ? (
+              <p className="text-xs text-muted-foreground">暂无操作日志（wiki/log.md）</p>
+            ) : (
+              logEntries.map((e) => (
+                <div key={`${e.date}-${e.title}`} className="mb-2 rounded-md border border-border bg-card p-2.5">
+                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <span>{e.date}</span>
+                    <span className="rounded bg-muted px-1 py-px text-[10px">{e.kind}</span>
+                  </div>
+                  <div className="mt-0.5 text-xs font-medium">{e.title}</div>
+                </div>
+              ))
+            )}
+          </div>
+        ) : scan ? (
+          <WikiStatsView scan={scan} />
+        ) : (
+          <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">暂无数据</div>
+        )
+      ) : (
       <div className="flex min-h-0 flex-1">
         {/* 主题树 */}
         <aside className="w-44 shrink-0 overflow-y-auto border-r border-border p-1.5">
@@ -339,11 +455,31 @@ export default function WikiPage() {
               </div>
             </button>
           ))}
+          {(scan?.canvases ?? [])
+            .filter((c) => !topic || c.topic === topic)
+            .map((c) => (
+              <button
+                key={c.relPath}
+                type="button"
+                onClick={() => void openCanvas(c)}
+                className={`mb-1 flex w-full items-center gap-1.5 rounded-md border px-2.5 py-2 text-left text-xs transition-colors ${
+                  canvasSel?.relPath === c.relPath
+                    ? 'border-primary/40 bg-primary/5'
+                    : 'border-transparent hover:bg-accent/50'
+                }`}
+              >
+                <Presentation className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <span className="flex-1 truncate">{c.name}</span>
+                <span className="rounded bg-muted px-1 py-px text-[10px] text-muted-foreground">画布</span>
+              </button>
+            ))}
         </section>
 
         {/* 预览 / 编辑 */}
         <section className="flex min-w-0 flex-1 flex-col">
-          {!selected ? (
+          {canvasSel ? (
+            <WikiCanvasView content={canvasContent} />
+          ) : !selected ? (
             <div className="flex flex-1 flex-col items-center justify-center text-muted-foreground">
               <BookOpen className="mb-3 h-10 w-10 opacity-30" />
               <p className="text-xs">选择左侧文章开始阅读或编辑</p>
@@ -403,6 +539,7 @@ export default function WikiPage() {
           )}
         </section>
       </div>
+      )}
 
       {/* 新建文章弹窗 */}
       {createOpen && (
