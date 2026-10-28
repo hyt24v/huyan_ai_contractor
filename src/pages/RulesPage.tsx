@@ -394,17 +394,19 @@ function RulesPage() {
               >
                 {draft.name}
               </div>
-              <Input
-                value={draft.tags.join(', ')}
-                onChange={(e) =>
-                  setDraft({
-                    ...draft,
-                    tags: e.target.value.split(/[,，]/).map((s) => s.trim()).filter(Boolean),
-                  })
-                }
-                placeholder="标签（逗号分隔）"
-                className="h-8 w-44"
-              />
+              {draft.tags.length > 0 && (
+                <div className="flex shrink-0 items-center gap-1">
+                  {draft.tags.map((t) => (
+                    <span
+                      key={t}
+                      className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"
+                      title="标签（不可修改）"
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              )}
               <Input
                 value={draft.description}
                 onChange={(e) => setDraft({ ...draft, description: e.target.value })}
