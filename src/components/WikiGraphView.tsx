@@ -64,6 +64,7 @@ export function WikiGraphView({
   const dragNodeRef = useRef<string | null>(null);
   const dragOffsetRef = useRef({ dx: 0, dy: 0 });
   const simSleeping = useRef(false);
+  const temperature = useRef(1.0); // 冷却因子，1→0 渐停
   const relationsRef = useRef(graph.relations);
   relationsRef.current = graph.relations;
 
@@ -146,6 +147,7 @@ export function WikiGraphView({
     simVel.current = new Map();
     for (const id of layout.keys()) simVel.current.set(id, { x: 0, y: 0 });
     simSleeping.current = false;
+    temperature.current = 1.0;
     dragNodeRef.current = null;
     setTick((t) => t + 1);
     applyView('fit');
@@ -172,6 +174,10 @@ export function WikiGraphView({
         return;
       }
 
+      // 冷却：温度从 1 渐降到 0.02，所有力乘以温度
+      temperature.current *= 0.995;
+      const t = Math.max(temperature.current, 0.02);
+
       let maxV = 0;
 
       // 排斥力（O(n²)，264 节点约 35k 对，每帧毫秒级）
@@ -185,7 +191,7 @@ export function WikiGraphView({
           let dy = a.y - b.y;
           const d2 = dx * dx + dy * dy || 1;
           const d = Math.sqrt(d2);
-          const f = 2000 / d2;
+          const f = (1500 / d2) * t;
           dx = (dx / d) * f;
           dy = (dy / d) * f;
           va.x += dx;
@@ -205,7 +211,7 @@ export function WikiGraphView({
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const d = Math.sqrt(dx * dx + dy * dy) || 1;
-        const f = (d - 80) * 0.03;
+        const f = (d - 80) * 0.02 * t;
         va.x += (dx / d) * f;
         va.y += (dy / d) * f;
         vb.x -= (dx / d) * f;
@@ -217,10 +223,10 @@ export function WikiGraphView({
         if (id === dragged) continue; // 拖拽节点不动
         const p = pos.get(id)!;
         const v = vel.get(id)!;
-        v.x -= p.x * 0.001;
-        v.y -= p.y * 0.001;
-        v.x *= 0.85;
-        v.y *= 0.85;
+        v.x -= p.x * 0.002 * t;
+        v.y -= p.y * 0.002 * t;
+        v.x *= 0.78; // 强阻尼确保收敛
+        v.y *= 0.78;
         p.x += v.x;
         p.y += v.y;
         maxV = Math.max(maxV, Math.abs(v.x) + Math.abs(v.y));
@@ -228,7 +234,7 @@ export function WikiGraphView({
 
       setTick((t) => t + 1);
 
-      if (maxV < 0.05 && !dragged) simSleeping.current = true;
+      if (maxV < 0.15 && !dragged) simSleeping.current = true;
       rafId = requestAnimationFrame(step);
     };
 
@@ -317,7 +323,8 @@ export function WikiGraphView({
           const y = (e.clientY - rect.top - viewRef.current.y) / zoom;
           const pos = simPos.current.get(nodeId);
           if (pos) dragOffsetRef.current = { dx: pos.x - x, dy: pos.y - y };
-          simSleeping.current = false; // 唤醒模拟
+          simSleeping.current = false;
+          temperature.current = Math.max(temperature.current, 0.3); // 拖拽时保持一定活跃度
           e.currentTarget.setPointerCapture(e.pointerId);
           return;
         }
@@ -363,7 +370,8 @@ export function WikiGraphView({
       onPointerUp={(e) => {
         if (dragNodeRef.current) {
           dragNodeRef.current = null;
-          simSleeping.current = false; // 松手后继续模拟（弹簧回弹）
+          simSleeping.current = false;
+          temperature.current = Math.max(temperature.current, 0.2); // 松手后弹簧回弹
         }
         if (panRef.current?.moved) suppressClickRef.current = true;
         panRef.current = null;
@@ -503,6 +511,7 @@ export function WikiGraphView({
                 v.y = (Math.random() - 0.5) * 4;
               }
               simSleeping.current = false;
+              temperature.current = 1.0;
             }}
           >
             <Zap className="h-4 w-4" />
