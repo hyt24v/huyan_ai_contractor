@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../hooks/useToast';
 import {
   AlertTriangle,
@@ -120,6 +120,8 @@ export default function ProfilesPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const { toast, showToast } = useToast(2800);
+  const [query, setQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'name'>('name');
   const fileInput = useRef<HTMLInputElement | null>(null);
   const visibleAgents = useAgents();
   // 套餐只开放「可写」的 agent：提示词走 PROMPT_TARGETS，模型服务走 PROVIDER_TARGETS
@@ -324,6 +326,18 @@ export default function ProfilesPage() {
   );
 
   const profiles = store.profiles;
+  // 卡片搜索（名称/描述，大小写不敏感）+ 排序（目前仅按名称）
+  const visibleProfiles = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const list = q
+      ? profiles.filter(
+          (p) =>
+            p.name.toLowerCase().includes(q) ||
+            (p.description ?? '').toLowerCase().includes(q),
+        )
+      : profiles;
+    return [...list].sort((a, b) => a.name.localeCompare(b.name));
+  }, [profiles, query, sortBy]);
   const promptName = (id: string): string =>
     promptLib?.prompts.find((p) => p.id === id)?.name ?? `未知(${id})`;
 
@@ -362,6 +376,22 @@ export default function ProfilesPage() {
             e.target.value = '';
           }}
         />
+        <ToolbarDivider />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="搜索套餐…"
+          className="h-8 w-40 rounded-md border border-input bg-transparent px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        />
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as 'name')}
+          title="排序方式"
+          aria-label="排序方式"
+          className="h-8 rounded-md border border-input bg-transparent px-1.5 text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          <option value="name">按名称</option>
+        </select>
         {toast && (
           <span
             className={`ml-auto text-xs font-medium ${
@@ -418,7 +448,11 @@ export default function ProfilesPage() {
       )}
 
       <div className="min-h-0 flex-1 overflow-auto bg-muted/20 p-3">
-        {profiles.length === 0 ? (
+        {profiles.length > 0 && visibleProfiles.length === 0 ? (
+          <div className="py-16 text-center text-xs text-muted-foreground">
+            没有匹配的套餐
+          </div>
+        ) : profiles.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-xs text-muted-foreground">
             <Layers className="h-6 w-6 opacity-40" />
             <div>{loaded ? '还没有配置套餐' : '读取中…'}</div>
@@ -433,7 +467,7 @@ export default function ProfilesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
-            {profiles.map((profile) => {
+            {visibleProfiles.map((profile) => {
               const promptRows = Object.entries(profile.prompts) as [AgentId, string][];
               const providerRows = Object.entries(profile.providers ?? {}) as [AgentId, string][];
               return (

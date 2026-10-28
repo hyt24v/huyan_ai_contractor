@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../hooks/useToast';
-import { AlertTriangle, ChevronDown, History, Pencil, Plus, RefreshCw, Send, Trash2, Undo2 } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, History, Pencil, Plus, RefreshCw, Send, Trash2, Undo2 } from 'lucide-react';
 import { SegmentedControl, Toolbar, ToolbarButton, ToolbarDivider } from '../components/Toolbar';
 import DiffView from '../components/DiffView';
 import { agentShortName, hasMcpSupport, type AgentId } from '../lib/agents';
@@ -134,6 +134,26 @@ export default function McpManagerPage() {
   const busyRef = useRef(false);
   // 矩阵表：搜索过滤 + 列头批量（可撤销，只作用于筛选结果，借鉴 cc-switch）
   const [query, setQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'agents'>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'stdio' | 'http'>('all');
+
+  const toggleSort = (key: 'name' | 'agents') => {
+    if (sortBy === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else {
+      setSortBy(key);
+      setSortDir(key === 'agents' ? 'desc' : 'asc');
+    }
+  };
+
+  const sortIcon = (key: 'name' | 'agents') =>
+    sortBy !== key ? (
+      <ArrowUpDown className="h-3 w-3 opacity-40" />
+    ) : sortDir === 'asc' ? (
+      <ArrowUp className="h-3 w-3" />
+    ) : (
+      <ArrowDown className="h-3 w-3" />
+    );
   const [colMenu, setColMenu] = useState<AgentId | null>(null);
   const [lastBatch, setLastBatch] = useState<{
     manifest: CentralManifest;
@@ -351,14 +371,27 @@ export default function McpManagerPage() {
   const servers = manifest?.servers ?? [];
   const filteredServers = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return servers;
-    return servers.filter(
+    const matched = servers.filter(
       (s) =>
-        s.name.toLowerCase().includes(q) ||
-        (s.url ?? '').toLowerCase().includes(q) ||
-        (s.command ?? '').toLowerCase().includes(q),
+        (typeFilter === 'all' || s.type === typeFilter) &&
+        (!q ||
+          s.name.toLowerCase().includes(q) ||
+          (s.url ?? '').toLowerCase().includes(q) ||
+          (s.command ?? '').toLowerCase().includes(q)),
     );
-  }, [servers, query]);
+    matched.sort((a, b) => {
+      let c = 0;
+      if (sortBy === 'agents') {
+        const ca = Object.values(a.agents).filter(Boolean).length;
+        const cb = Object.values(b.agents).filter(Boolean).length;
+        c = ca - cb;
+      } else {
+        c = a.name.localeCompare(b.name);
+      }
+      return sortDir === 'asc' ? c : -c;
+    });
+    return matched;
+  }, [servers, query, sortBy, sortDir, typeFilter]);
 
   /** 列头批量：把某 agent 列的勾选统一设置，只作用于当前筛选结果，可撤销 */
   const batchSetAgent = useCallback(
@@ -412,12 +445,6 @@ export default function McpManagerPage() {
           保存并分发
         </ToolbarButton>
         {dirty && <span className="text-xs text-warning">有未分发变更</span>}
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="搜索 server…"
-          className="h-8 w-40 rounded-md border border-input bg-transparent px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        />
         {lastBatch && (
           <button
             onClick={undoBatch}
@@ -552,12 +579,51 @@ export default function McpManagerPage() {
 
       {/* server 列表 */}
       <div className="min-h-0 flex-1 overflow-auto">
-        <table className="w-full text-sm">
+        <table className="w-full table-fixed text-sm">
           <thead className="sticky top-0 z-10 bg-muted/50 backdrop-blur">
             <tr className="text-left text-xs text-muted-foreground">
-              <th className="px-4 py-2 font-medium">Server</th>
-              <th className="w-16 px-2 py-2 font-medium">类型</th>
-              <th className="px-2 py-2 font-medium">命令 / URL</th>
+              <th className="w-44 px-4 py-1.5 font-medium">
+                <div className="flex flex-col gap-1">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort('name')}
+                    className="inline-flex items-center gap-0.5 transition-colors hover:text-foreground"
+                  >
+                    Server {sortIcon('name')}
+                  </button>
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="筛选名称/URL/命令…"
+                    className="h-6 w-full rounded border border-input bg-transparent px-1.5 font-mono text-[11px] font-normal focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </div>
+              </th>
+              <th className="w-20 px-2 py-1.5 font-medium">
+                <div className="flex flex-col gap-1">
+                  类型
+                  <select
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value as 'all' | 'stdio' | 'http')}
+                    className="h-6 w-full rounded border border-input bg-transparent px-1 text-[11px] font-normal focus-visible:outline-none"
+                  >
+                    <option value="all">全部</option>
+                    <option value="stdio">stdio</option>
+                    <option value="http">http</option>
+                  </select>
+                </div>
+              </th>
+              <th className="px-2 py-2 align-top font-medium">命令 / URL</th>
+              <th className="w-12 px-1 py-1.5 text-center align-top font-medium">
+                <button
+                  type="button"
+                  onClick={() => toggleSort('agents')}
+                  title="按启用的 agent 数排序"
+                  className="inline-flex items-center gap-0.5 transition-colors hover:text-foreground"
+                >
+                  启用 {sortIcon('agents')}
+                </button>
+              </th>
               {mcpAgents.map((a) => (
                 <th key={a.id} className="relative w-16 px-1 py-2 text-center font-medium">
                   <button
@@ -603,7 +669,9 @@ export default function McpManagerPage() {
           <tbody>
             {filteredServers.map((s) => (
               <tr key={s.name} className="border-b transition-colors hover:bg-muted/40">
-                <td className="px-4 py-1.5 font-mono text-[13px]">{s.name}</td>
+                <td className="max-w-[240px] truncate px-4 py-1.5 font-mono text-[13px]" title={s.name}>
+                  {s.name}
+                </td>
                 <td className="px-2 py-1.5">
                   <span
                     className={`rounded-full px-2 py-0.5 text-[11px] ${
@@ -619,6 +687,9 @@ export default function McpManagerPage() {
                   {s.type === 'http'
                     ? s.url
                     : `${s.command ?? ''} ${(s.args ?? []).join(' ')}`.trim()}
+                </td>
+                <td className="px-1 py-1.5 text-center text-xs text-muted-foreground">
+                  {Object.values(s.agents).filter(Boolean).length}
                 </td>
                 {mcpAgents.map((a) => (
                   <td key={a.id} className="px-1 py-1.5 text-center">
@@ -649,7 +720,7 @@ export default function McpManagerPage() {
             ))}
             {filteredServers.length === 0 && (
               <tr>
-                <td colSpan={4 + mcpAgents.length} className="px-4 py-10 text-center text-xs text-muted-foreground">
+                <td colSpan={5 + mcpAgents.length} className="px-4 py-10 text-center text-xs text-muted-foreground">
                   {manifest
                     ? query.trim()
                       ? `没有匹配「${query.trim()}」的 server`

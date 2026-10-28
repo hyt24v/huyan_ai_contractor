@@ -112,6 +112,8 @@ export default function ProvidersPage() {
   const [formError, setFormError] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [agentFilter, setAgentFilter] = useState<'all' | AgentId>('all');
+  const [query, setQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'updated' | 'name'>('updated');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
@@ -132,24 +134,32 @@ export default function ProvidersPage() {
 
   const currentStore = store ?? emptyStore();
 
-  // 单屏清单：按 agent（PROVIDER_TARGETS 登记顺序）再按名称排序，顶部 pills 筛选
-  const sortedProviders = useMemo(() => {
+  // 单屏清单：搜索（名称/Base URL/模型，大小写不敏感）+ 顶部 pills 按 agent 筛选 + 排序
+  const visibleProviders = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    let list = currentStore.providers;
+    if (agentFilter !== 'all') list = list.filter((p) => p.agent === agentFilter);
+    if (q) {
+      list = list.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.baseUrl.toLowerCase().includes(q) ||
+          (p.model ?? '').toLowerCase().includes(q) ||
+          (p.models ?? []).some((m) => m.toLowerCase().includes(q)),
+      );
+    }
+    if (sortBy === 'updated') {
+      return [...list].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    }
+    // 按名称：保持 agent 分组（PROVIDER_TARGETS 登记顺序）再按名称
     const order = (id: AgentId) => {
       const i = PROVIDER_AGENTS.indexOf(id);
       return i === -1 ? PROVIDER_AGENTS.length : i;
     };
-    return [...currentStore.providers].sort(
+    return [...list].sort(
       (a, b) => order(a.agent) - order(b.agent) || a.name.localeCompare(b.name),
     );
-  }, [currentStore.providers]);
-
-  const visibleProviders = useMemo(
-    () =>
-      agentFilter === 'all'
-        ? sortedProviders
-        : sortedProviders.filter((p) => p.agent === agentFilter),
-    [agentFilter, sortedProviders],
-  );
+  }, [agentFilter, currentStore.providers, query, sortBy]);
 
   const openNew = useCallback(() => {
     setDraft(emptyDraft());
@@ -446,6 +456,23 @@ export default function ProvidersPage() {
             if (f) void importFile(f);
           }}
         />
+        <ToolbarDivider />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="搜索服务…"
+          className="h-8 w-40 rounded-md border border-input bg-transparent px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        />
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as 'updated' | 'name')}
+          title="排序方式"
+          aria-label="排序方式"
+          className="h-8 rounded-md border border-input bg-transparent px-1.5 text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          <option value="updated">最近更新</option>
+          <option value="name">按名称</option>
+        </select>
         <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
           {toast && (
             <span
@@ -517,7 +544,9 @@ export default function ProvidersPage() {
               <Server className="h-4 w-4" />
               {total === 0
                 ? '还没有模型服务。新增后可一键写入对应 Agent 的配置文件。'
-                : '该 Agent 下暂无模型服务。'}
+                : query.trim()
+                  ? '没有匹配的模型服务。'
+                  : '该 Agent 下暂无模型服务。'}
               {importableAgents.map((a) => (
                 <button
                   key={a}

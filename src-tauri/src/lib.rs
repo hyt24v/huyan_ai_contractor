@@ -648,12 +648,15 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
         .iter()
         .map(|(id, label)| MenuItemBuilder::with_id(*id, *label).build(app))
         .collect::<tauri::Result<_>>()?;
-    let nav_refs: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> =
-        nav_items.iter().map(|i| i as &dyn tauri::menu::IsMenuItem<tauri::Wry>).collect();
+    let nav_refs: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = nav_items
+        .iter()
+        .map(|i| i as &dyn tauri::menu::IsMenuItem<tauri::Wry>)
+        .collect();
     let quick_menu = SubmenuBuilder::new(app, "快速打开")
         .items(&nav_refs)
         .build()?;
-    let update_item = MenuItemBuilder::with_id("tray-nav:/settings/updates", "检查更新…").build(app)?;
+    let update_item =
+        MenuItemBuilder::with_id("tray-nav:/settings/updates", "检查更新…").build(app)?;
     let settings_item = MenuItemBuilder::with_id("tray-nav:/settings", "设置…").build(app)?;
     let quit_item = MenuItemBuilder::with_id("tray-quit", "退出 AI 包工头").build(app)?;
     let sep1 = PredefinedMenuItem::separator(app)?;

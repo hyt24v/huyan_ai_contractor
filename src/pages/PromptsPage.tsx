@@ -70,6 +70,8 @@ export default function PromptsPage() {
   const [error, setError] = useState('');
   const [agentFiles, setAgentFiles] = useState<Partial<Record<AgentId, AgentFileState>>>({});
   const { toast, showToast } = useToast(2600);
+  const [query, setQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'updated'>('name');
   /** 外部变更高亮的 agent（5 秒后自动消退，ColaMD 式环境化指示） */
   const [externalChanged, setExternalChanged] = useState<ReadonlySet<AgentId>>(new Set());
   const agentFilesRef = useRef(agentFiles);
@@ -365,6 +367,22 @@ export default function PromptsPage() {
   );
 
   const prompts = lib?.prompts ?? [];
+  // 列表搜索（名称/描述，大小写不敏感）+ 排序
+  const visiblePrompts = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const list = q
+      ? prompts.filter(
+          (p) =>
+            p.name.toLowerCase().includes(q) ||
+            (p.description ?? '').toLowerCase().includes(q),
+        )
+      : prompts;
+    return [...list].sort(
+      sortBy === 'updated'
+        ? (a, b) => b.updatedAt.localeCompare(a.updatedAt)
+        : (a, b) => a.name.localeCompare(b.name),
+    );
+  }, [prompts, query, sortBy]);
   const activeFor = (agent: AgentId): string | undefined => lib?.active[agent];
 
   // 空状态主行动：把各 agent 现有的提示词文件（CLAUDE.md 等）一键收进库（借鉴 cc-switch 空状态即引导）
@@ -425,8 +443,26 @@ export default function PromptsPage() {
             新建
           </button>
         </div>
+        <div className="flex shrink-0 items-center gap-1.5 border-b px-2 py-1.5">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="搜索提示词…"
+            className="h-8 min-w-0 flex-1 rounded-md border border-input bg-transparent px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          />
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as 'name' | 'updated')}
+            title="排序方式"
+            aria-label="排序方式"
+            className="h-8 shrink-0 rounded-md border border-input bg-transparent px-1.5 text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <option value="name">按名称</option>
+            <option value="updated">最近更新</option>
+          </select>
+        </div>
         <div className="min-h-0 flex-1 overflow-auto p-2">
-          {prompts.map((p) => {
+          {visiblePrompts.map((p) => {
             const used = Object.values(lib?.active ?? {}).filter((id) => id === p.id).length;
             return (
               <button
@@ -455,6 +491,11 @@ export default function PromptsPage() {
               </button>
             );
           })}
+          {lib && prompts.length > 0 && visiblePrompts.length === 0 && (
+            <div className="px-2 py-6 text-center text-xs text-muted-foreground">
+              没有匹配的提示词
+            </div>
+          )}
           {lib && prompts.length === 0 && (
             <div className="px-2 py-6 text-center text-xs text-muted-foreground">
               还没有提示词
