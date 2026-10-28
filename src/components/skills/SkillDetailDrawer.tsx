@@ -205,6 +205,21 @@ export default function SkillDetailDrawer({
     });
   }, [files, collapsedDirs]);
 
+  /** 目录直属子项数量（用于目录行尾徽章） */
+  const dirChildCount = useMemo(() => {
+    const m = new Map<string, number>();
+    if (!files) return m;
+    for (const f of files) {
+      if (!f.isDirectory) continue;
+      let n = 0;
+      for (const g of files) {
+        if (g.path !== f.path && g.depth === f.depth + 1 && g.path.startsWith(f.path)) n++;
+      }
+      m.set(f.path, n);
+    }
+    return m;
+  }, [files]);
+
   if (!open || !skill) return null;
 
   const SourceIcon = SOURCE_ICON[skill.source];
@@ -440,15 +455,24 @@ export default function SkillDetailDrawer({
                         key={f.path}
                         type="button"
                         onClick={() => (f.isDirectory ? toggleDir(f.path) : setSelected(f.path))}
-                        className={`flex w-full items-center gap-1.5 px-2 py-1 text-left text-[11px] transition-colors ${
+                        className={`relative flex w-full items-center gap-1.5 px-2 py-1 text-left text-[11px] transition-colors ${
                           f.isDirectory
-                            ? 'font-medium text-foreground/80 hover:bg-accent/60'
+                            ? 'font-medium text-foreground hover:bg-accent/60'
                             : selected === f.path
                               ? 'bg-accent text-accent-foreground'
                               : 'text-foreground hover:bg-accent/60'
                         }`}
                         style={{ paddingLeft: `${8 + f.depth * 14}px` }}
                       >
+                        {/* 缩进参考线：标识文件与目录的层级归属 */}
+                        {Array.from({ length: f.depth }, (_, i) => (
+                          <span
+                            key={i}
+                            aria-hidden
+                            className="pointer-events-none absolute top-0 h-full border-l border-border/70"
+                            style={{ left: `${8 + i * 14 + 6}px` }}
+                          />
+                        ))}
                         {f.isDirectory ? (
                           <>
                             {collapsedDirs.has(f.path) ? (
@@ -461,7 +485,15 @@ export default function SkillDetailDrawer({
                         ) : (
                           <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
                         )}
-                        <span className="truncate font-mono">{name}</span>
+                        <span className="truncate font-mono">
+                          {name}
+                          {f.isDirectory ? '/' : ''}
+                        </span>
+                        {f.isDirectory && (
+                          <span className="ml-auto shrink-0 rounded bg-muted px-1 text-[9px] text-muted-foreground">
+                            {dirChildCount.get(f.path) ?? 0}
+                          </span>
+                        )}
                       </button>
                     );
                   })}
