@@ -30,6 +30,18 @@ import {
 } from '../services/agentRules';
 import { rawFs } from '../lib/fsPort';
 import { pickDirectory } from '../lib/pickDirectory';
+import MarkdownPreview from '../components/MarkdownPreview';
+
+type EditMode = 'edit' | 'split' | 'preview';
+const EDIT_MODE_KEY = 'huyan_tool:rules_edit_mode';
+const loadEditMode = (): EditMode => {
+  try {
+    const v = localStorage.getItem(EDIT_MODE_KEY);
+    return v === 'edit' || v === 'split' || v === 'preview' ? v : 'split';
+  } catch {
+    return 'split';
+  }
+};
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -57,6 +69,12 @@ function RulesPage() {
   const [importDir, setImportDir] = useState('');
   const [importFiles, setImportFiles] = useState<ProjectRuleFile[] | null>(null);
   const [importing, setImporting] = useState(false);
+  // 内容区编辑/预览模式
+  const [editMode, setEditModeState] = useState<EditMode>(loadEditMode);
+  const setEditMode = (m: EditMode) => {
+    setEditModeState(m);
+    try { localStorage.setItem(EDIT_MODE_KEY, m); } catch { /* ignore */ }
+  };
 
   const scanProject = async () => {
     if (!importDir.trim()) return;
@@ -410,6 +428,19 @@ function RulesPage() {
               <Button size="sm" variant="outline" onClick={sync} title="把所有已链接 agent 的目标文件指向中心库当前内容">
                 同步
               </Button>
+              <div className="flex items-center rounded-md border border-border p-0.5">
+                {(['edit', 'split', 'preview'] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setEditMode(m)}
+                    className={`rounded px-2 py-0.5 text-[11px] transition-colors ${
+                      editMode === m ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {m === 'edit' ? '编辑' : m === 'split' ? '分屏' : '预览'}
+                  </button>
+                ))}
+              </div>
               <Button size="icon-sm" variant="ghost" onClick={remove} title="删除规则">
                 <Trash2 className="h-4 w-4 text-destructive" />
               </Button>
@@ -487,13 +518,24 @@ function RulesPage() {
               )}
             </div>
 
-            {/* 内容编辑 */}
-            <textarea
-              value={draft.content}
-              onChange={(e) => setDraft({ ...draft, content: e.target.value })}
-              placeholder={RULE_FILE_TEMPLATES.codex}
-              className="min-h-0 flex-1 resize-none bg-transparent p-4 font-mono text-[13px] leading-relaxed outline-none placeholder:text-muted-foreground/50"
-            />
+            {/* 内容编辑 / 实时预览 */}
+            <div className="flex min-h-0 flex-1">
+              {editMode !== 'preview' && (
+                <textarea
+                  value={draft.content}
+                  onChange={(e) => setDraft({ ...draft, content: e.target.value })}
+                  placeholder={RULE_FILE_TEMPLATES.codex}
+                  className={`min-h-0 resize-none bg-transparent p-4 font-mono text-[13px] leading-relaxed outline-none placeholder:text-muted-foreground/50 ${
+                    editMode === 'split' ? 'w-1/2 border-r border-border' : 'flex-1'
+                  }`}
+                />
+              )}
+              {editMode !== 'edit' && (
+                <div className={`min-w-0 overflow-y-auto p-4 ${editMode === 'split' ? 'w-1/2' : 'flex-1'}`}>
+                  <MarkdownPreview content={draft.content} />
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>
