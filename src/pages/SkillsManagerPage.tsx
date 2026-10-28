@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useToast } from '../hooks/useToast';
+import { pickDirectory } from '../lib/pickDirectory';
 import {
   ArrowUpCircle,
   Check,
@@ -2102,16 +2103,28 @@ export default function SkillsManagerPage() {
             <p className="mt-1 text-xs text-muted-foreground">
               输入项目根目录的绝对路径（如 /Users/you/myproject）。项目里的 .claude/skills 等目录会与中央库双向同步。
             </p>
-            <input
-              value={linkPath}
-              onChange={(e) => setLinkPath(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && linkPath.trim() && !busy) void linkProject();
-              }}
-              placeholder="/Users/you/myproject"
-              spellCheck={false}
-              className="mt-3 h-8 w-full rounded-md border border-input bg-transparent px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
+            <div className="mt-3 flex gap-2">
+              <input
+                value={linkPath}
+                onChange={(e) => setLinkPath(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && linkPath.trim() && !busy) void linkProject();
+                }}
+                placeholder="/Users/you/myproject"
+                spellCheck={false}
+                className="h-8 min-w-0 flex-1 rounded-md border border-input bg-transparent px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+              <ToolbarButton
+                disabled={busy}
+                onClick={() => {
+                  void pickDirectory('选择项目目录').then((dir) => {
+                    if (dir) setLinkPath(dir);
+                  });
+                }}
+              >
+                浏览…
+              </ToolbarButton>
+            </div>
             <div className="mt-4 flex justify-end gap-2">
               <ToolbarButton onClick={() => setLinkOpen(false)}>取消</ToolbarButton>
               <ToolbarButton

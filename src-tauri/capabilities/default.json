@@ -3022,6 +3022,7 @@
           "path": "$HOME/.ai-baogongtou/**"
         }
       ]
-    }
+    },
+    "dialog:allow-open"
   ]
 }

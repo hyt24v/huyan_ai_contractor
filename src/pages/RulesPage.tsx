@@ -19,6 +19,7 @@ import {
   type RuleSyncResult,
 } from '../services/agentRules';
 import { rawFs } from '../lib/fsPort';
+import { pickDirectory } from '../lib/pickDirectory';
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -394,6 +395,19 @@ function RulesPage() {
                 className="h-8 flex-1 font-mono text-xs"
                 onKeyDown={(e) => { if (e.key === 'Enter') void scanProject(); }}
               />
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={importing}
+                title="打开系统目录选择器"
+                onClick={() => {
+                  void pickDirectory('选择项目目录').then((dir) => {
+                    if (dir) { setImportDir(dir); setImportFiles(null); }
+                  });
+                }}
+              >
+                浏览…
+              </Button>
               <Button size="sm" variant="outline" onClick={() => void scanProject()} disabled={importing}>
                 扫描
               </Button>
