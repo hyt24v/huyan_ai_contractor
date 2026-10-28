@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../hooks/useToast';
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, History, Pencil, Plus, RefreshCw, Send, Trash2, Undo2 } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, History, ListFilter, Pencil, Plus, RefreshCw, Send, Trash2, Undo2 } from 'lucide-react';
 import { SegmentedControl, Toolbar, ToolbarButton, ToolbarDivider } from '../components/Toolbar';
 import DiffView from '../components/DiffView';
 import { agentShortName, hasMcpSupport, type AgentId } from '../lib/agents';
@@ -137,6 +137,7 @@ export default function McpManagerPage() {
   const [sortBy, setSortBy] = useState<'name' | 'agents'>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [typeFilter, setTypeFilter] = useState<'all' | 'stdio' | 'http'>('all');
+  const [filterMenu, setFilterMenu] = useState<'name' | 'type' | null>(null);
 
   const toggleSort = (key: 'name' | 'agents') => {
     if (sortBy === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -582,8 +583,8 @@ export default function McpManagerPage() {
         <table className="w-full table-fixed text-sm">
           <thead className="sticky top-0 z-10 bg-muted/50 backdrop-blur">
             <tr className="text-left text-xs text-muted-foreground">
-              <th className="w-44 px-4 py-1.5 font-medium">
-                <div className="flex flex-col gap-1">
+              <th className="relative w-44 px-4 py-2 font-medium">
+                <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => toggleSort('name')}
@@ -591,30 +592,65 @@ export default function McpManagerPage() {
                   >
                     Server {sortIcon('name')}
                   </button>
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="筛选名称/URL/命令…"
-                    className="h-6 w-full rounded border border-input bg-transparent px-1.5 font-mono text-[11px] font-normal focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  />
-                </div>
-              </th>
-              <th className="w-20 px-2 py-1.5 font-medium">
-                <div className="flex flex-col gap-1">
-                  类型
-                  <select
-                    value={typeFilter}
-                    onChange={(e) => setTypeFilter(e.target.value as 'all' | 'stdio' | 'http')}
-                    className="h-6 w-full rounded border border-input bg-transparent px-1 text-[11px] font-normal focus-visible:outline-none"
+                  <button
+                    type="button"
+                    onClick={() => setFilterMenu(filterMenu === 'name' ? null : 'name')}
+                    title="筛选"
+                    className={`rounded p-0.5 transition-colors hover:bg-accent ${query.trim() ? 'text-primary' : 'text-muted-foreground/50'}`}
                   >
-                    <option value="all">全部</option>
-                    <option value="stdio">stdio</option>
-                    <option value="http">http</option>
-                  </select>
+                    <ListFilter className="h-3 w-3" />
+                  </button>
                 </div>
+                {filterMenu === 'name' && (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setFilterMenu(null)} />
+                    <div className="absolute z-30 mt-1 w-52 rounded-md border bg-card p-2 shadow-lg">
+                      <input
+                        autoFocus
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="筛选名称/URL/命令…"
+                        className="h-7 w-full rounded border border-input bg-transparent px-2 font-mono text-xs font-normal focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      />
+                    </div>
+                  </>
+                )}
               </th>
-              <th className="px-2 py-2 align-top font-medium">命令 / URL</th>
-              <th className="w-12 px-1 py-1.5 text-center align-top font-medium">
+              <th className="relative w-20 px-2 py-2 font-medium">
+                <div className="flex items-center gap-1">
+                  类型
+                  <button
+                    type="button"
+                    onClick={() => setFilterMenu(filterMenu === 'type' ? null : 'type')}
+                    title="筛选类型"
+                    className={`rounded p-0.5 transition-colors hover:bg-accent ${typeFilter !== 'all' ? 'text-primary' : 'text-muted-foreground/50'}`}
+                  >
+                    <ListFilter className="h-3 w-3" />
+                  </button>
+                </div>
+                {filterMenu === 'type' && (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setFilterMenu(null)} />
+                    <div className="absolute z-30 mt-1 w-28 overflow-hidden rounded-md border bg-card py-1 shadow-lg">
+                      {(['all', 'stdio', 'http'] as const).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => {
+                            setTypeFilter(t);
+                            setFilterMenu(null);
+                          }}
+                          className={`w-full px-2.5 py-1.5 text-left text-xs font-normal hover:bg-accent ${typeFilter === t ? 'text-primary' : ''}`}
+                        >
+                          {t === 'all' ? '全部' : t}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </th>
+              <th className="px-2 py-2 font-medium">命令 / URL</th>
+              <th className="w-12 px-1 py-2 text-center font-medium">
                 <button
                   type="button"
                   onClick={() => toggleSort('agents')}
