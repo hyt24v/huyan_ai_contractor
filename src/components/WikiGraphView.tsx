@@ -77,11 +77,11 @@ function simTick(sim: SimState): void {
       let dy = a.y - b.y;
       let d2 = dx * dx + dy * dy;
       if (d2 < 1) { d2 = 1; dx = Math.random() - 0.5; dy = Math.random() - 0.5; }
-      const f = chargeForce / d2;
-      a.vx += dx * f;
-      a.vy += dy * f;
-      b.vx -= dx * f;
-      b.vy -= dy * f;
+      const f = chargeForce / d2; // chargeForce 为负 → 用 -= 得排斥（方向背离对方）
+      a.vx -= dx * f;
+      a.vy -= dy * f;
+      b.vx += dx * f;
+      b.vy += dy * f;
     }
   }
 
@@ -175,7 +175,7 @@ export function WikiGraphView({
     dragNodeRef.current = null;
     // 立即运行模拟直到收敛（无动画直接算到停）
     const sim = simRef.current;
-    while (sim.alpha > ALPHA_MIN && sim.frame < 2000) {
+    while (sim.alpha > ALPHA_MIN && sim.frame < 400) {
       simTick(sim);
       sim.alpha += (ALPHA_TARGET - sim.alpha) * ALPHA_DECAY;
       sim.frame++;
