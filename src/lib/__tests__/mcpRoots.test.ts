@@ -7,7 +7,7 @@ import {
 } from '../mcp';
 import type { McpServerSpec } from '../mcp';
 import { AGENTS } from '../agents';
-import { distribute } from '../../services/agentMcp';
+import { distribute, scanMcp } from '../../services/agentMcp';
 import type { FsPort } from '../fsPort';
 
 const HOME = '/h';
@@ -105,6 +105,47 @@ describe('distribute：配置父目录缺失时自动补建（globalStorage 场�
     const text = files.get(`${HOME}/${cline!.mcpFile}`);
     expect(text).toBeTruthy();
     expect(parseMcpServersJson(text!).servers.s?.command).toBe('x');
+  });
+});
+
+describe('scanMcp：mcpExtraFiles 只读合并（qoder 双文件场景）', () => {
+  it('settings.json 与 mcp.json 的 server 合并入扫描结果与清单，主文件优先', async () => {
+    const { fs } = makeFs([`${HOME}/.qoder`]);
+    await fs.writeText(
+      `${HOME}/.qoder/settings.json`,
+      JSON.stringify({
+        mcpServers: {
+          'aone-km': { command: 'npx', args: ['mcp-remote', 'https://x/aone-km/mcp'] },
+          shared: { command: 'main' },
+        },
+      }),
+    );
+    await fs.writeText(
+      `${HOME}/.qoder/mcp.json`,
+      JSON.stringify({
+        mcpServers: {
+          'snomed-ct': { command: 'snomed-ct' },
+          shared: { command: 'extra' },
+        },
+      }),
+    );
+    const snap = await scanMcp(fs);
+    const qoder = snap.current.qoder!;
+    expect(Object.keys(qoder)).toContain('snomed-ct');
+    expect(qoder.shared?.command).toBe('main'); // 主文件优先
+    expect(snap.manifest.servers.map((s) => s.name)).toContain('snomed-ct');
+  });
+
+  it('额外文件损坏时不影响主文件扫描', async () => {
+    const { fs } = makeFs([`${HOME}/.qoder`]);
+    await fs.writeText(
+      `${HOME}/.qoder/settings.json`,
+      JSON.stringify({ mcpServers: { 'aone-km': { command: 'npx' } } }),
+    );
+    await fs.writeText(`${HOME}/.qoder/mcp.json`, '{broken');
+    const snap = await scanMcp(fs);
+    expect(snap.errors.qoder).toBeUndefined();
+    expect(Object.keys(snap.current.qoder!)).toContain('aone-km');
   });
 });
 

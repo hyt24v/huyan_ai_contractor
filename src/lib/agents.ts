@@ -13,6 +13,8 @@ export interface AgentDef {
   skillsDir: string;
   /** MCP 配置文件(相对 $HOME);未知/不支持为 undefined,UI 置灰 */
   mcpFile?: string;
+  /** 额外的 MCP 配置文件（只读合并扫描，分发只写 mcpFile 主文件）。如 qoder 同时读 settings.json 与 mcp.json */
+  mcpExtraFiles?: string[];
   mcpFormat?: 'json' | 'toml';
   /** 该 agent 的 mcpServers 条目支持 enabled 字段(pi) */
   hasEnabledFlag?: boolean;
@@ -238,7 +240,7 @@ export const AGENTS: AgentDef[] = [
   { id: 'openhands', name: 'OpenHands', skillsDir: '.openhands/skills' },
   { id: 'pochi', name: 'Pochi', skillsDir: '.pochi/skills' },
   // docs.qoder.com/cli/mcp-reference
-  { id: 'qoder', name: 'Qoder', skillsDir: '.qoder/skills', mcpFile: '.qoder/settings.json', mcpFormat: 'json' },
+  { id: 'qoder', name: 'Qoder', skillsDir: '.qoder/skills', mcpFile: '.qoder/settings.json', mcpFormat: 'json', mcpExtraFiles: ['.qoder/mcp.json'] },
   {
     id: 'qwen_code',
     name: 'Qwen Code',

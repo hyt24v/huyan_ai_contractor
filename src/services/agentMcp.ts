@@ -119,6 +119,24 @@ export async function scanMcp(fs: FsPort = tauriFs): Promise<McpSnapshot> {
       } else {
         scans[agent.id] = parseTomlMcpServers(text);
       }
+      // 额外配置文件（如 qoder 的 mcp.json）：只读合入扫描结果，主文件优先
+      for (const extra of agent.mcpExtraFiles ?? []) {
+        try {
+          const ep = await absPath(extra);
+          if (!(await fs.exists(ep))) continue;
+          const parsed = parseMcpServersJson(await fs.readText(ep), {
+            rootKey: agent.mcpRootKey,
+            specStyle: agent.mcpSpecStyle,
+          });
+          const cur = scans[agent.id]!;
+          for (const [name, spec] of Object.entries(parsed.servers)) {
+            if (!(name in cur.servers)) cur.servers[name] = spec;
+          }
+          Object.assign(cur.enabled, parsed.enabled);
+        } catch {
+          // 额外文件损坏不影响主扫描
+        }
+      }
       current[agent.id] = scans[agent.id]!.servers;
     } catch (e) {
       // 单个 agent 坏了（权限拒绝/配置损坏）不影响整体，记入 errors 供页面提示
