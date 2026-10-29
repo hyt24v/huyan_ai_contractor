@@ -47,7 +47,7 @@ export default function JsonlTableView({
   return (
     <div className="flex h-full min-h-0 flex-col">
       {truncated && (
-        <div className="shrink-0 border-b bg-warning px-3 py-1.5 text-xs text-warning-foreground">
+        <div className="shrink-0 border-b border-warning/30 bg-warning/10 px-3 py-1.5 text-xs text-warning">
           数据共 {validRows.length} 行，表格仅渲染前 {MAX_TABLE_ROWS} 行
         </div>
       )}
@@ -75,14 +75,14 @@ export default function JsonlTableView({
       <div className="min-h-0 flex-1 overflow-auto">
         <table className="w-full border-collapse text-[13px]">
           <thead className="sticky top-0 z-10">
-            <tr className="border-b bg-muted/50">
-              <th className="h-9 w-14 px-3 text-left align-middle text-xs font-medium text-muted-foreground">
+            <tr className="border-b border-border/50 bg-muted/50">
+              <th className="h-9 w-14 px-3 text-left align-middle text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                 #
               </th>
               {fields.map((f) => (
                 <th
                   key={f}
-                  className="h-9 px-3 text-left align-middle font-mono text-xs font-medium text-muted-foreground"
+                  className="h-9 px-3 text-left align-middle font-mono text-[11px] font-medium tracking-wide text-muted-foreground"
                 >
                   {f}
                 </th>
@@ -94,7 +94,7 @@ export default function JsonlTableView({
             {shownRows.map((r) => (
               <tr
                 key={r.line}
-                className="border-b transition-colors last:border-0 hover:bg-muted/50"
+                className="border-b border-border/50 transition-colors last:border-0 hover:bg-accent/50"
               >
                 <td className="px-3 py-1.5 align-middle">
                   {disableJump ? (

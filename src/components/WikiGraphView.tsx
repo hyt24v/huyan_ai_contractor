@@ -462,7 +462,7 @@ export function WikiGraphView({
               <button
                 key={d}
                 type="button"
-                className={`rounded px-1.5 py-0.5 ${localDepth === d ? 'pill-active' : 'pill-inactive hover:text-foreground'}`}
+                className={`rounded-sm px-1.5 py-0.5 ${localDepth === d ? 'pill-active' : 'pill-inactive hover:text-foreground'}`}
                 onClick={() => setLocalDepth(d)}
               >
                 {d === 0 ? '全局' : `${d}跳`}
@@ -498,7 +498,7 @@ export function WikiGraphView({
         >
           {/* 力度调节面板 */}
           {showForces && (
-            <div className="absolute right-2 top-2 z-10 w-56 rounded-lg border border-border bg-card p-3 text-xs shadow-none">
+            <div className="absolute right-2 top-2 z-10 w-56 rounded-lg border border-border/70 bg-card p-3 text-xs shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
               <div className="mb-2 flex items-center justify-between">
                 <span className="font-medium text-foreground">力度调节</span>
                 <Button variant="ghost" size="xs" onClick={() => { setForces(DEFAULT_FORCES); reheat(0.8); }}>
@@ -640,7 +640,7 @@ export function WikiGraphView({
               <>
                 <div className="mb-2 text-sm font-medium text-foreground">关系详情</div>
                 <div className="mb-3">
-                  <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">{selectedRelation.type}</span>
+                  <span className="rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[11px]">{selectedRelation.type}</span>
                 </div>
                 <div className="space-y-2">
                   <div>
@@ -693,7 +693,7 @@ export function WikiGraphView({
                       <button
                         key={i}
                         type="button"
-                        className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left hover:bg-muted"
+                        className="flex w-full items-center gap-1.5 rounded-sm px-1.5 py-1 text-left hover:bg-muted"
                         onClick={() => oe && setSelected(oe)}
                       >
                         <span className="h-2 w-2 rounded-full" style={{ background: entityTypeColor(oe?.type ?? '') }} />

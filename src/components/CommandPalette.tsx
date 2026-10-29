@@ -121,7 +121,7 @@ function bestScore(query: string, item: PaletteItem): number {
 }
 
 const Kbd = ({ children }: { children: string }) => (
-  <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+  <kbd className="rounded border border-border/70 bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
     {children}
   </kbd>
 );
@@ -304,10 +304,10 @@ export default function CommandPalette() {
         role="dialog"
         aria-modal="true"
         aria-label="命令面板"
-        className="flex max-h-[70vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border bg-card shadow-2xl"
+        className="flex max-h-[70vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-border/70 bg-card shadow-[0_4px_16px_rgba(0,0,0,0.08)]"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2 border-b px-3">
+        <div className="flex items-center gap-2 border-b border-border/70 px-3">
           <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
           <input
             autoFocus
@@ -376,7 +376,7 @@ export default function CommandPalette() {
             return (
               <div key={item.id}>
                 {showGroup && (
-                  <div className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 first:pt-1">
+                  <div className="px-2.5 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground first:pt-1">
                     {item.group}
                   </div>
                 )}
@@ -415,7 +415,7 @@ export default function CommandPalette() {
           })}
         </div>
 
-        <div className="flex shrink-0 items-center gap-3 border-t px-3 py-1.5 text-[11px] text-muted-foreground">
+        <div className="flex shrink-0 items-center gap-3 border-t border-border/70 px-3 py-1.5 text-[11px] text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <Kbd>↑</Kbd>
             <Kbd>↓</Kbd>

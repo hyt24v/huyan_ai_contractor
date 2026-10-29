@@ -588,7 +588,7 @@ export default function JsonToolPage() {
                 );
               }
             }}
-            className="h-3 w-3 accent-primary"
+            className="h-3.5 w-3.5 shrink-0 cursor-pointer rounded-sm accent-primary"
           />
           保留转义
         </label>
@@ -626,7 +626,7 @@ export default function JsonToolPage() {
                 }
               }}
               placeholder="行号"
-              className="h-8 w-16 rounded-md border border-input bg-transparent px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="h-8 w-16 rounded-md border border-input bg-transparent px-2 text-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
             <ToolbarButton onClick={jumpToNextError} title="跳到下一个错误行">
               下个错误
@@ -672,11 +672,12 @@ export default function JsonToolPage() {
             >
               复制行
             </ToolbarButton>
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <label className="inline-flex cursor-pointer select-none items-center gap-1.5 text-xs text-muted-foreground">
               <input
                 type="checkbox"
                 checked={keepEmptyLines}
                 onChange={(e) => setKeepEmptyLines(e.target.checked)}
+                className="h-3.5 w-3.5 shrink-0 cursor-pointer rounded-sm accent-primary"
               />
               保留空行
             </label>
@@ -823,7 +824,7 @@ export default function JsonToolPage() {
                       ? '$.author.name'
                       : 'JSONL 按行组成数组查询，如 $[*].name'
                   }
-                  className="h-7 min-w-0 flex-1 rounded-md border border-input bg-transparent px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="h-7 min-w-0 flex-1 rounded-md border border-input bg-transparent px-2 font-mono text-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 />
                 <ToolbarButton primary onClick={runQuery}>
                   运行

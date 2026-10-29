@@ -2,7 +2,7 @@
  *  不带第三方 cva 依赖，手写变体表。新代码优先用这里的组件而非散落的手写 className。 */
 import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
 
-type ButtonVariant = 'default' | 'outline' | 'ghost' | 'destructive';
+type ButtonVariant = 'default' | 'outline' | 'ghost' | 'destructive' | 'link';
 type ButtonSize = 'default' | 'sm' | 'xs' | 'icon' | 'icon-sm' | 'icon-xs';
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
@@ -10,6 +10,8 @@ const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   outline: 'border border-input bg-transparent hover:bg-accent hover:text-foreground',
   ghost: 'hover:bg-accent hover:text-foreground',
   destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+  // 纯文字链：不携带颜色（用 className 给 text-primary / text-muted-foreground 等，避免与变体类冲突）
+  link: 'underline-offset-2 hover:underline',
 };
 
 const BUTTON_SIZES: Record<ButtonSize, string> = {
@@ -34,7 +36,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     <button
       ref={ref}
       type={type}
-      className={`inline-flex shrink-0 items-center justify-center gap-1 rounded-md font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 ${BUTTON_VARIANTS[variant]} ${BUTTON_SIZES[size]} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center gap-1 rounded-md font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 ${BUTTON_VARIANTS[variant]} ${variant === 'link' ? 'h-auto p-0 text-xs' : BUTTON_SIZES[size]} ${className}`}
       {...rest}
     />
   );
@@ -45,7 +47,7 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
     return (
       <input
         ref={ref}
-        className={`h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-xs transition-colors placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-40 dark:bg-input/30 ${className}`}
+        className={`h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-40 ${className}`}
         {...rest}
       />
     );

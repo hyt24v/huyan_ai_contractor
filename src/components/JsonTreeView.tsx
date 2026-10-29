@@ -48,7 +48,7 @@ function KindBadge({ node }: { node: JsonTreeNode }) {
     <span className="inline-flex h-4 shrink-0 items-center gap-0.5 rounded-sm bg-muted px-1 text-[10px] text-muted-foreground">
       {kind === 'color' ? (
         <span
-          className="h-2.5 w-2.5 rounded-[2px] border border-border"
+          className="h-2.5 w-2.5 rounded-sm border border-border"
           style={{ backgroundColor: node.value }}
         />
       ) : (
@@ -67,7 +67,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
   return (
     <>
       {text.slice(0, idx)}
-      <mark className="rounded-[2px] bg-warning/40 text-inherit">
+      <mark className="rounded-sm bg-warning/40 text-inherit">
         {text.slice(idx, idx + query.length)}
       </mark>
       <Highlight text={text.slice(idx + query.length)} query={query} />
@@ -312,7 +312,7 @@ export default function JsonTreeView({ root }: { root: JsonTreeNode | null }) {
             </span>
             <button
               onClick={() => setSearch('')}
-              className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+              className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground"
               title="清除搜索"
             >
               <X className="h-3 w-3" />

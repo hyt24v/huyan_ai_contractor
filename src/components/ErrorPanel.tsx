@@ -27,7 +27,7 @@ export default function ErrorPanel({
           <CircleAlert className="mt-0.5 h-3 w-3 shrink-0" />
           {e.line !== undefined && onJump ? (
             <button
-              className="shrink-0 rounded bg-destructive/10 px-1 font-mono hover:bg-destructive/20"
+              className="shrink-0 rounded-sm bg-destructive/10 px-1 font-mono hover:bg-destructive/20"
               onClick={() => onJump(e.line!, e.column)}
             >
               第 {e.line} 行{e.column !== undefined ? `:${e.column}` : ''}

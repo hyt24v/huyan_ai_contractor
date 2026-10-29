@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { BookOpen, FolderInput, RotateCcw, X } from 'lucide-react';
 import { DEFAULT_WIKI_PATH, getWikiPaths, setWikiPaths } from '../../lib/settings';
 import { pickDirectory } from '../../lib/pickDirectory';
-import { Button } from '../ui/controls';
+import { Badge, Button } from '../ui/controls';
 import { useToast } from '../../hooks/useToast';
 
 export default function WikiSection() {
@@ -39,10 +39,11 @@ export default function WikiSection() {
           <div key={p} className="flex items-center gap-2 rounded-lg border border-border/70 bg-card px-3 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
             <span className="flex-1 truncate font-mono text-xs" title={p}>{p}</span>
             {p === DEFAULT_WIKI_PATH && (
-              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">默认</span>
+              <Badge>默认</Badge>
             )}
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon-xs"
               onClick={() => {
                 if (paths.length <= 1) {
                   showToast('至少保留一个知识库路径', 'err');
@@ -51,11 +52,12 @@ export default function WikiSection() {
                 persist(paths.filter((x) => x !== p));
                 showToast('已移除');
               }}
-              className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="text-muted-foreground"
               title="移除"
+              aria-label={`移除知识库 ${p}`}
             >
               <X className="h-3.5 w-3.5" />
-            </button>
+            </Button>
           </div>
         ))}
       </div>

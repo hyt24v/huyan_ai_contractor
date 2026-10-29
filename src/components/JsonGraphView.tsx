@@ -237,10 +237,10 @@ export default function JsonGraphView({ root }: { root: JsonTreeNode | null }) {
           return (
             <div
               key={n.path || n.key}
-              className="absolute select-none rounded-md border bg-card px-2 py-1.5 font-mono transition-colors hover:border-primary/50"
+              className="absolute select-none rounded-md border border-border/70 bg-card px-2 py-1.5 font-mono shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors hover:border-primary/50"
               style={{ left: ln.x, top: ln.y, width: CARD_W, height: CARD_H }}
             >
-              <div className="flex h-4 items-center gap-1 text-[11px] font-medium text-sky-600 dark:text-sky-400">
+              <div className="flex h-4 items-center gap-1 text-[11px] font-medium text-json-key">
                 <span className="truncate">{n.key || '(root)'}</span>
                 {n.childCount > 0 && (
                   <span className="shrink-0 rounded-sm bg-muted px-1 text-[10px] font-normal text-muted-foreground">
@@ -269,7 +269,7 @@ export default function JsonGraphView({ root }: { root: JsonTreeNode | null }) {
       </div>
 
       {/* 缩放工具条 */}
-      <div className="absolute right-2 top-2 flex items-center gap-0.5 rounded-md border bg-card/90 px-1 py-0.5 backdrop-blur">
+      <div className="absolute right-2 top-2 flex items-center gap-0.5 rounded-md border border-border/70 bg-card/90 px-1 py-0.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur">
         <button
           className="flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground"
           onClick={() => zoomBy(1 / 1.25)}

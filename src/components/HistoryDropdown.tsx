@@ -1,6 +1,7 @@
 // 历史记录下拉面板（配合 useEditorHistory 使用）
 import { History } from 'lucide-react';
 import { ToolbarButton } from './Toolbar';
+import { Button } from './ui/controls';
 import {
   formatEntrySize,
   historyPreview,
@@ -47,19 +48,17 @@ export default function HistoryDropdown({
               历史记录（手动保存）
             </span>
             <div className="flex items-center gap-3">
-              <button
-                onClick={onSave}
-                className="text-xs text-primary hover:underline"
-              >
+              <Button variant="link" className="text-primary" onClick={onSave}>
                 保存当前
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="link"
                 onClick={onClear}
                 disabled={history.length === 0}
-                className="text-xs text-muted-foreground transition-colors hover:text-destructive disabled:opacity-40"
+                className="text-muted-foreground hover:text-destructive"
               >
                 清空
-              </button>
+              </Button>
             </div>
           </div>
           {history.length === 0 ? (
@@ -85,18 +84,20 @@ export default function HistoryDropdown({
                     {historyPreview(entry.text)}
                   </div>
                   <div className="mt-1 flex gap-3">
-                    <button
+                    <Button
+                      variant="link"
+                      className="text-primary"
                       onClick={() => onRestore(entry)}
-                      className="text-xs text-primary hover:underline"
                     >
                       恢复
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="link"
+                      className="text-muted-foreground hover:text-destructive"
                       onClick={() => onRemove(entry.id)}
-                      className="text-xs text-muted-foreground hover:text-destructive"
                     >
                       删除
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ))}

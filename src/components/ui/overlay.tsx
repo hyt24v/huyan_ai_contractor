@@ -46,7 +46,7 @@ export function Dialog({
         ref={ref}
         role="dialog"
         aria-modal="true"
-        className={`flex max-h-[85vh] w-full flex-col rounded-lg border border-border bg-card ${width}`}
+        className={`flex max-h-[85vh] w-full flex-col rounded-xl border border-border/70 bg-card shadow-[0_4px_16px_rgba(0,0,0,0.08)] ${width}`}
       >
         {title !== undefined && (
           <div className="flex h-10 shrink-0 items-center justify-between border-b border-border px-3">
@@ -114,7 +114,7 @@ export function Popover({
   return createPortal(
     <div
       ref={ref}
-      className={`fixed z-50 rounded-lg border border-border bg-card ${className}`}
+      className={`fixed z-50 rounded-xl border border-border/70 bg-card shadow-[0_4px_16px_rgba(0,0,0,0.08)] ${className}`}
       style={pos ? { top: pos.top, left: pos.left } : undefined}
     >
       {children}
@@ -150,7 +150,7 @@ export function Tooltip({
     >
       {children}
       {show && content && (
-        <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-card px-1.5 py-0.5 text-[11px] text-foreground">
+        <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-border/70 bg-card px-1.5 py-0.5 text-[11px] text-foreground shadow-sm">
           {content}
         </span>
       )}

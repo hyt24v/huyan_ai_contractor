@@ -10,7 +10,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
       <span className={`relative inline-flex ${className.includes('w-') ? '' : 'w-full'} ${className}`}>
         <select
           ref={ref}
-          className="h-8 w-full appearance-none rounded-md border border-input bg-transparent pl-2.5 pr-7 text-xs text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-40 dark:bg-input/30"
+          className="h-8 w-full appearance-none rounded-md border border-input bg-transparent pl-2.5 pr-7 text-xs text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-40"
           {...rest}
         >
           {children}
@@ -71,7 +71,7 @@ export function Tabs<T extends string>({
         <button
           key={it.key}
           type="button"
-          className={`inline-flex h-6 items-center gap-1 rounded-[5px] px-2 text-xs transition-colors ${
+          className={`inline-flex h-6 items-center gap-1 rounded-sm px-2 text-xs transition-colors ${
             active === it.key ? 'pill-active' : 'pill-inactive hover:text-foreground'
           }`}
           onClick={() => onChange(it.key)}

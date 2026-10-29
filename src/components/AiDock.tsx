@@ -433,7 +433,7 @@ export default function AiDock({ open, onClose, scope }: AiDockProps) {
 
       {/* composer（dbx：rounded-md border bg-background 容器 = textarea + action row） */}
       <div className="shrink-0 border-t border-border/40 p-2">
-        <div className="rounded-md border border-border bg-background px-2 pb-1 pt-1.5 focus-within:border-ring">
+        <div className="rounded-md border border-border bg-background px-2 pb-1 pt-1.5 transition-colors focus-within:border-ring">
           <textarea
             ref={inputRef}
             value={input}
@@ -475,7 +475,7 @@ export default function AiDock({ open, onClose, scope }: AiDockProps) {
                     className="fixed inset-0 z-20"
                     onClick={() => setModelPickerOpen(false)}
                   />
-                  <div className="absolute bottom-full left-0 z-30 mb-1 max-h-48 w-60 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-md">
+                  <div className="absolute bottom-full left-0 z-30 mb-1 max-h-48 w-60 overflow-y-auto rounded-xl border border-border/70 bg-card p-1 shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
                     {modelOptions.length === 0 ? (
                       <p className="px-2 py-1.5 text-[11px] text-muted-foreground">
                         无可切换模型——到「设置 → AI 助手」的模型列表添加
@@ -524,7 +524,7 @@ export default function AiDock({ open, onClose, scope }: AiDockProps) {
                     className="fixed inset-0 z-20"
                     onClick={() => setParamsOpen(false)}
                   />
-                  <div className="absolute bottom-full right-0 z-30 mb-1 w-64 rounded-md border border-border bg-card p-2.5 shadow-md">
+                  <div className="absolute bottom-full right-0 z-30 mb-1 w-64 rounded-xl border border-border/70 bg-card p-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
                     <div className="mb-2 truncate text-[11px] font-medium">
                       {effectiveModel} 参数
                       <span className="ml-1.5 font-normal text-muted-foreground">

@@ -13,6 +13,8 @@ import {
 } from '../../lib/settings';
 import type { ModelParams, Provider } from '../../lib/providers';
 import ModelParamsEditor from '../ModelParamsEditor';
+import { Button, Input } from '../ui/controls';
+import { Select } from '../ui/form';
 
 export default function AiSection() {
   const [providers, setProviders] = useState<Provider[]>([]);
@@ -183,12 +185,12 @@ export default function AiSection() {
               : 'AI 对话请求经 Rust 侧转发，Key 不出本机'
           }
         >
-          <select
+          <Select
             value={settings.providerId ?? ''}
             onChange={(e) =>
               update({ providerId: e.target.value || undefined })
             }
-            className="h-8 w-56 rounded-md border border-input bg-transparent px-2 text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring dark:bg-input/30"
+            className="w-56"
           >
             <option value="">未选择</option>
             {providers.map((p) => (
@@ -196,18 +198,18 @@ export default function AiSection() {
                 {p.name}
               </option>
             ))}
-          </select>
+          </Select>
         </SettingRow>
 
         <SettingRow
           label="默认模型"
           description="留空则使用模型列表的第一个；对话中可临时切换"
         >
-          <select
+          <Select
             value={settings.model ?? ''}
             onChange={(e) => update({ model: e.target.value || undefined })}
             disabled={!provider || models.length === 0}
-            className="h-8 w-56 rounded-md border border-input bg-transparent px-2 text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 dark:bg-input/30"
+            className="w-56"
           >
             <option value="">
               {models.length > 0 ? `默认（${models[0]}）` : '请先在下方添加模型'}
@@ -217,7 +219,7 @@ export default function AiSection() {
                 {m}
               </option>
             ))}
-          </select>
+          </Select>
         </SettingRow>
 
         <SettingRow
@@ -238,12 +240,12 @@ export default function AiSection() {
                         onClick={() => setDefaultModel(m)}
                         title={provider.model === m ? '默认模型' : '设为默认模型'}
                         aria-label={`将 ${m} 设为默认模型`}
-                        className="text-muted-foreground transition-colors hover:text-amber-500"
+                        className="text-muted-foreground transition-colors hover:text-warning"
                       >
                         <Star
                           className={`h-3 w-3 ${
                             provider.model === m
-                              ? 'fill-amber-500 text-amber-500'
+                              ? 'fill-warning text-warning'
                               : ''
                           }`}
                         />
@@ -306,13 +308,13 @@ export default function AiSection() {
                 </div>
               )}
               <div className="flex items-center gap-1.5">
-                <select
+                <Select
                   value=""
                   onChange={(e) => {
                     if (e.target.value) addModel(e.target.value);
                   }}
                   disabled={fetched.length === 0}
-                  className="h-8 w-56 rounded-md border border-input bg-transparent px-2 text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 dark:bg-input/30"
+                  className="w-56"
                 >
                   <option value="">
                     {fetched.length > 0
@@ -326,20 +328,21 @@ export default function AiSection() {
                         {m}
                       </option>
                     ))}
-                </select>
-                <button
-                  type="button"
+                </Select>
+                <Button
+                  variant="outline"
+                  size="icon"
                   onClick={() => void pullModels()}
                   disabled={fetching}
                   title="从服务商拉取模型列表"
                   aria-label="从服务商拉取模型列表"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-input text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
+                  className="shrink-0 text-muted-foreground"
                 >
                   <RefreshCw
                     className={`h-3.5 w-3.5 ${fetching ? 'animate-spin' : ''}`}
                   />
-                </button>
-                <input
+                </Button>
+                <Input
                   value={manualModel}
                   onChange={(e) => setManualModel(e.target.value)}
                   onKeyDown={(e) => {
@@ -351,19 +354,18 @@ export default function AiSection() {
                   }}
                   placeholder="手动输入模型名"
                   spellCheck={false}
-                  className="h-8 w-40 rounded-md border border-input bg-transparent px-2 font-mono text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring dark:bg-input/30"
+                  className="w-40 font-mono"
                 />
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
                   onClick={() => {
                     addModel(manualModel);
                     setManualModel('');
                   }}
                   disabled={!manualModel.trim()}
-                  className="h-8 shrink-0 rounded-md border border-input px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
                 >
                   添加
-                </button>
+                </Button>
               </div>
             </div>
           ) : (
