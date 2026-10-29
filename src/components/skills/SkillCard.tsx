@@ -367,7 +367,7 @@ export default function SkillCard({
             onOpen();
           }
         }}
-        className={`group flex h-9 cursor-pointer items-center gap-2 rounded-md border bg-card px-2 text-left transition hover:border-ring/60 hover:bg-accent/30 ${
+        className={`group flex h-9 cursor-pointer items-center gap-2 rounded-md border border-border/70 bg-card px-2 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] ${
           selected ? 'border-primary/50 ring-1 ring-primary/30' : ''
         }`}
       >
@@ -474,22 +474,32 @@ export default function SkillCard({
           onOpen();
         }
       }}
-      className={`group flex cursor-pointer flex-col rounded-lg border bg-card p-3 text-left shadow-sm transition hover:border-ring/60 hover:shadow-md ${
+      className={`group flex cursor-pointer flex-col rounded-xl border border-border/70 bg-card p-3 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] ${
         selected ? 'border-primary/50 ring-2 ring-primary/25' : ''
       }`}
     >
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-2">
         {checkbox}
         {pinButton}
-        <span
-          className={`h-2 w-2 shrink-0 rounded-full ${
-            enabledAnywhere ? 'bg-success' : 'bg-muted-foreground/30'
-          }`}
-          title={enabledAnywhere ? '已部署到某个 Agent' : '未部署'}
-        />
-        <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-semibold">
-          {skill.name}
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-semibold text-muted-foreground">
+          {(skill.name.trim()[0] ?? '?').toUpperCase()}
         </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-mono text-[13px] font-medium" title={skill.name}>
+            {skill.name}
+          </div>
+          <div
+            className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground"
+            title={enabledAnywhere ? '已部署到某个 Agent' : '未部署'}
+          >
+            <span
+              className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                enabledAnywhere ? 'bg-success' : 'bg-muted-foreground/30'
+              }`}
+            />
+            {enabledAnywhere ? '已部署' : '未部署'}
+          </div>
+        </div>
         {switchEl}
         {menuButton}
       </div>

@@ -404,10 +404,10 @@ export default function WikiPage() {
               <p className="text-xs text-muted-foreground">暂无操作日志（wiki/log.md）</p>
             ) : (
               logEntries.map((e) => (
-                <div key={`${e.date}-${e.title}`} className="mb-2 rounded-md border border-border bg-card p-2.5">
+                <div key={`${e.date}-${e.title}`} className="mb-2 rounded-xl border border-border/70 bg-card p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
                   <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                     <span>{e.date}</span>
-                    <span className="rounded bg-muted px-1 py-px text-[10px">{e.kind}</span>
+                    <span className="rounded-full bg-muted px-1.5 py-px text-[10px]">{e.kind}</span>
                   </div>
                   <div className="mt-0.5 text-xs font-medium">{e.title}</div>
                 </div>
@@ -460,16 +460,16 @@ export default function WikiPage() {
               key={a.relPath}
               type="button"
               onClick={() => void openArticle(a)}
-              className={`mb-1 w-full rounded-md border px-2.5 py-2 text-left transition-colors ${
+              className={`mb-1.5 w-full rounded-lg border px-2.5 py-2 text-left transition-shadow ${
                 selected?.relPath === a.relPath
-                  ? 'pill-active'
+                  ? 'pill-active hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]'
                   : 'pill-inactive hover:bg-accent/50'
               } ${a.archived ? 'opacity-50' : ''}`}
             >
               <div className="flex items-center gap-1.5">
                 <span className="flex-1 truncate text-xs font-medium">{a.title}</span>
                 {a.confidence !== undefined && (
-                  <span className={`rounded px-1 py-px text-[10px] ${confidenceClass(a.confidence)}`}>
+                  <span className={`rounded-full px-1.5 py-px text-[10px] ${confidenceClass(a.confidence)}`}>
                     {a.confidence.toFixed(2)}
                   </span>
                 )}
@@ -487,15 +487,15 @@ export default function WikiPage() {
                 key={c.relPath}
                 type="button"
                 onClick={() => void openCanvas(c)}
-                className={`mb-1 flex w-full items-center gap-1.5 rounded-md border px-2.5 py-2 text-left text-xs transition-colors ${
+                className={`mb-1.5 flex w-full items-center gap-1.5 rounded-lg border px-2.5 py-2 text-left text-xs transition-shadow ${
                   canvasSel?.relPath === c.relPath
-                    ? 'pill-active'
+                    ? 'pill-active hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]'
                     : 'pill-inactive hover:bg-accent/50'
                 }`}
               >
                 <Presentation className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex-1 truncate">{c.name}</span>
-                <span className="rounded bg-muted px-1 py-px text-[10px] text-muted-foreground">画布</span>
+                <span className="rounded-full bg-muted px-1.5 py-px text-[10px] text-muted-foreground">画布</span>
               </button>
             ))}
         </section>
@@ -515,7 +515,7 @@ export default function WikiPage() {
               <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2">
                 <span className="min-w-0 truncate text-xs font-medium">{selected.title}</span>
                 {selected.tags.slice(0, 4).map((t) => (
-                  <span key={t} className="flex items-center gap-0.5 rounded bg-muted px-1.5 py-px text-[10px] text-muted-foreground">
+                  <span key={t} className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-px text-[10px] text-muted-foreground">
                     <Tag className="h-2.5 w-2.5" />
                     {t}
                   </span>

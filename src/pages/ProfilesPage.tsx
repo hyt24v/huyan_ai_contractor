@@ -466,22 +466,22 @@ export default function ProfilesPage() {
             }
           />
         ) : (
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {visibleProfiles.map((profile) => {
               const promptRows = Object.entries(profile.prompts) as [AgentId, string][];
               const providerRows = Object.entries(profile.providers ?? {}) as [AgentId, string][];
               return (
                 <div
                   key={profile.id}
-                  className="group flex flex-col rounded-lg border bg-card p-3 shadow-sm"
+                  className="group flex flex-col rounded-xl border border-border/70 bg-card p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
                 >
-                  <div className="flex items-start gap-2">
-                    <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
                       <Layers className="h-4 w-4" />
-                    </div>
+                    </span>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold">{profile.name}</div>
-                      <div className="text-[11px] text-muted-foreground">
+                      <div className="truncate text-[13px] font-medium">{profile.name}</div>
+                      <div className="mt-0.5 truncate text-xs text-muted-foreground">
                         {summarizeProfile(profile)}
                       </div>
                     </div>
@@ -546,6 +546,7 @@ export default function ProfilesPage() {
 
                   <div className="mt-auto flex items-center gap-1.5 pt-3">
                     <Button
+                      variant="outline"
                       size="sm"
                       disabled={busy}
                       onClick={() => setApplyTarget(profile)}
@@ -553,36 +554,36 @@ export default function ProfilesPage() {
                       <Play className="h-3 w-3" />
                       应用
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => openEdit(profile)}
-                      className="opacity-0 focus-visible:opacity-100 group-hover:opacity-100"
-                    >
-                      <Pencil className="h-3 w-3" />
-                      编辑
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => duplicate(profile)}
-                      className="opacity-0 focus-visible:opacity-100 group-hover:opacity-100"
-                    >
-                      <CopyIcon className="h-3 w-3" />
-                      复制
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => remove(profile)}
-                      className="ml-auto text-muted-foreground opacity-0 hover:!bg-destructive/10 hover:!text-destructive focus-visible:opacity-100 group-hover:opacity-100"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                      删除
-                    </Button>
+                    <div className="ml-auto flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        disabled={busy}
+                        onClick={() => openEdit(profile)}
+                        title="编辑"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        disabled={busy}
+                        onClick={() => duplicate(profile)}
+                        title="复制套餐"
+                      >
+                        <CopyIcon className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        disabled={busy}
+                        onClick={() => remove(profile)}
+                        title="删除套餐（不影响已应用的配置）"
+                        className="text-muted-foreground hover:!bg-destructive/10 hover:!text-destructive"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               );

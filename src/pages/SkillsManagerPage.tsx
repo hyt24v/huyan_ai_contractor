@@ -1182,15 +1182,17 @@ export default function SkillsManagerPage() {
                   key={p.path}
                   type="button"
                   onClick={() => selectNav(`proj:${p.path}`)}
-                  className="group flex items-center gap-3 rounded-lg border bg-card p-4 text-left shadow-sm transition hover:border-ring/60 hover:shadow-md"
+                  className="group flex items-center gap-3 rounded-xl border border-border/70 bg-card p-3 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
                 >
-                  <Folder className="h-8 w-8 shrink-0 text-muted-foreground/60" />
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                    <Folder className="h-4 w-4" />
+                  </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-semibold">{baseName(p.path)}</span>
+                      <span className="truncate text-[13px] font-medium">{baseName(p.path)}</span>
                       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50 transition group-hover:translate-x-0.5 group-hover:text-foreground" />
                     </div>
-                    <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground/70">
+                    <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
                       {p.path}
                     </div>
                   </div>
@@ -1315,7 +1317,7 @@ export default function SkillsManagerPage() {
                 key={agent.id}
                 type="button"
                 onClick={() => selectNav(agent.id)}
-                className="group flex items-center gap-3 rounded-lg border bg-card p-4 text-left shadow-sm transition hover:border-ring/60 hover:shadow-md"
+                className="group flex items-center gap-3 rounded-xl border border-border/70 bg-card p-3 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
               >
                 <AgentBadge
                   agent={agent.id}
@@ -1324,7 +1326,7 @@ export default function SkillsManagerPage() {
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-semibold">{agent.name}</span>
+                    <span className="truncate text-[13px] font-medium">{agent.name}</span>
                     <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50 transition group-hover:translate-x-0.5 group-hover:text-foreground" />
                   </div>
                   <div className="mt-0.5 text-[11px] text-muted-foreground">
@@ -1337,7 +1339,7 @@ export default function SkillsManagerPage() {
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <div className="mt-1 font-mono text-[10px] text-muted-foreground/60">
+                  <div className="mt-1 font-mono text-[11px] text-muted-foreground">
                     ~/{agent.skillsDir}
                   </div>
                 </div>
@@ -1443,12 +1445,15 @@ export default function SkillsManagerPage() {
                 return (
                   <div
                     key={repo.url}
-                    className="flex flex-col rounded-lg border bg-card p-3 shadow-sm transition hover:shadow-md"
+                    className="flex flex-col rounded-xl border border-border/70 bg-card p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
                   >
-                    <div className="flex items-start gap-2">
+                    <div className="flex items-start gap-2.5">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                        <GitBranch className="h-4 w-4" />
+                      </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="truncate text-[13px] font-semibold">{repo.name}</span>
+                          <span className="truncate text-[13px] font-medium">{repo.name}</span>
                           {typeof repo.stars === 'number' && (
                             <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
                               <Star className="h-3 w-3" />
@@ -2074,7 +2079,7 @@ export default function SkillsManagerPage() {
                 type="button"
                 disabled={busy}
                 onClick={() => installFromCollection(sub)}
-                className="flex w-full items-center justify-between gap-2 rounded-md border border-border px-3 py-1.5 text-left text-xs transition-colors hover:bg-accent disabled:opacity-40"
+                className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/70 bg-card px-3 py-1.5 text-left text-xs shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] disabled:opacity-40"
               >
                 <span className="truncate font-mono">{sub.split('/').pop()}</span>
                 <span className="shrink-0 text-[10px] text-muted-foreground">{sub}</span>

@@ -231,7 +231,7 @@ export default function AiSection() {
                   {models.map((m) => (
                     <span
                       key={m}
-                      className="group inline-flex items-center gap-1 rounded-full border border-border/80 bg-background px-2.5 py-1 text-xs"
+                      className="group inline-flex items-center gap-1 rounded-full border border-border/70 bg-background px-2.5 py-1 text-xs"
                     >
                       <button
                         type="button"
@@ -280,7 +280,7 @@ export default function AiSection() {
                 </div>
               )}
               {paramModel && (
-                <div className="rounded-md border border-border/60 bg-background/50 p-2">
+                <div className="rounded-lg border border-border/60 bg-background/50 p-2">
                   <div className="mb-1.5 flex items-center justify-between">
                     <span className="text-[11px] font-medium">
                       {paramModel} 参数

@@ -20,15 +20,15 @@ export default function WikiStatsView({ scan }: { scan: WikiScan }) {
           { label: '平均置信度', value: stats.avgConfidence === null ? '—' : stats.avgConfidence.toFixed(2) },
           { label: '已归档', value: String(stats.archived) },
         ].map((c) => (
-          <div key={c.label} className="rounded-lg border border-border bg-card p-3">
+          <div key={c.label} className="rounded-xl border border-border/70 bg-card p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
             <div className="text-xl font-semibold">{c.value}</div>
-            <div className="mt-0.5 text-[11px] text-muted-foreground">{c.label}</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">{c.label}</div>
           </div>
         ))}
       </div>
 
       {/* 主题分布 */}
-      <div className="rounded-lg border border-border bg-card p-3">
+      <div className="rounded-xl border border-border/70 bg-card p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
         <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium">
           <BarChart3 className="h-3.5 w-3.5" /> 主题分布
         </h3>
@@ -46,7 +46,7 @@ export default function WikiStatsView({ scan }: { scan: WikiScan }) {
       </div>
 
       {/* 置信度分布 */}
-      <div className="rounded-lg border border-border bg-card p-3">
+      <div className="rounded-xl border border-border/70 bg-card p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
         <h3 className="mb-2 text-xs font-medium">置信度分布</h3>
         <div className="flex h-36 items-end gap-2">
           {stats.confidenceBuckets.map((b, i) => (
@@ -63,13 +63,13 @@ export default function WikiStatsView({ scan }: { scan: WikiScan }) {
       </div>
 
       {/* 最近更新 */}
-      <div className="col-span-full rounded-lg border border-border bg-card p-3">
+      <div className="col-span-full rounded-xl border border-border/70 bg-card p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
         <h3 className="mb-2 text-xs font-medium">最近更新</h3>
         <div className="space-y-1">
           {stats.recent.map((r, i) => (
             <div key={i} className="flex items-center gap-2 text-xs">
               <span className="w-20 shrink-0 text-[11px] text-muted-foreground">{r.date}</span>
-              <span className="shrink-0 rounded bg-muted px-1.5 py-px text-[10px] text-muted-foreground">{r.topic}</span>
+              <span className="shrink-0 rounded-full bg-muted px-1.5 py-px text-[10px] text-muted-foreground">{r.topic}</span>
               <span className="min-w-0 truncate">{r.title}</span>
             </div>
           ))}

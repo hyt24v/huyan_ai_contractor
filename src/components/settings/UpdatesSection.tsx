@@ -82,7 +82,7 @@ export default function UpdatesSection() {
       </SettingGroup>
 
       <div>
-        <h3 className="mb-2 text-[13px] font-medium text-foreground">GitHub</h3>
+        <h3 className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">GitHub</h3>
         <SettingGroup>
           {GITHUB_LINKS.map((l) => (
             <SettingRow key={l.url} label={l.name} description={l.url}>

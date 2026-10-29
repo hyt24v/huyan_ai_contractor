@@ -36,10 +36,10 @@ export default function WikiSection() {
       </p>
       <div className="mb-3 space-y-1.5">
         {paths.map((p) => (
-          <div key={p} className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5">
+          <div key={p} className="flex items-center gap-2 rounded-lg border border-border/70 bg-card px-3 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
             <span className="flex-1 truncate font-mono text-xs" title={p}>{p}</span>
             {p === DEFAULT_WIKI_PATH && (
-              <span className="rounded bg-muted px-1.5 py-px text-[10px] text-muted-foreground">默认</span>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">默认</span>
             )}
             <button
               type="button"

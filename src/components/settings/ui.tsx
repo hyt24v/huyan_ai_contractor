@@ -28,7 +28,7 @@ export function SettingRow({
 
 export function SettingGroup({ children }: { children: ReactNode }) {
   return (
-    <div className="divide-y divide-border/40 rounded-lg border border-border/60 bg-card">
+    <div className="divide-y divide-border/40 rounded-xl border border-border/70 bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       {children}
     </div>
   );

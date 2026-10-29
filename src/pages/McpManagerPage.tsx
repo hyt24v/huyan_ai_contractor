@@ -824,37 +824,39 @@ export default function McpManagerPage() {
         {!historyBusy && history.length === 0 && (
           <EmptyState title="暂无快照" description="分发前和每 6 小时会自动创建快照。" />
         )}
-        {history.map((record) => {
-          const existing = record.files.filter((f) => f.exists);
-          return (
-            <div
-              key={record.id}
-              className="flex items-center gap-3 border-b px-4 py-2.5 text-xs last:border-b-0"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{snapshotDisplayTime(record)}</span>
-                  {record.label && (
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
-                      {record.label}
-                    </span>
-                  )}
-                </div>
-                <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
-                  {existing.length > 0
-                    ? existing.map((f) => f.file).join('、')
-                    : record.id}
-                </div>
-              </div>
-              <ToolbarButton
-                disabled={historyBusy || existing.length === 0}
-                onClick={() => void rollback(record)}
+        <div className="flex flex-col gap-2">
+          {history.map((record) => {
+            const existing = record.files.filter((f) => f.exists);
+            return (
+              <div
+                key={record.id}
+                className="flex items-center gap-3 rounded-lg border border-border/70 bg-card px-3 py-2.5 text-xs shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
               >
-                回滚
-              </ToolbarButton>
-            </div>
-          );
-        })}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{snapshotDisplayTime(record)}</span>
+                    {record.label && (
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                        {record.label}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
+                    {existing.length > 0
+                      ? existing.map((f) => f.file).join('、')
+                      : record.id}
+                  </div>
+                </div>
+                <ToolbarButton
+                  disabled={historyBusy || existing.length === 0}
+                  onClick={() => void rollback(record)}
+                >
+                  回滚
+                </ToolbarButton>
+              </div>
+            );
+          })}
+        </div>
       </Dialog>
     </div>
   );

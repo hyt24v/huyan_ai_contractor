@@ -343,10 +343,10 @@ function RulesPage() {
               <button
                 key={r.id}
                 onClick={() => select(r.id)}
-                className={`mb-1 flex w-full flex-col gap-1 rounded-md border px-3 py-2 text-left transition-colors ${
+                className={`mb-1.5 flex w-full flex-col gap-1 rounded-lg border px-3 py-2.5 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] ${
                   selectedId === r.id
-                    ? 'pill-active'
-                    : 'pill-inactive hover:bg-accent/50'
+                    ? 'border-primary/40 bg-primary/5'
+                    : 'border-border/70 bg-card hover:border-border'
                 }`}
               >
                 <div className="flex w-full items-center gap-2">
@@ -364,7 +364,7 @@ function RulesPage() {
                 {r.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {r.tags.map((t) => (
-                      <span key={t} className="rounded bg-muted px-1.5 py-px text-[10px] text-muted-foreground">
+                      <span key={t} className="rounded-full bg-muted px-1.5 py-px text-[10px] text-muted-foreground">
                         {t}
                       </span>
                     ))}

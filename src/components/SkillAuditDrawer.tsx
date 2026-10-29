@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AlertTriangle, Info, RefreshCw, ShieldCheck, X } from 'lucide-react';
 import { agentShortName } from '../lib/agents';
+import { Button } from './ui/controls';
 import type { AuditIssue, AuditReport, AuditSeverity } from '../lib/skillAudit';
 
 const SEVERITY_LABEL: Record<AuditSeverity, string> = {
@@ -77,13 +78,16 @@ export default function SkillAuditDrawer({
         <div className="flex shrink-0 items-center gap-2 border-b px-4 py-3">
           <ShieldCheck className="h-4 w-4 text-success" />
           <span className="text-sm font-semibold">Skill 审计</span>
-          <button
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={onClose}
             title="关闭"
-            className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label="关闭审计面板"
+            className="ml-auto"
           >
             <X className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
 
         <div className="shrink-0 border-b px-4 py-3">
@@ -116,17 +120,20 @@ export default function SkillAuditDrawer({
           )}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div className="min-h-0 flex-1 overflow-auto bg-muted/30 p-3">
           {report && visible.length === 0 && (
             <div className="px-4 py-10 text-center text-xs text-muted-foreground">
               {issues.length === 0 ? '没有发现问题，skill 库很干净' : '该级别下没有问题'}
             </div>
           )}
-          <ul className="divide-y">
+          <ul className="space-y-2">
             {visible.map((issue) => {
               const Icon = SEVERITY_ICON[issue.severity];
               return (
-                <li key={issue.id} className="px-4 py-2.5">
+                <li
+                  key={issue.id}
+                  className="rounded-xl border border-border/70 bg-card p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
+                >
                   <div className="flex items-start gap-2">
                     <Icon
                       className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${
@@ -169,14 +176,10 @@ export default function SkillAuditDrawer({
         </div>
 
         <div className="flex shrink-0 items-center gap-2 border-t px-4 py-2.5">
-          <button
-            disabled={loading}
-            onClick={onRescan}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
-          >
+          <Button size="sm" disabled={loading} onClick={onRescan}>
             <RefreshCw className="h-3.5 w-3.5" />
             重新审计
-          </button>
+          </Button>
           <span className="text-[11px] text-muted-foreground">
             检查 SKILL.md、软链、重复与可疑内容，不修改任何文件
           </span>

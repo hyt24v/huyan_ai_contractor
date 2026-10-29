@@ -66,7 +66,7 @@ function StatusDot({ detected }: { detected: boolean }) {
 /** 能力 chips:支持且已启用 → 可点击直达;支持但未启用 → 静态;不支持 → 更淡 */
 function CapabilityChips({ agent, enabled, dense }: { agent: AgentDef; enabled: boolean; dense?: boolean }) {
   const cls = (ok: boolean) =>
-    `inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] transition-colors ${
+    `inline-flex items-center rounded-full px-2 py-0.5 text-[10px] transition-colors ${
       ok
         ? enabled
           ? 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -228,22 +228,22 @@ export default function AgentsSection() {
       </div>
 
       {view === 'cards' ? (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {list.map((a) => {
             const isEnabled = enabledSet.has(a.id);
             return (
               <div
                 key={a.id}
                 title={pathsTitle(a)}
-                className={`rounded-lg border px-3 py-2 transition-colors ${
+                className={`rounded-xl border p-3 transition-shadow ${
                   isEnabled
-                    ? 'border-border/60 bg-card'
-                    : 'border-border/40 bg-card/50 opacity-75'
+                    ? 'border-border/70 bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]'
+                    : 'border-border/50 bg-card/50 opacity-75'
                 }`}
               >
                 <div className="flex items-center gap-2">
                   <StatusDot detected={detectedSet.has(a.id)} />
-                  <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
                     {a.name}
                   </span>
                   <Toggle
@@ -252,7 +252,7 @@ export default function AgentsSection() {
                     label={`显示 ${a.name}`}
                   />
                 </div>
-                <div className="mt-1.5">
+                <div className="mt-2">
                   <CapabilityChips agent={a} enabled={isEnabled} />
                 </div>
               </div>
@@ -267,10 +267,10 @@ export default function AgentsSection() {
               <div
                 key={a.id}
                 title={pathsTitle(a)}
-                className={`flex h-9 items-center gap-2 rounded-md border px-3 transition-colors ${
+                className={`flex h-9 items-center gap-2 rounded-lg border px-3 transition-shadow ${
                   isEnabled
-                    ? 'border-border/60 bg-card'
-                    : 'border-border/40 bg-card/50 opacity-75'
+                    ? 'border-border/70 bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]'
+                    : 'border-border/50 bg-card/50 opacity-75'
                 }`}
               >
                 <StatusDot detected={detectedSet.has(a.id)} />
@@ -292,7 +292,7 @@ export default function AgentsSection() {
         </div>
       )}
       {list.length === 0 && (
-        <div className="rounded-lg border border-dashed px-3 py-8 text-center text-xs text-muted-foreground">
+        <div className="rounded-xl border border-dashed border-border/60 px-3 py-8 text-center text-xs text-muted-foreground">
           没有匹配的 agent
         </div>
       )}

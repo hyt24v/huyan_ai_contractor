@@ -41,7 +41,7 @@ export default function HistoryDropdown({
         </span>
       </ToolbarButton>
       {open && (
-        <div className="absolute right-0 top-9 z-50 w-80 rounded-md border bg-card p-2 shadow-lg">
+        <div className="absolute right-0 top-9 z-50 w-80 rounded-xl border border-border/70 bg-card p-2 shadow-lg">
           <div className="mb-2 flex items-center justify-between px-1">
             <span className="text-xs font-medium text-foreground">
               历史记录（手动保存）
@@ -67,11 +67,11 @@ export default function HistoryDropdown({
               暂无历史记录，点上方「保存当前」记录一份
             </div>
           ) : (
-            <div className="max-h-72 space-y-1 overflow-y-auto">
+            <div className="max-h-72 space-y-1.5 overflow-y-auto">
               {history.map((entry) => (
                 <div
                   key={entry.id}
-                  className="group rounded-sm border border-transparent px-2 py-1.5 transition-colors hover:border-border hover:bg-accent/40"
+                  className="group rounded-lg border border-border/70 bg-card px-2.5 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs text-foreground">
