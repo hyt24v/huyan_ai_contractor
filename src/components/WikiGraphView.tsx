@@ -382,7 +382,7 @@ export function WikiGraphView({
 
   // ── 指针交互 ──
   const onPointerDown = (e: React.PointerEvent) => {
-    if ((e.target as HTMLElement).closest('button')) return;
+    if ((e.target as HTMLElement).closest('button, input, select, textarea, a')) return;
     const nodeEl = (e.target as Element).closest('[data-node-id]');
     if (nodeEl) {
       const nodeId = nodeEl.getAttribute('data-node-id')!;
