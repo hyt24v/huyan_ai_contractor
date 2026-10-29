@@ -34,9 +34,9 @@
     --json-boolean: 262 83% 58%;
     --json-null: 240 3% 46%;
     /* 分级圆角（Otty/VS Code 范式：control/inner/outer）；加大后更贴近 macOS 原生质感 */
-    --radius-control: 6px;
-    --radius-inner: 10px;
-    --radius-outer: 14px;
+    --radius-control: 8px;
+    --radius-inner: 12px;
+    --radius-outer: 16px;
   }
 }
 
@@ -61,7 +61,7 @@
 /* 面板卡片（dbx 范式：1px border + 圆角，浮在 chrome 外壳上，无阴影） */
 @layer components {
   .panel {
-    @apply rounded-lg border bg-card;
+    @apply rounded-lg border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)];
   }
 }
 
