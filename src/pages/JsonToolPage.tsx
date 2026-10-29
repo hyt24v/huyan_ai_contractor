@@ -51,6 +51,7 @@ import { useToast } from '../hooks/useToast';
 import HistoryDropdown from '../components/HistoryDropdown';
 import { Button } from '../components/ui/controls';
 import { EmptyState } from '../components/ui/states';
+import { FloatingToast } from '../components/Toast';
 
 const STORAGE_KEY = 'huyan_tool:editor';
 const MODE_KEY = 'huyan_tool:editor-mode';
@@ -734,15 +735,7 @@ export default function JsonToolPage() {
             e.target.value = '';
           }}
         />
-        {toast && (
-          <span
-            className={`ml-auto text-xs font-medium ${
-              toast.tone === 'err' ? 'text-destructive' : 'text-success'
-            }`}
-          >
-            {toast.msg}
-          </span>
-        )}
+        {toast && <FloatingToast toast={toast} />}
       </Toolbar>
 
       {sizeWarning && (

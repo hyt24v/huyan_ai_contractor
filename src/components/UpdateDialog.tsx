@@ -5,6 +5,7 @@ import { ArrowUpCircle, Loader2, X } from 'lucide-react';
 import { downloadAndInstall, relaunchApp } from '../lib/updater';
 import { parseReleaseNotes } from '../lib/releaseNotes';
 import { useToast } from '../hooks/useToast';
+import { FloatingToast } from './Toast';
 
 type Phase =
   | { kind: 'confirm' }
@@ -159,17 +160,7 @@ export default function UpdateDialog({
           )}
         </div>
 
-        {toast && (
-          <div
-            className={`mx-4 mb-3 rounded-md border px-3 py-1.5 text-xs ${
-              toast.tone === 'err'
-                ? 'border-destructive/40 bg-destructive text-destructive-foreground'
-                : 'bg-muted text-foreground'
-            }`}
-          >
-            {toast.msg}
-          </div>
-        )}
+        {toast && <FloatingToast toast={toast} />}
       </div>
     </div>
   );

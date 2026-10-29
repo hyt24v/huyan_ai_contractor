@@ -5,6 +5,7 @@ import { DEFAULT_WIKI_PATH, getWikiPaths, setWikiPaths } from '../../lib/setting
 import { pickDirectory } from '../../lib/pickDirectory';
 import { Badge, Button } from '../ui/controls';
 import { useToast } from '../../hooks/useToast';
+import { FloatingToast } from '../Toast';
 
 export default function WikiSection() {
   const { toast, showToast } = useToast();
@@ -79,15 +80,7 @@ export default function WikiSection() {
       <p className="mt-2 text-[11px] text-muted-foreground">
         提示：<code>~</code> 开头自动展开为用户目录；授权范围外的路径只能只读浏览（页面会显示「只读」徽标）。
       </p>
-      {toast && (
-        <div
-          className={`fixed bottom-4 right-4 z-50 rounded-md px-3 py-2 text-xs shadow-lg ${
-            toast.tone === 'err' ? 'bg-destructive text-destructive-foreground' : 'bg-foreground text-background'
-          }`}
-        >
-          {toast.msg}
-        </div>
-      )}
+      {toast && <FloatingToast toast={toast} />}
     </div>
   );
 }

@@ -23,6 +23,7 @@ import {
 import { onSettingsChanged } from '../../lib/settings';
 import { useToast } from '../../hooks/useToast';
 import { Toggle } from './ui';
+import { FloatingToast } from '../Toast';
 
 const homeTilde = (p: string) => `~/${p}`;
 
@@ -307,17 +308,7 @@ export default function AgentsSection() {
         <span>悬停查看各配置路径</span>
       </p>
 
-      {toast && (
-        <div
-          className={`w-fit rounded-md border px-3 py-1.5 text-xs shadow-lg ${
-            toast.tone === 'err'
-              ? 'border-destructive/40 bg-destructive text-destructive-foreground'
-              : 'bg-card text-foreground'
-          }`}
-        >
-          {toast.msg}
-        </div>
-      )}
+      {toast && <FloatingToast toast={toast} />}
     </div>
   );
 }

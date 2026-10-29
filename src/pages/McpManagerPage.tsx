@@ -19,6 +19,7 @@ import {
   restoreSnapshot,
 } from '../services/backups';
 import { isTauri } from '@tauri-apps/api/core';
+import { FloatingToast } from '../components/Toast';
 
 interface EditDraft {
   name: string;
@@ -463,15 +464,7 @@ export default function McpManagerPage() {
             撤销批量
           </ToolbarButton>
         )}
-        {toast && (
-          <span
-            className={`ml-auto text-xs font-medium ${
-              toast.tone === 'err' ? 'text-destructive' : 'text-success'
-            }`}
-          >
-            {toast.msg}
-          </span>
-        )}
+        {toast && <FloatingToast toast={toast} />}
       </Toolbar>
 
       {error && (

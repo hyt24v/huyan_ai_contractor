@@ -56,6 +56,7 @@ import {
   upsertProvider,
   type ReadResult,
 } from '../services/providers';
+import { FloatingToast } from '../components/Toast';
 
 /** 支持模型服务写入/查看的 agent（PROVIDER_TARGETS 登记顺序即清单排序顺序） */
 const PROVIDER_AGENTS = Object.keys(PROVIDER_TARGETS) as AgentId[];
@@ -477,15 +478,7 @@ export default function ProvidersPage() {
           <option value="name">按名称</option>
         </select>
         <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-          {toast && (
-            <span
-              className={`font-medium ${
-                toast.tone === 'err' ? 'text-destructive' : 'text-success'
-              }`}
-            >
-              {toast.msg}
-            </span>
-          )}
+          {toast && <FloatingToast toast={toast} />}
           <span>{total} 个模型服务</span>
         </div>
       </Toolbar>

@@ -42,6 +42,7 @@ import { Button, Input } from '../components/ui/controls';
 import { Dialog } from '../components/ui/overlay';
 import { EmptyState } from '../components/ui/states';
 import { useToast } from '../hooks/useToast';
+import { FloatingToast } from '../components/Toast';
 
 type EditMode = 'edit' | 'split' | 'preview';
 const MODE_KEY = 'huyan_tool:wiki_edit_mode';
@@ -607,15 +608,7 @@ export default function WikiPage() {
             />
       </Dialog>
 
-      {toast && (
-        <div
-          className={`fixed bottom-4 right-4 z-50 rounded-md px-3 py-2 text-xs shadow-lg ${
-            toast.tone === 'err' ? 'bg-destructive text-destructive-foreground' : 'bg-foreground text-background'
-          }`}
-        >
-          {toast.msg}
-        </div>
-      )}
+      {toast && <FloatingToast toast={toast} />}
     </div>
   );
 }

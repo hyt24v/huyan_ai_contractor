@@ -34,6 +34,7 @@ import {
 import { rawFs } from '../lib/fsPort';
 import { pickDirectory } from '../lib/pickDirectory';
 import MarkdownPreview from '../components/MarkdownPreview';
+import { FloatingToast } from '../components/Toast';
 
 type EditMode = 'edit' | 'split' | 'preview';
 const EDIT_MODE_KEY = 'huyan_tool:rules_edit_mode';
@@ -665,15 +666,7 @@ function RulesPage() {
         </Dialog>
       )}
 
-      {toast && (
-        <div
-          className={`fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-md px-4 py-2 text-sm shadow-lg ${
-            toast.tone === 'err' ? 'bg-destructive text-destructive-foreground' : 'bg-foreground text-background'
-          }`}
-        >
-          {toast.msg}
-        </div>
-      )}
+      {toast && <FloatingToast toast={toast} />}
     </div>
   );
 }

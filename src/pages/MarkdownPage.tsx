@@ -59,6 +59,7 @@ import {
 import { copyToClipboard, downloadText } from '../lib/json';
 import { isTauri } from '@tauri-apps/api/core';
 import { absPath, tauriFs } from '../lib/fsPort';
+import { FloatingToast } from '../components/Toast';
 
 const STORAGE_KEY = 'huyan_tool:markdown';
 const HISTORY_KEY_MD = 'huyan_tool:markdown-history';
@@ -408,15 +409,7 @@ export default function MarkdownPage() {
             e.target.value = '';
           }}
         />
-        {toast && (
-          <span
-            className={`ml-auto text-xs font-medium ${
-              toast.tone === 'err' ? 'text-destructive' : 'text-success'
-            }`}
-          >
-            {toast.msg}
-          </span>
-        )}
+        {toast && <FloatingToast toast={toast} />}
       </Toolbar>
 
       <div className="flex min-h-0 flex-1">

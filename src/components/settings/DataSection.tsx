@@ -12,6 +12,7 @@ import {
 } from '../../lib/settings';
 import { useToast } from '../../hooks/useToast';
 import { LinkButton, SettingGroup, SettingRow, Toggle } from './ui';
+import { FloatingToast } from '../Toast';
 
 export default function DataSection() {
   const [autoBackup, setAutoBackup] = useState(getAutoBackupEnabled);
@@ -58,17 +59,7 @@ export default function DataSection() {
         </SettingRow>
       </SettingGroup>
 
-      {toast && (
-        <div
-          className={`w-fit rounded-md border px-3 py-1.5 text-xs shadow-lg ${
-            toast.tone === 'err'
-              ? 'border-destructive/40 bg-destructive text-destructive-foreground'
-              : 'bg-card text-foreground'
-          }`}
-        >
-          {toast.msg}
-        </div>
-      )}
+      {toast && <FloatingToast toast={toast} />}
     </div>
   );
 }

@@ -109,6 +109,7 @@ import {
 } from '../services/projectSkills';
 import { loadProfiles } from '../services/profiles';
 import { isTauri } from '@tauri-apps/api/core';
+import { FloatingToast } from '../components/Toast';
 
 type NavKey =
   | 'library'
@@ -1997,17 +1998,7 @@ export default function SkillsManagerPage() {
         </div>
       )}
 
-      {toast && (
-        <div
-          className={`fixed bottom-4 right-4 z-50 max-w-sm rounded-md border px-3 py-2 text-xs shadow-lg ${
-            toast.tone === 'err'
-              ? 'border-destructive/40 bg-card text-destructive'
-              : 'border-success/40 bg-card text-success'
-          }`}
-        >
-          {toast.msg}
-        </div>
-      )}
+      {toast && <FloatingToast toast={toast} />}
 
       <SkillAuditDrawer
         open={auditOpen}

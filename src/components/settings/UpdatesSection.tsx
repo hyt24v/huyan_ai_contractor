@@ -12,6 +12,7 @@ import { GITHUB_LINKS } from '../../lib/links';
 import { LinkButton, SettingGroup, SettingRow, Toggle } from './ui';
 import UpdateDialog from '../UpdateDialog';
 import { useEffect } from 'react';
+import { FloatingToast } from '../Toast';
 
 export default function UpdatesSection() {
   const { version, status, toast, check, relaunch } = useUpdater();
@@ -107,17 +108,7 @@ export default function UpdatesSection() {
         />
       )}
 
-      {toast && (
-        <div
-          className={`w-fit rounded-md border px-3 py-1.5 text-xs shadow-lg ${
-            toast.tone === 'err'
-              ? 'border-destructive/40 bg-destructive text-destructive-foreground'
-              : 'bg-card text-foreground'
-          }`}
-        >
-          {toast.msg}
-        </div>
-      )}
+      {toast && <FloatingToast toast={toast} />}
     </div>
   );
 }
