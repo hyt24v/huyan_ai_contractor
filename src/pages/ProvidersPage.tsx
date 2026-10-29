@@ -15,6 +15,9 @@ import {
   X,
 } from 'lucide-react';
 import { Toolbar, ToolbarButton, ToolbarDivider } from '../components/Toolbar';
+import { Button } from '../components/ui/controls';
+import { Dialog } from '../components/ui/overlay';
+import { EmptyState } from '../components/ui/states';
 import ConfirmApplyDialog from '../components/ConfirmApplyDialog';
 import ProviderTable, { type RowTestResult } from '../components/providers/ProviderTable';
 import { agentById, type AgentId } from '../lib/agents';
@@ -539,26 +542,33 @@ export default function ProvidersPage() {
         {store === null ? (
           <div className="py-16 text-center text-xs text-muted-foreground">读取中…</div>
         ) : visibleProviders.length === 0 ? (
-          <div className="p-4">
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed px-3 py-6 text-xs text-muted-foreground">
-              <Server className="h-4 w-4" />
-              {total === 0
+          <EmptyState
+            icon={<Server className="h-8 w-8" />}
+            title={
+              total === 0
                 ? '还没有模型服务。新增后可一键写入对应 Agent 的配置文件。'
                 : query.trim()
                   ? '没有匹配的模型服务。'
-                  : '该 Agent 下暂无模型服务。'}
-              {importableAgents.map((a) => (
-                <button
-                  key={a}
-                  onClick={() => void importCurrent(a)}
-                  disabled={busy}
-                  className="shrink-0 rounded-md border border-input px-2 py-1 text-[11px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
-                >
-                  导入 {agentById(a).name} 文件中的当前配置
-                </button>
-              ))}
-            </div>
-          </div>
+                  : '该 Agent 下暂无模型服务。'
+            }
+            action={
+              importableAgents.length > 0 ? (
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {importableAgents.map((a) => (
+                    <Button
+                      key={a}
+                      variant="outline"
+                      size="xs"
+                      onClick={() => void importCurrent(a)}
+                      disabled={busy}
+                    >
+                      导入 {agentById(a).name} 文件中的当前配置
+                    </Button>
+                  ))}
+                </div>
+              ) : undefined
+            }
+          />
         ) : (
           <ProviderTable
             store={currentStore}
@@ -625,26 +635,31 @@ export default function ProvidersPage() {
 
       {/* 新增 / 编辑弹窗 */}
       {draft && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => {
-            // 防止误点遮罩丢失表单
+        <Dialog
+          open
+          onClose={() => {
+            // 防止误关闭丢失表单
             if (window.confirm('放弃当前编辑内容？')) setDraft(null);
           }}
-        >
-          <div
-            className="w-full max-w-lg space-y-3 rounded-lg border bg-card p-4 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">
-                {editingId ? '编辑模型服务' : '新增模型服务'}
-              </h3>
-              <span className="font-mono text-[11px] text-muted-foreground">
+          title={
+            <span className="flex items-center gap-2">
+              {editingId ? '编辑模型服务' : '新增模型服务'}
+              <span className="font-mono text-[11px] font-normal text-muted-foreground">
                 {editingId ?? '新条目'}
               </span>
-            </div>
-
+            </span>
+          }
+          width="max-w-lg"
+          footer={
+            <>
+              <ToolbarButton onClick={() => setDraft(null)}>取消</ToolbarButton>
+              <ToolbarButton primary disabled={busy} onClick={() => void saveDraft()}>
+                保存
+              </ToolbarButton>
+            </>
+          }
+        >
+          <div className="space-y-3">
             <div className="grid gap-2.5 sm:grid-cols-2">
               <label className="space-y-1 sm:col-span-2">
                 <span className="text-xs text-muted-foreground">预设模板</span>
@@ -711,12 +726,12 @@ export default function ProvidersPage() {
                     spellCheck={false}
                     className="h-8 w-full rounded-md border border-input bg-transparent px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   />
-                  <button
-                    type="button"
+                  <Button
+                    variant="outline"
                     onClick={() => void runTest()}
                     disabled={testing || !draft.baseUrl.trim()}
                     title="测试端点连通性与延迟"
-                    className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-input px-2 text-[11px] transition-colors hover:bg-accent disabled:opacity-40"
+                    className="shrink-0 text-[11px]"
                   >
                     {testing ? (
                       <Loader2 className="h-3 w-3 animate-spin" />
@@ -724,7 +739,7 @@ export default function ProvidersPage() {
                       <Gauge className="h-3 w-3" />
                     )}
                     测速
-                  </button>
+                  </Button>
                 </div>
                 {testMsg && (
                   <div
@@ -766,27 +781,29 @@ export default function ProvidersPage() {
                           key={m}
                           className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px]"
                         >
-                          <button
-                            type="button"
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
                             onClick={() => setDefaultModel(m)}
                             title={isDefault ? '默认模型' : '设为默认模型'}
                             aria-label={`将 ${m} 设为默认模型`}
-                            className="shrink-0 text-muted-foreground/60 transition-colors hover:text-primary"
+                            className="text-muted-foreground/60 hover:bg-transparent hover:text-primary"
                           >
                             <Star
                               className={`h-3 w-3 ${isDefault ? 'fill-primary text-primary' : ''}`}
                             />
-                          </button>
+                          </Button>
                           <span className="max-w-52 truncate font-mono">{m}</span>
-                          <button
-                            type="button"
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
                             onClick={() => removeModel(m)}
                             title="移除该模型"
                             aria-label={`移除模型 ${m}`}
-                            className="shrink-0 text-muted-foreground/60 transition-colors hover:text-destructive"
+                            className="text-muted-foreground/60 hover:bg-transparent hover:text-destructive"
                           >
                             <X className="h-3 w-3" />
-                          </button>
+                          </Button>
                         </span>
                       );
                     })}
@@ -814,12 +831,12 @@ export default function ProvidersPage() {
                         </option>
                       ))}
                   </select>
-                  <button
-                    type="button"
+                  <Button
+                    variant="outline"
                     onClick={() => void pullModels()}
                     disabled={fetchingModels || !draft.baseUrl.trim()}
                     title="从该供应商拉取模型列表（/v1/models）"
-                    className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-input px-2 text-[11px] transition-colors hover:bg-accent disabled:opacity-40"
+                    className="shrink-0 text-[11px]"
                   >
                     {fetchingModels ? (
                       <Loader2 className="h-3 w-3 animate-spin" />
@@ -827,7 +844,7 @@ export default function ProvidersPage() {
                       <ListPlus className="h-3 w-3" />
                     )}
                     拉取
-                  </button>
+                  </Button>
                   <input
                     value={manualModel}
                     onChange={(e) => setManualModel(e.target.value)}
@@ -842,18 +859,18 @@ export default function ProvidersPage() {
                     spellCheck={false}
                     className="h-8 w-36 shrink-0 rounded-md border border-input bg-transparent px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   />
-                  <button
-                    type="button"
+                  <Button
+                    variant="outline"
                     onClick={() => {
                       addModel(manualModel.trim());
                       setManualModel('');
                     }}
                     disabled={!manualModel.trim()}
                     title="手动添加模型名（拉取接口不兼容时使用）"
-                    className="inline-flex h-8 shrink-0 items-center rounded-md border border-input px-2 text-[11px] transition-colors hover:bg-accent disabled:opacity-40"
+                    className="shrink-0 text-[11px]"
                   >
                     添加
-                  </button>
+                  </Button>
                 </div>
                 {modelsMsg && (
                   <div className="text-[11px] text-muted-foreground">{modelsMsg}</div>
@@ -872,13 +889,14 @@ export default function ProvidersPage() {
                     spellCheck={false}
                     className="h-8 w-full rounded-md border border-input bg-transparent px-2 pr-14 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   />
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="xs"
                     onClick={() => setShowKey((v) => !v)}
-                    className="absolute right-1 top-1 h-6 rounded px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    className="absolute right-1 top-1 text-muted-foreground"
                   >
                     {showKey ? '隐藏' : '显示'}
-                  </button>
+                  </Button>
                 </div>
               </label>
             </div>
@@ -895,14 +913,8 @@ export default function ProvidersPage() {
               </div>
             )}
 
-            <div className="flex justify-end gap-2 pt-1">
-              <ToolbarButton onClick={() => setDraft(null)}>取消</ToolbarButton>
-              <ToolbarButton primary disabled={busy} onClick={() => void saveDraft()}>
-                保存
-              </ToolbarButton>
-            </div>
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   );

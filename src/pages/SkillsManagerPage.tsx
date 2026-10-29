@@ -26,6 +26,10 @@ import {
   X,
 } from 'lucide-react';
 import { SegmentedControl, ToolbarButton } from '../components/Toolbar';
+import { Button } from '../components/ui/controls';
+import { Dialog } from '../components/ui/overlay';
+import { EmptyState, Skeleton } from '../components/ui/states';
+import { Select } from '../components/ui/form';
 import SkillAuditDrawer from '../components/SkillAuditDrawer';
 import AddSkillsPicker from '../components/skills/AddSkillsPicker';
 import AgentPickerPopover from '../components/skills/AgentPickerPopover';
@@ -223,20 +227,17 @@ function IconButton({
   children: ReactNode;
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="outline"
+      size="icon"
       title={title}
       aria-label={title}
       disabled={disabled}
       onClick={onClick}
-      className={`inline-flex h-8 w-8 items-center justify-center rounded-md border text-xs transition-colors disabled:opacity-40 ${
-        active
-          ? 'border-border bg-accent text-foreground'
-          : 'border-input bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground'
-      }`}
+      className={active ? 'bg-accent text-foreground' : 'text-muted-foreground'}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -254,16 +255,10 @@ function PrimaryButton({
   title?: string;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
-    >
+    <Button onClick={onClick} disabled={disabled} title={title} className="gap-1.5 px-3">
       {icon}
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -281,16 +276,16 @@ function GhostButton({
   title?: string;
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="outline"
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-transparent px-3 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+      className="gap-1.5 px-3"
     >
       {icon}
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -1169,18 +1164,16 @@ export default function SkillsManagerPage() {
       return (
         <div>
           {projects.length === 0 ? (
-            <div className="mx-auto mt-12 max-w-md rounded-xl border border-dashed bg-card/40 px-6 py-10 text-center">
-              <FolderGit2 className="mx-auto h-10 w-10 text-muted-foreground/30" />
-              <h3 className="mt-3 text-sm font-semibold">还没有关联项目</h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                关联项目后，项目里的 .claude/skills 等目录会与中央库双向同步。
-              </p>
-              <div className="mt-4 flex justify-center">
+            <EmptyState
+              icon={<FolderGit2 className="h-10 w-10" />}
+              title="还没有关联项目"
+              description="关联项目后，项目里的 .claude/skills 等目录会与中央库双向同步。"
+              action={
                 <PrimaryButton onClick={() => setLinkOpen(true)} icon={<Plus className="h-3.5 w-3.5" />}>
                   关联第一个项目
                 </PrimaryButton>
-              </div>
-            </div>
+              }
+            />
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {projects.map((p) => (
@@ -1236,9 +1229,11 @@ export default function SkillsManagerPage() {
             </GhostButton>
           </div>
           {rows.length === 0 ? (
-            <div className="rounded-lg border border-dashed bg-card/40 px-4 py-12 text-center text-xs text-muted-foreground">
-              项目里还没有 skills。点「从中央库部署到项目」，或把 skill 目录放进项目的 agent skills 目录后刷新。
-            </div>
+            <EmptyState
+              title="项目里还没有 skills"
+              description="点「从中央库部署到项目」，或把 skill 目录放进项目的 agent skills 目录后刷新。"
+              className="rounded-lg border border-dashed"
+            />
           ) : (
             <div className="overflow-hidden rounded-lg border">
               <table className="w-full text-sm">
@@ -1264,35 +1259,37 @@ export default function SkillsManagerPage() {
                       </td>
                       <td className="px-2 py-1.5 text-right">
                         {r.status === 'synced' && (
-                          <button
-                            type="button"
+                          <Button
+                            variant="outline"
+                            size="xs"
                             disabled={busy}
                             onClick={() => projectRemove(r.name, r.agent)}
-                            className="rounded-md border border-input px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
+                            className="text-muted-foreground"
                           >
                             移除链接
-                          </button>
+                          </Button>
                         )}
                         {r.status === 'project-only' && (
-                          <button
-                            type="button"
+                          <Button
+                            variant="outline"
+                            size="xs"
                             disabled={busy}
                             onClick={() => projectAdopt(r.name, r.agent)}
-                            className="rounded-md border border-input px-2 py-0.5 text-[11px] transition-colors hover:bg-accent disabled:opacity-40"
                           >
                             收编到中央库
-                          </button>
+                          </Button>
                         )}
                         {r.status === 'diverged' && (
-                          <button
-                            type="button"
+                          <Button
+                            variant="outline"
+                            size="xs"
                             disabled={busy}
                             onClick={() => projectReplace(r.name, r.agent)}
                             title="项目副本自动备份后替换为中央库软链"
-                            className="rounded-md border border-warning/40 px-2 py-0.5 text-[11px] text-warning transition-colors hover:bg-warning/10 disabled:opacity-40"
+                            className="border-warning/40 text-warning"
                           >
                             用中央库替换
-                          </button>
+                          </Button>
                         )}
                       </td>
                     </tr>
@@ -1430,9 +1427,11 @@ export default function SkillsManagerPage() {
           </div>
 
           {filteredRepos.length === 0 ? (
-            <div className="rounded-lg border border-dashed bg-card/40 px-4 py-12 text-center text-xs text-muted-foreground">
-              {marketLoading ? '搜索中…' : '没有匹配的仓库，换个关键词或标签试试'}
-            </div>
+            <EmptyState
+              title={marketLoading ? '搜索中…' : '没有匹配的仓库'}
+              description={marketLoading ? undefined : '换个关键词或标签试试'}
+              className="rounded-lg border border-dashed"
+            />
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
               {filteredRepos.map((repo) => {
@@ -1518,10 +1517,7 @@ export default function SkillsManagerPage() {
       return (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-[150px] animate-pulse rounded-lg border bg-muted/30"
-            />
+            <Skeleton key={i} className="h-[150px] rounded-lg border" />
           ))}
         </div>
       );
@@ -1552,32 +1548,32 @@ export default function SkillsManagerPage() {
     );
 
     const emptyBlock = (
-      <div className="mx-auto mt-12 max-w-md rounded-xl border border-dashed bg-card/40 px-6 py-10 text-center">
-        <Package className="mx-auto h-10 w-10 text-muted-foreground/30" />
-        <h3 className="mt-3 text-sm font-semibold">
-          {filtersActive ? '没有匹配的 skill' : '这里还没有 skill'}
-        </h3>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {filtersActive
+      <EmptyState
+        icon={<Package className="h-10 w-10" />}
+        title={filtersActive ? '没有匹配的 skill' : '这里还没有 skill'}
+        description={
+          filtersActive
             ? '换个关键词、标签或来源试试，也可以清除全部筛选。'
             : activeAgent
               ? '去中央库挑选已有 skill，或先从 GitHub 安装。'
-              : '从 GitHub / 内置精选安装 skill 到中央库。'}
-        </p>
-        <div className="mt-4 flex flex-wrap justify-center gap-2">
-          {filtersActive && (
-            <GhostButton onClick={clearFilters} icon={<X className="h-3.5 w-3.5" />}>
-              清除筛选
-            </GhostButton>
-          )}
-          <PrimaryButton
-            onClick={() => selectNav('install')}
-            icon={<Download className="h-3.5 w-3.5" />}
-          >
-            安装 Skills
-          </PrimaryButton>
-        </div>
-      </div>
+              : '从 GitHub / 内置精选安装 skill 到中央库。'
+        }
+        action={
+          <div className="flex flex-wrap justify-center gap-2">
+            {filtersActive && (
+              <GhostButton onClick={clearFilters} icon={<X className="h-3.5 w-3.5" />}>
+                清除筛选
+              </GhostButton>
+            )}
+            <PrimaryButton
+              onClick={() => selectNav('install')}
+              icon={<Download className="h-3.5 w-3.5" />}
+            >
+              安装 Skills
+            </PrimaryButton>
+          </div>
+        }
+      />
     );
 
     if (visible.length === 0) return emptyBlock;
@@ -1810,60 +1806,62 @@ export default function SkillsManagerPage() {
                   </div>
                   <SegmentedControl options={VIEW_OPTIONS} value={view} onChange={setView} />
                   <div className="inline-flex items-center gap-0.5 rounded-md border border-input p-0.5">
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
                       title="卡片视图"
                       aria-label="卡片视图"
                       onClick={() => setLayout('grid')}
-                      className={`inline-flex h-6 w-6 items-center justify-center rounded ${
+                      className={
                         layout === 'grid'
                           ? 'bg-accent text-foreground'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
+                          : 'text-muted-foreground'
+                      }
                     >
                       <Grid2x2 className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
                       title="列表视图"
                       aria-label="列表视图"
                       onClick={() => setLayout('list')}
-                      className={`inline-flex h-6 w-6 items-center justify-center rounded ${
+                      className={
                         layout === 'list'
                           ? 'bg-accent text-foreground'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
+                          : 'text-muted-foreground'
+                      }
                     >
                       <List className="h-3.5 w-3.5" />
-                    </button>
+                    </Button>
                   </div>
                   {nav === 'library' && (
                     <>
-                      <select
+                      <Select
                         value={viewPrefs.groupBy}
                         onChange={(e) =>
                           updateViewPrefs({ groupBy: e.target.value as SkillGroupBy })
                         }
                         title="分组方式"
                         aria-label="分组方式"
-                        className="h-8 rounded-md border border-input bg-transparent px-1.5 text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        className="w-28"
                       >
                         <option value="none">不分组</option>
                         <option value="tag">按标签分组</option>
                         <option value="source">按来源分组</option>
-                      </select>
-                      <select
+                      </Select>
+                      <Select
                         value={viewPrefs.sortKey}
                         onChange={(e) =>
                           updateViewPrefs({ sortKey: e.target.value as SkillSortKey })
                         }
                         title="组内排序"
                         aria-label="组内排序"
-                        className="h-8 rounded-md border border-input bg-transparent px-1.5 text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        className="w-24"
                       >
                         <option value="name">按名称</option>
                         <option value="updated">最近更新</option>
-                      </select>
+                      </Select>
                       <IconButton
                         title={
                           viewPrefs.focus
@@ -1962,31 +1960,33 @@ export default function SkillsManagerPage() {
             label="目标 Agent"
             disabled={busy}
           />
-          <button
-            type="button"
+          <Button
+            size="sm"
             disabled={busy}
             onClick={() => batchApply('enable')}
-            className="inline-flex h-7 items-center rounded-full bg-primary px-2.5 text-[11px] font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
+            className="rounded-full text-[11px]"
           >
             部署
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             disabled={busy}
             onClick={() => batchApply('disable')}
-            className="inline-flex h-7 items-center rounded-full border border-input px-2.5 text-[11px] font-medium hover:bg-accent disabled:opacity-40"
+            className="rounded-full text-[11px]"
           >
             移除
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
             title="清除选择"
             aria-label="清除选择"
             onClick={() => setSelected(new Set())}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="rounded-full text-muted-foreground"
           >
             <X className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         </div>
       )}
 
@@ -2054,81 +2054,41 @@ export default function SkillsManagerPage() {
 
       {/* 合集仓库 skill 选择器 */}
       {collectionPicker && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setCollectionPicker(null)}
+        <Dialog
+          open
+          onClose={() => setCollectionPicker(null)}
+          title="这是一个 skill 合集仓库"
+          footer={
+            <GhostButton onClick={() => setCollectionPicker(null)}>取消</GhostButton>
+          }
         >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="选择要安装的 skill"
-            className="w-full max-w-md rounded-lg border bg-card p-4 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-sm font-semibold">这是一个 skill 合集仓库</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              共发现 {collectionPicker.skills.length} 个 skill，选择要安装的一个：
-            </p>
-            <div className="mt-3 max-h-72 space-y-1 overflow-y-auto">
-              {collectionPicker.skills.map((sub) => (
-                <button
-                  key={sub}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => installFromCollection(sub)}
-                  className="flex w-full items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-left text-xs transition hover:bg-accent disabled:opacity-40"
-                >
-                  <span className="truncate font-mono">{sub.split('/').pop()}</span>
-                  <span className="shrink-0 text-[10px] text-muted-foreground">{sub}</span>
-                </button>
-              ))}
-            </div>
-            <div className="mt-3 flex justify-end">
-              <GhostButton onClick={() => setCollectionPicker(null)}>取消</GhostButton>
-            </div>
+          <p className="text-xs text-muted-foreground">
+            共发现 {collectionPicker.skills.length} 个 skill，选择要安装的一个：
+          </p>
+          <div className="mt-3 max-h-72 space-y-1 overflow-y-auto">
+            {collectionPicker.skills.map((sub) => (
+              <button
+                key={sub}
+                type="button"
+                disabled={busy}
+                onClick={() => installFromCollection(sub)}
+                className="flex w-full items-center justify-between gap-2 rounded-md border border-border px-3 py-1.5 text-left text-xs transition-colors hover:bg-accent disabled:opacity-40"
+              >
+                <span className="truncate font-mono">{sub.split('/').pop()}</span>
+                <span className="shrink-0 text-[10px] text-muted-foreground">{sub}</span>
+              </button>
+            ))}
           </div>
-        </div>
+        </Dialog>
       )}
       {/* 关联项目对话框 */}
       {linkOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setLinkOpen(false)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="关联项目"
-            className="w-full max-w-md rounded-lg border bg-card p-4 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-sm font-semibold">关联项目</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              输入项目根目录的绝对路径（如 /Users/you/myproject）。项目里的 .claude/skills 等目录会与中央库双向同步。
-            </p>
-            <div className="mt-3 flex gap-2">
-              <input
-                value={linkPath}
-                onChange={(e) => setLinkPath(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && linkPath.trim() && !busy) void linkProject();
-                }}
-                placeholder="/Users/you/myproject"
-                spellCheck={false}
-                className="h-8 min-w-0 flex-1 rounded-md border border-input bg-transparent px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
-              <ToolbarButton
-                disabled={busy}
-                onClick={() => {
-                  void pickDirectory('选择项目目录').then((dir) => {
-                    if (dir) setLinkPath(dir);
-                  });
-                }}
-              >
-                浏览…
-              </ToolbarButton>
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
+        <Dialog
+          open
+          onClose={() => setLinkOpen(false)}
+          title="关联项目"
+          footer={
+            <>
               <ToolbarButton onClick={() => setLinkOpen(false)}>取消</ToolbarButton>
               <ToolbarButton
                 primary
@@ -2137,53 +2097,45 @@ export default function SkillsManagerPage() {
               >
                 关联
               </ToolbarButton>
-            </div>
+            </>
+          }
+        >
+          <p className="text-xs text-muted-foreground">
+            输入项目根目录的绝对路径（如 /Users/you/myproject）。项目里的 .claude/skills 等目录会与中央库双向同步。
+          </p>
+          <div className="mt-3 flex gap-2">
+            <input
+              value={linkPath}
+              onChange={(e) => setLinkPath(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && linkPath.trim() && !busy) void linkProject();
+              }}
+              placeholder="/Users/you/myproject"
+              spellCheck={false}
+              className="h-8 min-w-0 flex-1 rounded-md border border-input bg-transparent px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
+            <ToolbarButton
+              disabled={busy}
+              onClick={() => {
+                void pickDirectory('选择项目目录').then((dir) => {
+                  if (dir) setLinkPath(dir);
+                });
+              }}
+            >
+              浏览…
+            </ToolbarButton>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* 部署到项目对话框 */}
       {deployOpen && activeProject && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setDeployOpen(false)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="从中央库部署到项目"
-            className="w-full max-w-md rounded-lg border bg-card p-4 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-sm font-semibold">从中央库部署到项目</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              在项目的 agent skills 目录建软链指向中央库，改一处处处生效。
-            </p>
-            <label className="mt-3 block space-y-1">
-              <span className="text-xs text-muted-foreground">Skill（中央库）</span>
-              <select
-                value={deploySkill}
-                onChange={(e) => setDeploySkill(e.target.value)}
-                className="h-8 w-full rounded-md border border-input bg-background px-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                {librarySkillNames.map((n) => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
-            </label>
-            <label className="mt-2 block space-y-1">
-              <span className="text-xs text-muted-foreground">目标 Agent</span>
-              <select
-                value={deployAgent}
-                onChange={(e) => setDeployAgent(e.target.value as AgentId)}
-                className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                {agents.map((a) => (
-                  <option key={a.id} value={a.id}>{a.name}（{a.skillsDir}）</option>
-                ))}
-              </select>
-            </label>
-            <div className="mt-4 flex justify-end gap-2">
+        <Dialog
+          open
+          onClose={() => setDeployOpen(false)}
+          title="从中央库部署到项目"
+          footer={
+            <>
               <ToolbarButton onClick={() => setDeployOpen(false)}>取消</ToolbarButton>
               <ToolbarButton
                 primary
@@ -2195,9 +2147,35 @@ export default function SkillsManagerPage() {
               >
                 部署
               </ToolbarButton>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        >
+          <p className="text-xs text-muted-foreground">
+            在项目的 agent skills 目录建软链指向中央库，改一处处处生效。
+          </p>
+          <label className="mt-3 block space-y-1">
+            <span className="text-xs text-muted-foreground">Skill（中央库）</span>
+            <Select
+              value={deploySkill}
+              onChange={(e) => setDeploySkill(e.target.value)}
+            >
+              {librarySkillNames.map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </Select>
+          </label>
+          <label className="mt-2 block space-y-1">
+            <span className="text-xs text-muted-foreground">目标 Agent</span>
+            <Select
+              value={deployAgent}
+              onChange={(e) => setDeployAgent(e.target.value as AgentId)}
+            >
+              {agents.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}（{a.skillsDir}）</option>
+              ))}
+            </Select>
+          </label>
+        </Dialog>
       )}
     </div>
   );

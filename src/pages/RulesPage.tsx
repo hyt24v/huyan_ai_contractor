@@ -12,6 +12,9 @@ import {
   ruleVersionNumber,
 } from '../lib/rules';
 import { Button, Input } from '../components/ui/controls';
+import { Dialog } from '../components/ui/overlay';
+import { EmptyState } from '../components/ui/states';
+import { Tabs } from '../components/ui/form';
 import { useToast } from '../hooks/useToast';
 import {
   deleteRule,
@@ -331,10 +334,10 @@ function RulesPage() {
         )}
         <div className="flex-1 overflow-y-auto p-2">
           {filtered.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-              <FileText className="mb-2 h-8 w-8 opacity-30" />
-              <p className="text-xs">{rules.length ? '没有匹配的规则' : '还没有规则，点右上角 + 新建'}</p>
-            </div>
+            <EmptyState
+              icon={<FileText className="h-8 w-8" />}
+              title={rules.length ? '没有匹配的规则' : '还没有规则，点右上角 + 新建'}
+            />
           )}
           {filtered.map((r) => {
             const enabledCount = Object.values(r.agents).filter(Boolean).length;
@@ -378,13 +381,12 @@ function RulesPage() {
       {/* 右侧：编辑器 */}
       <div className="flex min-w-0 flex-1 flex-col">
         {!draft ? (
-          <div className="flex flex-1 flex-col items-center justify-center text-center text-muted-foreground">
-            <FileText className="mb-3 h-10 w-10 opacity-30" />
-            <p className="text-sm">选择或新建一条规则</p>
-            <p className="mt-1 text-xs">
-              规则内容集中存放在中心库，勾选 agent 后以软链方式写入其规则文件
-            </p>
-          </div>
+          <EmptyState
+            icon={<FileText className="h-10 w-10" />}
+            title="选择或新建一条规则"
+            description="规则内容集中存放在中心库，勾选 agent 后以软链方式写入其规则文件"
+            className="flex-1"
+          />
         ) : (
           <>
             <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
@@ -434,19 +436,16 @@ function RulesPage() {
               <Button size="sm" variant="outline" onClick={sync} title="把所有已链接 agent 的目标文件指向中心库当前内容">
                 同步
               </Button>
-              <div className="flex shrink-0 items-center rounded-md border border-border p-0.5">
-                {(['edit', 'split', 'preview'] as const).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setEditMode(m)}
-                    className={`whitespace-nowrap rounded px-2 py-0.5 text-[11px] transition-colors ${
-                      editMode === m ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {m === 'edit' ? '编辑' : m === 'split' ? '分屏' : '预览'}
-                  </button>
-                ))}
-              </div>
+              <Tabs
+                items={[
+                  { key: 'edit', label: '编辑' },
+                  { key: 'split', label: '分屏' },
+                  { key: 'preview', label: '预览' },
+                ]}
+                active={editMode}
+                onChange={setEditMode}
+                className="shrink-0"
+              />
               <Button size="icon-sm" variant="ghost" onClick={remove} title="删除规则">
                 <Trash2 className="h-4 w-4 text-destructive" />
               </Button>
@@ -548,11 +547,13 @@ function RulesPage() {
 
       {/* 版本历史弹窗 */}
       {historyOpen && draft && (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setHistoryOpen(false)} />
-          <div className="fixed left-1/2 top-20 z-50 flex max-h-[70vh] w-[480px] -translate-x-1/2 flex-col rounded-lg border bg-card p-4 shadow-xl">
-            <div className="mb-2 text-sm font-medium">版本历史 · {draft.name}</div>
-            <div className="flex min-h-0 flex-1 gap-3">
+        <Dialog
+          open
+          onClose={() => setHistoryOpen(false)}
+          title={`版本历史 · ${draft.name}`}
+          width="max-w-xl"
+        >
+          <div className="flex h-[55vh] gap-3">
               {/* 版本列表 */}
               <div className="w-44 shrink-0 overflow-y-auto rounded-md border">
                 {listRuleVersions(draft).map((v) => {
@@ -583,7 +584,7 @@ function RulesPage() {
               <div className="flex min-w-0 flex-1 flex-col">
                 {historyPreview ? (
                   <>
-                    <pre className="min-h-0 flex-1 overflow-auto rounded-md border bg-muted/30 p-2 font-mono text-[11px] whitespace-pre-wrap">
+                    <pre className="min-h-0 flex-1 overflow-auto rounded-md border border-border bg-muted/30 p-2 font-mono text-[11px] whitespace-pre-wrap">
                       {historyPreview.content}
                     </pre>
                     <div className="mt-2 flex justify-end">
@@ -603,20 +604,16 @@ function RulesPage() {
                   </div>
                 )}
               </div>
-            </div>
           </div>
-        </>
+        </Dialog>
       )}
 
       {importOpen && (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setImportOpen(false)} />
-          <div className="fixed left-1/2 top-24 z-50 w-[420px] -translate-x-1/2 rounded-lg border bg-card p-4 shadow-xl">
-            <div className="mb-1 text-sm font-medium">从项目导入规则</div>
-            <p className="mb-3 text-xs text-muted-foreground">
-              输入项目路径，扫描其中的 AGENTS.md / CLAUDE.md / .cursor/rules 等规则文件
-            </p>
-            <div className="flex gap-2">
+        <Dialog open onClose={() => setImportOpen(false)} title="从项目导入规则">
+          <p className="mb-3 text-xs text-muted-foreground">
+            输入项目路径，扫描其中的 AGENTS.md / CLAUDE.md / .cursor/rules 等规则文件
+          </p>
+          <div className="flex gap-2">
               <Input
                 value={importDir}
                 onChange={(e) => { setImportDir(e.target.value); setImportFiles(null); }}
@@ -642,7 +639,7 @@ function RulesPage() {
               </Button>
             </div>
             {importFiles && importFiles.length > 0 && (
-              <div className="mt-3 max-h-56 overflow-y-auto rounded-md border">
+              <div className="mt-3 max-h-56 overflow-y-auto rounded-md border border-border">
                 {importFiles.map((f) => (
                   <button
                     key={f.file}
@@ -661,8 +658,7 @@ function RulesPage() {
                 ))}
               </div>
             )}
-          </div>
-        </>
+        </Dialog>
       )}
 
       {toast && (

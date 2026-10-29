@@ -41,6 +41,7 @@ import MarkdownEditor, {
   type MarkdownEditorHandle,
 } from '../components/markdown/MarkdownEditor';
 import HistoryDropdown from '../components/HistoryDropdown';
+import { EmptyState } from '../components/ui/states';
 import {
   SegmentedControl,
   Toolbar,
@@ -426,9 +427,7 @@ export default function MarkdownPage() {
               大纲
             </div>
             {outline.length === 0 ? (
-              <div className="px-3 py-4 text-xs text-muted-foreground">
-                暂无标题
-              </div>
+              <EmptyState className="px-3 py-6" title="暂无标题" />
             ) : (
               outline.map((item, i) => (
                 <button

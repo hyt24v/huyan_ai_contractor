@@ -48,6 +48,8 @@ import { addHistory, HISTORY_KEY } from '../lib/editorHistory';
 import { useEditorHistory } from '../hooks/useEditorHistory';
 import { useToast } from '../hooks/useToast';
 import HistoryDropdown from '../components/HistoryDropdown';
+import { Button } from '../components/ui/controls';
+import { EmptyState } from '../components/ui/states';
 
 const STORAGE_KEY = 'huyan_tool:editor';
 const MODE_KEY = 'huyan_tool:editor-mode';
@@ -837,9 +839,7 @@ export default function JsonToolPage() {
                   </div>
                 </div>
               ) : (
-                <div className="flex h-full items-center justify-center px-4 text-center text-xs text-muted-foreground">
-                  没有可显示的合法行
-                </div>
+                <EmptyState className="h-full" title="没有可显示的合法行" />
               ))}
             {panel === 'graph' &&
               (mode === 'json' ? (
@@ -856,9 +856,7 @@ export default function JsonToolPage() {
                   </div>
                 </div>
               ) : (
-                <div className="flex h-full items-center justify-center px-4 text-center text-xs text-muted-foreground">
-                  没有可显示的合法行
-                </div>
+                <EmptyState className="h-full" title="没有可显示的合法行" />
               ))}
             {panel === 'table' &&
               (tableRows ? (
@@ -871,24 +869,26 @@ export default function JsonToolPage() {
                   disableJump={mode !== 'jsonl'}
                 />
               ) : (
-                <div className="flex h-full items-center justify-center px-4 text-center text-xs text-muted-foreground">
-                  表格视图需要 JSONL 或 JSON 数组/对象
-                </div>
+                <EmptyState
+                  className="h-full"
+                  title="表格视图需要 JSONL 或 JSON 数组/对象"
+                />
               ))}
             {panel === 'query' && (
               <div className="flex h-full flex-col">
                 {queryResult === null ? (
-                  <div className="flex h-full items-center justify-center px-4 text-center text-xs text-muted-foreground">
-                    输入 JSONPath 表达式后回车或点「运行」
-                    <br />
-                    例：$.tags[0] / $..name / $.items[?(@.age &gt; 18)]
-                  </div>
+                  <EmptyState
+                    className="h-full"
+                    title="输入 JSONPath 表达式后回车或点「运行」"
+                    description="例：$.tags[0] / $..name / $.items[?(@.age > 18)]"
+                  />
                 ) : queryResult.ok ? (
                   <>
                     <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1.5 text-xs text-muted-foreground">
                       <span>{queryResult.count} 条结果</span>
-                      <button
-                        className="rounded px-1.5 py-0.5 hover:bg-accent hover:text-foreground"
+                      <Button
+                        variant="ghost"
+                        size="xs"
                         onClick={() =>
                           copyToClipboard(queryResult.text).then((ok) =>
                             showToast(
@@ -899,9 +899,10 @@ export default function JsonToolPage() {
                         }
                       >
                         复制结果
-                      </button>
-                      <button
-                        className="rounded px-1.5 py-0.5 hover:bg-accent hover:text-foreground"
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="xs"
                         onClick={() => {
                           snapshotNow();
                           setText(queryResult.text);
@@ -909,7 +910,7 @@ export default function JsonToolPage() {
                         }}
                       >
                         应用到编辑器
-                      </button>
+                      </Button>
                     </div>
                     <pre className="min-h-0 flex-1 overflow-auto p-3 font-mono text-xs">
                       {queryResult.text}

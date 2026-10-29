@@ -16,6 +16,9 @@ import {
   X,
 } from 'lucide-react';
 import { Toolbar, ToolbarButton, ToolbarDivider } from '../components/Toolbar';
+import { Dialog } from '../components/ui/overlay';
+import { EmptyState } from '../components/ui/states';
+import { Button } from '../components/ui/controls';
 import ConfirmApplyDialog from '../components/ConfirmApplyDialog';
 import { agentShortName, type AgentId } from '../lib/agents';
 import { PROMPT_TARGETS } from '../lib/agentTargets';
@@ -422,13 +425,15 @@ export default function ProfilesPage() {
               应用「{report.profileName}」：成功 {report.applied.length} 项，失败{' '}
               {report.errors.length} 项
             </span>
-            <button
+            <Button
+              variant="ghost"
+              size="icon-xs"
               onClick={() => setReport(null)}
-              className="ml-auto rounded-md p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="ml-auto text-muted-foreground"
               aria-label="关闭应用结果"
             >
               <X className="h-3.5 w-3.5" />
-            </button>
+            </Button>
           </div>
           {report.errors.length > 0 && (
             <ul className="mt-1 list-inside list-disc space-y-0.5 pl-5 text-destructive">
@@ -449,22 +454,17 @@ export default function ProfilesPage() {
 
       <div className="min-h-0 flex-1 overflow-auto bg-muted/20 p-3">
         {profiles.length > 0 && visibleProfiles.length === 0 ? (
-          <div className="py-16 text-center text-xs text-muted-foreground">
-            没有匹配的套餐
-          </div>
+          <EmptyState title="没有匹配的套餐" />
         ) : profiles.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-xs text-muted-foreground">
-            <Layers className="h-6 w-6 opacity-40" />
-            <div>{loaded ? '还没有配置套餐' : '读取中…'}</div>
-            {loaded && (
-              <button
-                onClick={openCreate}
-                className="mt-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-              >
-                新建第一个套餐
-              </button>
-            )}
-          </div>
+          <EmptyState
+            icon={<Layers className="h-6 w-6" />}
+            title={loaded ? '还没有配置套餐' : '读取中…'}
+            action={
+              loaded ? (
+                <Button onClick={openCreate}>新建第一个套餐</Button>
+              ) : undefined
+            }
+          />
         ) : (
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
             {visibleProfiles.map((profile) => {
@@ -646,22 +646,31 @@ export default function ProfilesPage() {
       )}
 
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="flex max-h-[86vh] w-full max-w-3xl flex-col rounded-lg border bg-card shadow-xl">
-            <div className="flex shrink-0 items-center justify-between border-b px-4 py-2.5">
-              <span className="text-sm font-semibold">
-                {modal.mode === 'edit' ? '编辑套餐' : '新建套餐'}
-              </span>
+        <Dialog
+          open
+          onClose={() => setModal(null)}
+          title={modal.mode === 'edit' ? '编辑套餐' : '新建套餐'}
+          width="max-w-3xl"
+          footer={
+            <>
               <button
                 onClick={() => setModal(null)}
-                className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                aria-label="关闭"
+                className="h-8 rounded-md border border-input px-3 text-xs transition-colors hover:bg-accent"
               >
-                <X className="h-4 w-4" />
+                取消
               </button>
-            </div>
-
-            <div className="min-h-0 flex-1 space-y-4 overflow-auto px-4 py-3">
+              <button
+                disabled={busy}
+                onClick={() => void saveModal()}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+              >
+                <Save className="h-3.5 w-3.5" />
+                保存
+              </button>
+            </>
+          }
+        >
+          <div className="space-y-4">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="flex flex-col gap-1">
                   <span className="text-[11px] font-medium text-muted-foreground">
@@ -867,26 +876,8 @@ export default function ProfilesPage() {
                   {modal.error}
                 </div>
               )}
-            </div>
-
-            <div className="flex shrink-0 items-center justify-end gap-2 border-t px-4 py-2.5">
-              <button
-                onClick={() => setModal(null)}
-                className="h-8 rounded-md border border-input px-3 text-xs transition-colors hover:bg-accent"
-              >
-                取消
-              </button>
-              <button
-                disabled={busy}
-                onClick={() => void saveModal()}
-                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-              >
-                <Save className="h-3.5 w-3.5" />
-                保存
-              </button>
-            </div>
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   );

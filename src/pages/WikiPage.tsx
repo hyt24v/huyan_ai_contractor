@@ -39,6 +39,8 @@ import WikiCanvasView from '../components/WikiCanvasView';
 import { parseWikiGraph, type WikiGraph, type WikiEntity } from '../lib/wikiGraph';
 import { parseWikiLog, type WikiLogEntry } from '../lib/wikiLog';
 import { Button, Input } from '../components/ui/controls';
+import { Dialog } from '../components/ui/overlay';
+import { EmptyState } from '../components/ui/states';
 import { useToast } from '../hooks/useToast';
 
 type EditMode = 'edit' | 'split' | 'preview';
@@ -503,10 +505,11 @@ export default function WikiPage() {
           {canvasSel ? (
             <WikiCanvasView content={canvasContent} />
           ) : !selected ? (
-            <div className="flex flex-1 flex-col items-center justify-center text-muted-foreground">
-              <BookOpen className="mb-3 h-10 w-10 opacity-30" />
-              <p className="text-xs">选择左侧文章开始阅读或编辑</p>
-            </div>
+            <EmptyState
+              className="flex-1"
+              icon={<BookOpen className="h-10 w-10" />}
+              title="选择左侧文章开始阅读或编辑"
+            />
           ) : (
             <>
               <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2">
@@ -565,10 +568,22 @@ export default function WikiPage() {
       )}
 
       {/* 新建文章弹窗 */}
-      {createOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setCreateOpen(false)}>
-          <div className="w-96 rounded-lg border border-border bg-card p-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="mb-3 text-sm font-medium">新建文章</h3>
+      <Dialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="新建文章"
+        width="max-w-sm"
+        footer={
+          <>
+            <Button size="sm" variant="ghost" onClick={() => setCreateOpen(false)}>
+              取消
+            </Button>
+            <Button size="sm" onClick={() => void createArticle()}>
+              创建
+            </Button>
+          </>
+        }
+      >
             <label className="mb-1 block text-[11px] text-muted-foreground">主题目录</label>
             <Input
               value={newTopic}
@@ -590,17 +605,7 @@ export default function WikiPage() {
               className="mb-3 h-8 text-xs"
               onKeyDown={(e) => e.key === 'Enter' && void createArticle()}
             />
-            <div className="flex justify-end gap-2">
-              <Button size="sm" variant="ghost" onClick={() => setCreateOpen(false)}>
-                取消
-              </Button>
-              <Button size="sm" onClick={() => void createArticle()}>
-                创建
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      </Dialog>
 
       {toast && (
         <div

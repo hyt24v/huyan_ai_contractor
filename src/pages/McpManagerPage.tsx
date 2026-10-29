@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../hooks/useToast';
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, History, ListFilter, Pencil, Plus, RefreshCw, Send, Trash2, Undo2 } from 'lucide-react';
 import { SegmentedControl, Toolbar, ToolbarButton, ToolbarDivider } from '../components/Toolbar';
+import { Button } from '../components/ui/controls';
+import { Dialog, Popover } from '../components/ui/overlay';
+import { EmptyState } from '../components/ui/states';
 import DiffView from '../components/DiffView';
 import { agentShortName, hasMcpSupport, type AgentId } from '../lib/agents';
 import { useAgents } from '../hooks/useAgents';
@@ -137,6 +140,9 @@ export default function McpManagerPage() {
   const [historyBusy, setHistoryBusy] = useState(false);
   // busy 的 ref 镜像：refresh 回调里做并发保护用
   const busyRef = useRef(false);
+  // 列头筛选 Popover 的定位锚点（只用于浮层定位，不参与逻辑）
+  const nameFilterAnchorRef = useRef<HTMLTableCellElement>(null);
+  const typeFilterAnchorRef = useRef<HTMLTableCellElement>(null);
   // 矩阵表：搜索过滤 + 列头批量（可撤销，只作用于筛选结果，借鉴 cc-switch）
   const [query, setQuery] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'agents'>('name');
@@ -588,7 +594,7 @@ export default function McpManagerPage() {
         <table className="w-full table-fixed text-sm">
           <thead className="sticky top-0 z-10 bg-muted/50 backdrop-blur">
             <tr className="text-left text-xs text-muted-foreground">
-              <th className="relative w-44 whitespace-nowrap px-4 py-2 font-medium">
+              <th ref={nameFilterAnchorRef} className="relative w-44 whitespace-nowrap px-4 py-2 font-medium">
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
@@ -597,62 +603,64 @@ export default function McpManagerPage() {
                   >
                     Server {sortIcon('name')}
                   </button>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
                     onClick={() => setFilterMenu(filterMenu === 'name' ? null : 'name')}
                     title="筛选"
-                    className={`rounded p-0.5 transition-colors hover:bg-accent ${query.trim() ? 'text-primary' : 'text-muted-foreground/50'}`}
+                    className={query.trim() ? 'text-primary' : 'text-muted-foreground/50'}
                   >
                     <ListFilter className="h-3 w-3" />
-                  </button>
+                  </Button>
                 </div>
-                {filterMenu === 'name' && (
-                  <>
-                    <div className="fixed inset-0 z-20" onClick={() => setFilterMenu(null)} />
-                    <div className="absolute z-30 mt-1 w-52 rounded-md border bg-card p-2 shadow-lg">
-                      <input
-                        autoFocus
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        placeholder="筛选名称/URL/命令…"
-                        className="h-7 w-full rounded border border-input bg-transparent px-2 font-mono text-xs font-normal focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      />
-                    </div>
-                  </>
-                )}
+                <Popover
+                  open={filterMenu === 'name'}
+                  onClose={() => setFilterMenu(null)}
+                  anchor={nameFilterAnchorRef.current}
+                  className="w-52 p-2 shadow-lg"
+                >
+                  <input
+                    autoFocus
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="筛选名称/URL/命令…"
+                    className="h-7 w-full rounded border border-input bg-transparent px-2 font-mono text-xs font-normal focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </Popover>
               </th>
-              <th className="relative w-20 whitespace-nowrap px-2 py-2 font-medium">
+              <th ref={typeFilterAnchorRef} className="relative w-20 whitespace-nowrap px-2 py-2 font-medium">
                 <div className="flex items-center gap-1">
                   类型
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
                     onClick={() => setFilterMenu(filterMenu === 'type' ? null : 'type')}
                     title="筛选类型"
-                    className={`rounded p-0.5 transition-colors hover:bg-accent ${typeFilter !== 'all' ? 'text-primary' : 'text-muted-foreground/50'}`}
+                    className={typeFilter !== 'all' ? 'text-primary' : 'text-muted-foreground/50'}
                   >
                     <ListFilter className="h-3 w-3" />
-                  </button>
+                  </Button>
                 </div>
-                {filterMenu === 'type' && (
-                  <>
-                    <div className="fixed inset-0 z-20" onClick={() => setFilterMenu(null)} />
-                    <div className="absolute z-30 mt-1 w-28 overflow-hidden rounded-md border bg-card py-1 shadow-lg">
-                      {(['all', 'stdio', 'http'] as const).map((t) => (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => {
-                            setTypeFilter(t);
-                            setFilterMenu(null);
-                          }}
-                          className={`w-full px-2.5 py-1.5 text-left text-xs font-normal hover:bg-accent ${typeFilter === t ? 'text-primary' : ''}`}
-                        >
-                          {t === 'all' ? '全部' : t}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
+                <Popover
+                  open={filterMenu === 'type'}
+                  onClose={() => setFilterMenu(null)}
+                  anchor={typeFilterAnchorRef.current}
+                  className="w-28 overflow-hidden py-1 shadow-lg"
+                >
+                  {(['all', 'stdio', 'http'] as const).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => {
+                        setTypeFilter(t);
+                        setFilterMenu(null);
+                      }}
+                      className={`w-full px-2.5 py-1.5 text-left text-xs font-normal hover:bg-accent ${typeFilter === t ? 'text-primary' : ''}`}
+                    >
+                      {t === 'all' ? '全部' : t}
+                    </button>
+                  ))}
+                </Popover>
               </th>
               <th className="w-56 whitespace-nowrap px-2 py-2 font-medium">命令 / URL</th>
               <th className="w-12 whitespace-nowrap px-1 py-2 text-center font-medium">
@@ -742,31 +750,39 @@ export default function McpManagerPage() {
                   </td>
                 ))}
                 <td className="px-2 py-1.5 text-center">
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     onClick={() => setDraft(serverToDraftMerged(s, current))}
                     title="编辑"
-                    className="mr-1 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    className="mr-1 text-muted-foreground"
                   >
                     <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     onClick={() => removeServer(s.name)}
                     title="从清单删除（分发后各 agent 同步移除）"
-                    className="rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    className="text-muted-foreground hover:!bg-destructive/10 hover:!text-destructive"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  </Button>
                 </td>
               </tr>
             ))}
             {filteredServers.length === 0 && (
               <tr>
-                <td colSpan={5 + mcpAgents.length} className="px-4 py-10 text-center text-xs text-muted-foreground">
-                  {manifest
-                    ? query.trim()
-                      ? `没有匹配「${query.trim()}」的 server`
-                      : '清单为空，点「新增 Server」或「刷新」从现有配置导入'
-                    : '扫描中…'}
+                <td colSpan={5 + mcpAgents.length}>
+                  <EmptyState
+                    title={
+                      manifest
+                        ? query.trim()
+                          ? `没有匹配「${query.trim()}」的 server`
+                          : '清单为空，点「新增 Server」或「刷新」从现有配置导入'
+                        : '扫描中…'
+                    }
+                  />
                 </td>
               </tr>
             )}
@@ -787,69 +803,63 @@ export default function McpManagerPage() {
         />
       )}
 
-      {historyOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border bg-card shadow-lg">
-            <div className="flex shrink-0 items-center gap-2 border-b px-4 py-2.5">
-              <h2 className="text-sm font-semibold">配置快照历史</h2>
-              <span className="text-xs text-muted-foreground">
-                回滚会覆盖当前各 agent 的 MCP 配置文件
-              </span>
-              <button
-                onClick={() => setHistoryOpen(false)}
-                className="ml-auto text-xs text-muted-foreground hover:text-foreground"
-              >
-                关闭
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-auto">
-              {historyBusy && history.length === 0 && (
-                <div className="px-4 py-8 text-center text-xs text-muted-foreground">读取中…</div>
-              )}
-              {!historyBusy && history.length === 0 && (
-                <div className="px-4 py-8 text-center text-xs text-muted-foreground">
-                  暂无快照。分发前和每 6 小时会自动创建快照。
-                </div>
-              )}
-              {history.map((record) => {
-                const existing = record.files.filter((f) => f.exists);
-                return (
-                  <div
-                    key={record.id}
-                    className="flex items-center gap-3 border-b px-4 py-2.5 text-xs last:border-b-0"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{snapshotDisplayTime(record)}</span>
-                        {record.label && (
-                          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
-                            {record.label}
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
-                        {existing.length > 0
-                          ? existing.map((f) => f.file).join('、')
-                          : record.id}
-                      </div>
-                    </div>
-                    <ToolbarButton
-                      disabled={historyBusy || existing.length === 0}
-                      onClick={() => void rollback(record)}
-                    >
-                      回滚
-                    </ToolbarButton>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex shrink-0 items-center justify-between border-t bg-muted/20 px-4 py-2 text-[11px] text-muted-foreground">
-              <span>共 {history.length} 个快照，默认只保留最新 20 个</span>
-              <span>目录：~/.ai-baogongtou/backups/</span>
-            </div>
+      <Dialog
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        width="max-w-2xl"
+        title={
+          <span className="flex items-baseline gap-2">
+            配置快照历史
+            <span className="text-[11px] font-normal text-muted-foreground">
+              回滚会覆盖当前各 agent 的 MCP 配置文件
+            </span>
+          </span>
+        }
+        footer={
+          <div className="flex w-full items-center justify-between text-[11px] font-normal text-muted-foreground">
+            <span>共 {history.length} 个快照，默认只保留最新 20 个</span>
+            <span>目录：~/.ai-baogongtou/backups/</span>
           </div>
-        </div>
-      )}
+        }
+      >
+        {historyBusy && history.length === 0 && (
+          <div className="px-4 py-8 text-center text-xs text-muted-foreground">读取中…</div>
+        )}
+        {!historyBusy && history.length === 0 && (
+          <EmptyState title="暂无快照" description="分发前和每 6 小时会自动创建快照。" />
+        )}
+        {history.map((record) => {
+          const existing = record.files.filter((f) => f.exists);
+          return (
+            <div
+              key={record.id}
+              className="flex items-center gap-3 border-b px-4 py-2.5 text-xs last:border-b-0"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{snapshotDisplayTime(record)}</span>
+                  {record.label && (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                      {record.label}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
+                  {existing.length > 0
+                    ? existing.map((f) => f.file).join('、')
+                    : record.id}
+                </div>
+              </div>
+              <ToolbarButton
+                disabled={historyBusy || existing.length === 0}
+                onClick={() => void rollback(record)}
+              >
+                回滚
+              </ToolbarButton>
+            </div>
+          );
+        })}
+      </Dialog>
     </div>
   );
 }

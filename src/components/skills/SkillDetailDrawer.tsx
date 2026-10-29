@@ -36,6 +36,8 @@ import CodeEditor from '../CodeEditor';
 import MarkdownPreview from '../MarkdownPreview';
 import AgentBadge from './AgentBadge';
 import { TagPill } from './SkillCard';
+import { Button } from '../ui/controls';
+import { EmptyState } from '../ui/states';
 
 const SOURCE_ICON: Record<SkillSource, typeof Folder> = {
   local: Folder,
@@ -229,7 +231,7 @@ export default function SkillDetailDrawer({
 
   return (
     <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="absolute inset-0 bg-foreground/20 backdrop-blur-[2px]" onClick={onClose} />
       <aside
         role="dialog"
         aria-label={`${skill.name} 详情`}
@@ -250,14 +252,16 @@ export default function SkillDetailDrawer({
               {skill.inLibrary ? '中央库' : '仅本地'}
             </p>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={onClose}
             title="关闭"
-            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label="关闭"
+            className="shrink-0 text-muted-foreground"
           >
             <X className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
@@ -441,9 +445,10 @@ export default function SkillDetailDrawer({
                 读取中…
               </div>
             ) : files.length === 0 ? (
-              <div className="rounded-md border border-dashed px-3 py-6 text-center text-[11px] text-muted-foreground">
-                该 skill 不在本机或目录为空
-              </div>
+              <EmptyState
+                title="该 skill 不在本机或目录为空"
+                className="rounded-md border border-dashed px-3"
+              />
             ) : (
               <div className="flex h-[46vh] overflow-hidden rounded-md border">
                 {/* 文件树（左侧，目录可折叠） */}
@@ -536,23 +541,19 @@ export default function SkillDetailDrawer({
 
         <div className="flex shrink-0 items-center gap-2 border-t px-4 py-2.5">
           {skill.gitRemote && (
-            <button
-              type="button"
+            <Button
+              variant="outline"
               disabled={busy}
               onClick={onUpdate}
-              className="inline-flex h-8 items-center gap-1 rounded-md border border-input px-3 text-xs font-medium hover:bg-accent disabled:opacity-40"
+              className="gap-1 px-3"
             >
               <ArrowUpCircle className="h-3.5 w-3.5" />
               从 Git 更新
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
-            onClick={onClose}
-            className="ml-auto inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-          >
+          <Button onClick={onClose} className="ml-auto px-3">
             关闭
-          </button>
+          </Button>
         </div>
       </aside>
     </div>
