@@ -286,7 +286,7 @@ export default function Layout() {
                               : 'gap-2.5 px-2.5 py-2 text-[13px]'
                           } ${
                             isActive
-                              ? 'bg-accent font-medium text-accent-foreground'
+                              ? 'bg-accent font-medium text-accent-foreground shadow-[inset_2px_0_0_0_hsl(var(--primary))]'
                               : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
                           }`
                         }
@@ -341,7 +341,7 @@ export default function Layout() {
       {/* 主区域：内容面板（浮在 chrome 外壳上） */}
       <div className="min-w-0 flex-1">
         <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-border/40 bg-content">
-          <main className="min-h-0 flex-1">
+          <main key={location.pathname} className="page-fade min-h-0 flex-1">
             <Outlet />
           </main>
         </div>

@@ -34,6 +34,10 @@ interface PaletteItem {
   run: () => void;
   /** 高亮（方向键/悬停）时触发，用于主题实时预览 */
   onHighlight?: () => void;
+  /** 分组（空查询时显示组头） */
+  group: '页面' | '主题' | '操作';
+  /** 右侧快捷键提示 */
+  kbd?: string;
 }
 
 /** 子序列模糊匹配：返回命中下标，null 表示不匹配 */
@@ -140,6 +144,7 @@ export default function CommandPalette() {
       subtitle: '打开页面',
       keywords: `页面 导航 ${tool.path}`,
       icon: tool.icon,
+      group: '页面',
       run: () => {
         close();
         navigate(tool.path);
@@ -157,6 +162,7 @@ export default function CommandPalette() {
         setThemeMode(theme.appearance);
         close();
       },
+      group: '主题',
     }));
     return [
       ...toolItems,
@@ -164,9 +170,11 @@ export default function CommandPalette() {
       {
         id: 'action:settings',
         title: '打开设置',
-        subtitle: '外观/更新/Agent/备份(⌘,)',
+        subtitle: '外观/更新/Agent/备份',
         keywords: 'settings 设置 preferences 偏好',
         icon: Settings,
+        group: '操作' as const,
+        kbd: '⌘,',
         run: () => {
           close();
           navigate('/settings');
@@ -178,6 +186,7 @@ export default function CommandPalette() {
         subtitle: '主题与明暗模式',
         keywords: 'theme dark light 深色 浅色 外观 设置',
         icon: MoonStar,
+        group: '操作' as const,
         run: () => {
           close();
           navigate('/settings/appearance');
@@ -186,9 +195,11 @@ export default function CommandPalette() {
       {
         id: 'action:sidebar',
         title: '收起/展开导航面板',
-        subtitle: '切换左侧导航（⌘B）',
+        subtitle: '切换左侧导航',
         keywords: 'sidebar 侧栏 导航 收起 展开',
         icon: PanelLeft,
+        group: '操作' as const,
+        kbd: '⌘B',
         run: () => {
           close();
           window.dispatchEvent(new Event(TOGGLE_SIDEBAR_EVENT));
@@ -200,6 +211,7 @@ export default function CommandPalette() {
         subtitle: '重新加载应用',
         keywords: 'reload refresh 刷新 重载',
         icon: RefreshCw,
+        group: '操作' as const,
         run: () => {
           close();
           window.location.reload();
@@ -357,7 +369,15 @@ export default function CommandPalette() {
           {results.map((item, index) => {
             const Icon = item.icon;
             const selected = index === active;
+            // 空查询（最近使用排序）时按分组显示组头；搜索时平坦列表
+            const showGroup = !query.trim() && (index === 0 || results[index - 1].group !== item.group);
             return (
+              <div key={item.id}>
+                {showGroup && (
+                  <div className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 first:pt-1">
+                    {item.group}
+                  </div>
+                )}
               <button
                 key={item.id}
                 id={`command-palette-item-${item.id}`}
@@ -385,8 +405,10 @@ export default function CommandPalette() {
                     {item.subtitle}
                   </span>
                 </span>
-                {selected && <CornerDownLeft className="h-3.5 w-3.5 text-muted-foreground" />}
+                {item.kbd && <Kbd>{item.kbd}</Kbd>}
+                {selected && !item.kbd && <CornerDownLeft className="h-3.5 w-3.5 text-muted-foreground" />}
               </button>
+              </div>
             );
           })}
         </div>

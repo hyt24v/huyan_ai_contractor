@@ -76,3 +76,15 @@
 *::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* 页面切换淡入（Phase 1）：尊重 prefers-reduced-motion */
+@keyframes page-fade-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: none; }
+}
+.page-fade {
+  animation: page-fade-in 120ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-fade { animation: none; }
+}
