@@ -462,7 +462,7 @@ function RulesPage() {
                 链接到 agent（写入各自的规则文件，软链到中心库）
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {LINKABLE.map((t) => {
+                {LINKABLE.filter((t) => visibleIds.has(t.agent)).map((t) => {
                   const enabled = draft.agents[t.agent] === true;
                   const installed = visibleIds.has(t.agent);
                   return (
