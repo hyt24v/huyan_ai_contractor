@@ -64,7 +64,7 @@ export default function SettingsPage() {
             className={({ isActive }) =>
               `flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] transition-colors ${
                 isActive
-                  ? 'bg-accent font-medium text-accent-foreground'
+                  ? 'bg-accent font-medium text-accent-foreground shadow-[inset_2px_0_0_0_hsl(var(--primary))]'
                   : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
               }`
             }
@@ -76,7 +76,7 @@ export default function SettingsPage() {
       </nav>
 
       {/* 内容区 */}
-      <div className="min-w-0 flex-1 overflow-y-auto p-4">
+      <div className="min-w-0 flex-1 overflow-y-auto px-5 py-4">
         <Routes>
           <Route index element={<Navigate to="appearance" replace />} />
           {SECTIONS.map((s) => (
