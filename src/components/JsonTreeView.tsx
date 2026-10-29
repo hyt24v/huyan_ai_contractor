@@ -181,7 +181,7 @@ function TreeNode({
   return (
     <div>
       <div
-        className="group flex min-h-7 items-center gap-1 rounded-sm py-0.5 pr-2 font-mono text-[13px] hover:bg-accent/60"
+        className="group relative flex min-h-7 items-center gap-1 rounded-sm py-0.5 pr-2 font-mono text-[13px] hover:bg-accent/60"
         style={{ paddingLeft: `${depth * 14 + 4}px` }}
       >
         <button
@@ -211,7 +211,8 @@ function TreeNode({
           </span>
         )}
         <KindBadge node={node} />
-        <span className="ml-auto hidden shrink-0 gap-1 group-hover:flex">
+        {/* 操作钮：绝对定位浮层，hover 显示不挤占宽度（避免长值换行时行高跳动） */}
+        <span className="absolute right-1 top-1 hidden shrink-0 gap-1 rounded-md border border-border/50 bg-card/95 px-0.5 shadow-sm group-hover:flex">
           <button
             className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
             onClick={() => copy('value')}

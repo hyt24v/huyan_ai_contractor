@@ -11,6 +11,7 @@ import {
   ToolbarDivider,
 } from '../components/Toolbar';
 import { monaco } from '../monacoSetup';
+import { Maximize2, Minimize2 } from 'lucide-react';
 import { isTauri } from '@tauri-apps/api/core';
 import { absPath, tauriFs } from '../lib/fsPort';
 import {
@@ -82,7 +83,18 @@ export default function JsonToolPage() {
   const [modeSetting, setModeSetting] = useState<ModeSetting>(
     () => (localStorage.getItem(MODE_KEY) as ModeSetting | null) ?? 'auto',
   );
+  const [previewMax, setPreviewMax] = useState(false);
   const [panel, setPanel] = useState<Panel>('tree');
+
+  // 全屏预览：Esc 退出
+  useEffect(() => {
+    if (!previewMax) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPreviewMax(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [previewMax]);
   const [keepEmptyLines, setKeepEmptyLines] = useState(false);
   const [keepEscape, setKeepEscape] = useState(
     () => localStorage.getItem(KEEP_ESCAPE_KEY) === '1',
@@ -739,7 +751,9 @@ export default function JsonToolPage() {
       )}
 
       <div className="flex min-h-0 flex-1">
-        {/* 左：编辑器 */}
+        {/* 左：编辑器（全屏预览时隐藏） */}
+        {!previewMax && (
+          <>
         <div className="flex min-w-0 flex-col" style={{ width: `${leftPct}%` }}>
           <div className="min-h-0 flex-1">
             <CodeEditor
@@ -780,6 +794,8 @@ export default function JsonToolPage() {
           className="w-1 shrink-0 cursor-col-resize bg-border transition-colors hover:bg-primary/40"
           onMouseDown={onDividerMouseDown}
         />
+          </>
+        )}
 
         {/* 右：面板（树 / 表格 / 查询） */}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-card">
@@ -814,6 +830,15 @@ export default function JsonToolPage() {
                 </ToolbarButton>
               </>
             )}
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="ml-auto text-muted-foreground"
+              title={previewMax ? '退出全屏预览（Esc）' : '全屏预览'}
+              onClick={() => setPreviewMax((v) => !v)}
+            >
+              {previewMax ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            </Button>
           </div>
 
           {treeStale && tree && (panel === 'tree' || panel === 'graph') && (
