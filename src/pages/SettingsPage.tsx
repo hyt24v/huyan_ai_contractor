@@ -64,7 +64,7 @@ export default function SettingsPage() {
             className={({ isActive }) =>
               `flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] transition-colors ${
                 isActive
-                  ? 'bg-accent font-medium text-accent-foreground shadow-[inset_2px_0_0_0_hsl(var(--primary))]'
+                  ? 'bg-card font-medium text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.08)]'
                   : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
               }`
             }
