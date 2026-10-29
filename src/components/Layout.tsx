@@ -286,8 +286,8 @@ export default function Layout() {
                               : 'gap-2.5 px-2.5 py-2 text-[13px]'
                           } ${
                             isActive
-                              ? 'bg-card font-medium text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.08)]'
-                              : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+                              ? 'border border-border/70 bg-card font-medium text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.08)]'
+                              : 'border border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground'
                           }`
                         }
                   >
