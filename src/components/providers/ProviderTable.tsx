@@ -1,4 +1,5 @@
 import { Gauge, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { Button } from '../ui/controls';
 import { AGENTS } from '../../lib/agents';
 import { PROVIDER_TARGETS, UNSUPPORTED_NOTE } from '../../lib/providerTargets';
 import {
@@ -167,33 +168,37 @@ export default function ProviderTable({
             </div>
             <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
               {onTest && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
                   onClick={() => onTest(p)}
                   disabled={testingId === p.id}
                   title="测试端点连通性与延迟"
-                  className="inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-accent disabled:opacity-40"
                 >
                   {testingId === p.id ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
                     <Gauge className="h-3 w-3" />
                   )}
-                </button>
+                </Button>
               )}
-              <button
+              <Button
+                variant="ghost"
+                size="icon-xs"
                 onClick={() => onEdit(p)}
                 title="编辑"
-                className="inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-accent"
               >
                 <Pencil className="h-3 w-3" />
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-xs"
                 onClick={() => onDelete(p)}
                 title="从清单删除（可重新导入，不会改动 Agent 配置文件）"
-                className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                className="text-muted-foreground hover:!bg-destructive/10 hover:!text-destructive"
               >
                 <Trash2 className="h-3 w-3" />
-              </button>
+              </Button>
             </div>
             <ActiveRadio
               active={active}

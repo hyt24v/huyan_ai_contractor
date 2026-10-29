@@ -545,38 +545,44 @@ export default function ProfilesPage() {
                   )}
 
                   <div className="mt-auto flex items-center gap-1.5 pt-3">
-                    <button
+                    <Button
+                      size="sm"
                       disabled={busy}
                       onClick={() => setApplyTarget(profile)}
-                      className="inline-flex h-7 items-center gap-1 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                     >
                       <Play className="h-3 w-3" />
                       应用
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       disabled={busy}
                       onClick={() => openEdit(profile)}
-                      className="inline-flex h-7 items-center gap-1 rounded-md border border-input px-2 text-xs opacity-0 transition-all hover:bg-accent focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-50"
+                      className="opacity-0 focus-visible:opacity-100 group-hover:opacity-100"
                     >
                       <Pencil className="h-3 w-3" />
                       编辑
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       disabled={busy}
                       onClick={() => duplicate(profile)}
-                      className="inline-flex h-7 items-center gap-1 rounded-md border border-input px-2 text-xs opacity-0 transition-all hover:bg-accent focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-50"
+                      className="opacity-0 focus-visible:opacity-100 group-hover:opacity-100"
                     >
                       <CopyIcon className="h-3 w-3" />
                       复制
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       disabled={busy}
                       onClick={() => remove(profile)}
-                      className="ml-auto inline-flex h-7 items-center gap-1 rounded-md border border-input px-2 text-xs text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-50"
+                      className="ml-auto text-muted-foreground opacity-0 hover:!bg-destructive/10 hover:!text-destructive focus-visible:opacity-100 group-hover:opacity-100"
                     >
                       <Trash2 className="h-3 w-3" />
                       删除
-                    </button>
+                    </Button>
                   </div>
                 </div>
               );
@@ -653,20 +659,13 @@ export default function ProfilesPage() {
           width="max-w-3xl"
           footer={
             <>
-              <button
-                onClick={() => setModal(null)}
-                className="h-8 rounded-md border border-input px-3 text-xs transition-colors hover:bg-accent"
-              >
+              <Button variant="outline" onClick={() => setModal(null)}>
                 取消
-              </button>
-              <button
-                disabled={busy}
-                onClick={() => void saveModal()}
-                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-              >
+              </Button>
+              <Button disabled={busy} onClick={() => void saveModal()}>
                 <Save className="h-3.5 w-3.5" />
                 保存
-              </button>
+              </Button>
             </>
           }
         >

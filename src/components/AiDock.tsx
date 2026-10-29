@@ -57,12 +57,6 @@ const loadWidth = (): number => {
   return v >= MIN_WIDTH && v <= MAX_WIDTH ? v : DEFAULT_WIDTH;
 };
 
-/** dbx 顶栏 ghost 图标按钮统一尺寸 */
-const HEADER_BTN =
-  'flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground';
-/** dbx 空态建议 chip */
-const CHIP =
-  'rounded-full border border-border/80 bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-foreground';
 
 export default function AiDock({ open, onClose, scope }: AiDockProps) {
   const messages = useAiMessages(scope);
@@ -316,35 +310,41 @@ export default function AiDock({ open, onClose, scope }: AiDockProps) {
             </span>
           )}
         </span>
-        <button
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className="text-muted-foreground"
           onClick={() => clearSession(scope)}
           title="清空当前会话"
           aria-label="清空当前会话"
-          className={HEADER_BTN}
         >
           <Trash2 className="h-3.5 w-3.5" />
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className="text-muted-foreground"
           onClick={() => setMaximized((v) => !v)}
           title={maximized ? '还原' : '最大化'}
           aria-label={maximized ? '还原' : '最大化'}
           aria-pressed={maximized}
-          className={HEADER_BTN}
         >
           {maximized ? (
             <Minimize2 className="h-3.5 w-3.5" />
           ) : (
             <Maximize2 className="h-3.5 w-3.5" />
           )}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className="text-muted-foreground"
           onClick={onClose}
           title="关闭"
           aria-label="关闭 AI 助手"
-          className={HEADER_BTN}
         >
           <X className="h-3.5 w-3.5" />
-        </button>
+        </Button>
       </div>
 
       {/* 消息区 / 空态 */}
@@ -356,19 +356,21 @@ export default function AiDock({ open, onClose, scope }: AiDockProps) {
           </p>
           <div className="mt-5 flex max-w-[95%] flex-wrap justify-center gap-2">
             {provider === null ? (
-              <button className={CHIP} onClick={() => navigate('/settings/ai')}>
+              <Button variant="outline" size="sm" className="rounded-full px-3 text-muted-foreground" onClick={() => navigate('/settings/ai')}>
                 去「设置 → AI 助手」配置
-              </button>
+              </Button>
             ) : (
               suggestions.map((s) => (
-                <button
+                <Button
                   key={s}
-                  className={CHIP}
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full px-3 text-muted-foreground"
                   disabled={streaming}
                   onClick={() => void send(s)}
                 >
                   {s}
-                </button>
+                </Button>
               ))
             )}
           </div>
@@ -452,20 +454,21 @@ export default function AiDock({ open, onClose, scope }: AiDockProps) {
             className="mb-1 max-h-[120px] w-full resize-none bg-transparent text-xs leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-50"
           />
           <div className="flex min-w-0 items-center gap-1.5">
-            {/* 模型选择器（dbx：rounded-[6px] border text-[11px] + chevron + popover） */}
+            {/* 模型选择器（dbx：outline xs + chevron + popover） */}
             <div className="relative min-w-0 flex-1">
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="xs"
                 onClick={() => setModelPickerOpen((v) => !v)}
                 disabled={!provider}
                 title="切换模型（仅当前会话生效）"
-                className="flex max-w-full items-center gap-1 rounded-[6px] border border-border/80 px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+                className="max-w-full text-muted-foreground"
               >
                 <span className="truncate">
                   {effectiveModel || (provider ? '使用服务商默认模型' : '未配置服务商')}
                 </span>
                 <ChevronDown className="h-3 w-3 shrink-0" />
-              </button>
+              </Button>
               {modelPickerOpen && provider && (
                 <>
                   <div
@@ -501,19 +504,20 @@ export default function AiDock({ open, onClose, scope }: AiDockProps) {
             </div>
             {/* 参数设置 popover（当前模型的 temperature/topP/maxTokens 覆盖） */}
             <div className="relative shrink-0">
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 onClick={() => setParamsOpen((v) => !v)}
                 disabled={!provider || !effectiveModel}
                 title="模型参数（留空 = 服务商默认）"
                 aria-label="模型参数"
-                className="relative flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
+                className="relative text-muted-foreground"
               >
                 <SlidersHorizontal className="h-3.5 w-3.5" />
                 {provider?.modelParams?.[effectiveModel] && (
                   <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-primary" />
                 )}
-              </button>
+              </Button>
               {paramsOpen && provider && (
                 <>
                   <div
@@ -538,17 +542,13 @@ export default function AiDock({ open, onClose, scope }: AiDockProps) {
               )}
             </div>
             <Button
-              variant="default"
+              variant={streaming ? 'destructive' : 'default'}
               size="icon-sm"
               onClick={() => (streaming ? stop() : void send(input))}
               disabled={!provider || (!streaming && !input.trim())}
               title={streaming ? '停止生成' : '发送'}
               aria-label={streaming ? '停止生成' : '发送'}
-              className={`h-7 w-7 rounded-full disabled:opacity-30 ${
-                streaming
-                  ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
-                  : 'bg-foreground text-background hover:bg-foreground/90'
-              }`}
+              className="rounded-full"
             >
               {streaming ? (
                 <Square className="h-3 w-3" />

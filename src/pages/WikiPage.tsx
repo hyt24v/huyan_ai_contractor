@@ -304,7 +304,7 @@ export default function WikiPage() {
         window.localStorage.setItem(MODE_KEY, m);
       }}
       className={`rounded px-2 py-0.5 text-[11px] whitespace-nowrap ${
-        mode === m ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
+        mode === m ? 'pill-active' : 'pill-inactive hover:text-foreground'
       }`}
     >
       {label}

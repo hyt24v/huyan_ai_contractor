@@ -458,14 +458,10 @@ export default function McpManagerPage() {
         </ToolbarButton>
         {dirty && <span className="text-xs text-warning">有未分发变更</span>}
         {lastBatch && (
-          <button
-            onClick={undoBatch}
-            title={`撤销：${lastBatch.label}`}
-            className="inline-flex h-7 items-center gap-1 rounded-md border border-input px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            <Undo2 className="h-3.5 w-3.5" />
+          <ToolbarButton onClick={undoBatch} title={`撤销：${lastBatch.label}`}>
+            <Undo2 className="mr-1 inline h-3.5 w-3.5" />
             撤销批量
-          </button>
+          </ToolbarButton>
         )}
         {toast && (
           <span
@@ -596,13 +592,13 @@ export default function McpManagerPage() {
             <tr className="text-left text-xs text-muted-foreground">
               <th ref={nameFilterAnchorRef} className="relative w-44 whitespace-nowrap px-4 py-2 font-medium">
                 <div className="flex items-center gap-1">
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="xs"
                     onClick={() => toggleSort('name')}
-                    className="inline-flex items-center gap-0.5 transition-colors hover:text-foreground"
                   >
                     Server {sortIcon('name')}
-                  </button>
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon-xs"
@@ -664,26 +660,26 @@ export default function McpManagerPage() {
               </th>
               <th className="w-56 whitespace-nowrap px-2 py-2 font-medium">命令 / URL</th>
               <th className="w-12 whitespace-nowrap px-1 py-2 text-center font-medium">
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="xs"
                   onClick={() => toggleSort('agents')}
                   title="按启用的 agent 数排序"
-                  className="inline-flex items-center gap-0.5 transition-colors hover:text-foreground"
                 >
                   启用 {sortIcon('agents')}
-                </button>
+                </Button>
               </th>
               {mcpAgents.map((a) => (
                 <th key={a.id} className="relative whitespace-nowrap px-2 py-2 text-center font-medium">
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="xs"
                     onClick={() => setColMenu(colMenu === a.id ? null : a.id)}
                     title="点击展开批量操作（只作用于当前筛选结果）"
-                    className="inline-flex items-center gap-0.5 rounded px-1 transition-colors hover:bg-accent hover:text-foreground"
                   >
                     {agentShortName(a.id)}
                     <ChevronDown className="h-3 w-3" />
-                  </button>
+                  </Button>
                   {colMenu === a.id && (
                     <>
                       <div className="fixed inset-0 z-20" onClick={() => setColMenu(null)} />

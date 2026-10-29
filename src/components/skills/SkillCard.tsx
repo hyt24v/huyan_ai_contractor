@@ -25,6 +25,7 @@ import {
 } from '../../lib/skillCatalog';
 import AgentBadge from './AgentBadge';
 import AgentBadgeStrip from './AgentBadgeStrip';
+import { Button } from '../ui/controls';
 
 const TAG_TONES = [
   'bg-info/15 text-info',
@@ -56,7 +57,7 @@ export function TagPill({
 }) {
   const cls = `inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition ${
     active
-      ? 'border-primary/40 bg-primary/10 text-foreground'
+      ? 'pill-active'
       : `border-transparent ${tagTone(tag)}`
   }`;
   if (onClick) {
@@ -257,15 +258,16 @@ export default function SkillCard({
   );
 
   const checkbox = (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
+      size="icon-xs"
       aria-label={selected ? '取消选择' : '选择该 skill'}
       title={selected ? '取消选择' : '选择该 skill'}
       onClick={(e) => {
         e.stopPropagation();
         onToggleSelect();
       }}
-      className={`shrink-0 rounded text-muted-foreground/70 transition hover:text-foreground ${
+      className={`text-muted-foreground/70 ${
         selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
       }`}
     >
@@ -274,27 +276,28 @@ export default function SkillCard({
       ) : (
         <Square className="h-4 w-4" />
       )}
-    </button>
+    </Button>
   );
 
   /** 置顶星标：未置顶时 hover 才显示，已置顶常显实心星 */
   const pinButton = onTogglePin ? (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
+      size="icon-xs"
       aria-label={pinned ? '取消置顶' : '置顶'}
       title={pinned ? '取消置顶' : '置顶'}
       onClick={(e) => {
         e.stopPropagation();
         onTogglePin();
       }}
-      className={`shrink-0 rounded p-0.5 transition ${
+      className={
         pinned
-          ? 'text-warning'
+          ? 'text-warning hover:text-warning'
           : 'text-muted-foreground/60 opacity-0 hover:text-foreground focus:opacity-100 group-hover:opacity-100'
-      }`}
+      }
     >
       <Star className={`h-3.5 w-3.5 ${pinned ? 'fill-current' : ''}`} />
-    </button>
+    </Button>
   ) : null;
 
   const switchEl = (
@@ -318,18 +321,19 @@ export default function SkillCard({
 
   const menuButton = (
     <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon-xs"
         aria-label="更多操作"
         title="更多操作"
         onClick={(e) => {
           e.stopPropagation();
           setMenuOpen((v) => !v);
         }}
-        className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/70 transition hover:bg-accent hover:text-foreground"
+        className="text-muted-foreground/70"
       >
         <MoreHorizontal className="h-4 w-4" />
-      </button>
+      </Button>
       {menu}
     </div>
   );
@@ -438,17 +442,18 @@ export default function SkillCard({
           )}
           <span className="flex items-center gap-1 opacity-0 transition focus-within:opacity-100 group-hover:opacity-100">
             {skill.gitRemote && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon-xs"
                 title={`从 Git 更新（${skill.gitRemote}）`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onUpdate();
                 }}
-                className="shrink-0 rounded p-1 text-muted-foreground/70 hover:text-foreground"
+                className="text-muted-foreground/70"
               >
                 <ArrowUpCircle className="h-3.5 w-3.5" />
-              </button>
+              </Button>
             )}
             {menuButton}
           </span>

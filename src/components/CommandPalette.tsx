@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { TOOLS } from '../lib/tools';
 import { THEMES } from '../lib/themes';
+import { Button } from './ui/controls';
 import {
   previewTheme,
   setThemeForAppearance,
@@ -351,17 +352,18 @@ export default function CommandPalette() {
               <div className="mt-2 flex items-center justify-center gap-1.5">
                 <span>试试：</span>
                 {['主题', '设置', 'JSON'].map((s) => (
-                  <button
+                  <Button
                     key={s}
-                    type="button"
+                    variant="outline"
+                    size="xs"
+                    className="rounded-full"
                     onClick={() => {
                       setQuery(s);
                       setActive(0);
                     }}
-                    className="rounded-full border border-input px-2 py-0.5 text-[11px] transition-colors hover:bg-accent hover:text-foreground"
                   >
                     {s}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>

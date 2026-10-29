@@ -74,19 +74,20 @@ function ActionButton({
   children: string;
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="outline"
+      size="xs"
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex h-6 items-center gap-1 rounded border px-1.5 text-[11px] transition-colors hover:bg-accent disabled:opacity-40 ${
+      className={
         danger
-          ? 'border-destructive/40 text-destructive hover:bg-destructive/10'
-          : 'border-border text-muted-foreground hover:text-foreground'
-      }`}
+          ? '!border-destructive/40 text-destructive hover:bg-destructive/10 hover:!text-destructive'
+          : 'text-muted-foreground'
+      }
     >
       {Icon && <Icon className="h-3 w-3" />}
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -401,25 +402,27 @@ export default function SkillDetailDrawer({
                 <div className="space-y-1">
                   {deployed.map(renderRow)}
                   {undeployed.length > 0 && !expandNone && (
-                    <button
-                      type="button"
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => setShowUndeployed(true)}
-                      className="flex w-full items-center gap-1.5 rounded-md border border-dashed px-2 py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      className="w-full justify-start gap-1.5 border-dashed font-normal text-muted-foreground"
                     >
                       <ChevronDown className="h-3 w-3" />
                       展开未部署的 {undeployed.length} 个 Agent
-                    </button>
+                    </Button>
                   )}
                   {expandNone && undeployed.map(renderRow)}
                   {expandNone && undeployed.length > 8 && !agentQuery.trim() && (
-                    <button
-                      type="button"
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => setShowUndeployed(false)}
-                      className="flex w-full items-center gap-1.5 rounded-md border border-dashed px-2 py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      className="w-full justify-start gap-1.5 border-dashed font-normal text-muted-foreground"
                     >
                       <ChevronUp className="h-3 w-3" />
                       收起未部署的 {undeployed.length} 个 Agent
-                    </button>
+                    </Button>
                   )}
                   {matched.length === 0 && (
                     <div className="rounded-md border border-dashed px-2 py-4 text-center text-[11px] text-muted-foreground">
@@ -551,7 +554,7 @@ export default function SkillDetailDrawer({
               从 Git 更新
             </Button>
           )}
-          <Button onClick={onClose} className="ml-auto px-3">
+          <Button variant="outline" onClick={onClose} className="ml-auto px-3">
             关闭
           </Button>
         </div>

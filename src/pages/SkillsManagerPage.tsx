@@ -198,10 +198,10 @@ function Chip({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition ${
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition ${
         active
-          ? 'border-primary/40 bg-primary/10 font-medium text-foreground'
-          : 'border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground'
+          ? 'pill-active font-medium'
+          : 'pill-inactive hover:bg-accent hover:text-foreground'
       }`}
     >
       {icon}
@@ -1068,14 +1068,15 @@ export default function SkillsManagerPage() {
         />
       ))}
       {filtersActive && (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="xs"
           onClick={clearFilters}
-          className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="text-muted-foreground"
         >
           <X className="h-3 w-3" />
           清除筛选
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -1364,7 +1365,7 @@ export default function SkillsManagerPage() {
                   className="h-8 w-full rounded-md border border-input bg-transparent pl-7 pr-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 />
               </div>
-              <PrimaryButton
+              <GhostButton
                 onClick={() => void doSearch()}
                 disabled={marketLoading}
                 icon={
@@ -1376,7 +1377,7 @@ export default function SkillsManagerPage() {
                 }
               >
                 {marketLoading ? '搜索中…' : '搜索'}
-              </PrimaryButton>
+              </GhostButton>
               <span className="text-[11px] text-muted-foreground">{sourceLabelText}</span>
             </div>
 
@@ -1469,16 +1470,17 @@ export default function SkillsManagerPage() {
                           已安装
                         </span>
                       ) : (
-                        <button
-                          type="button"
+                        <Button
+                          variant="outline"
+                          size="xs"
                           disabled={busy}
                           onClick={() => installRepo(repo)}
                           title="克隆到中央库"
-                          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-success/30 bg-success/10 px-2 py-1 text-[10px] font-medium text-success transition hover:bg-success/20 disabled:opacity-40"
+                          className="shrink-0"
                         >
                           <Download className="h-3 w-3" />
                           安装
-                        </button>
+                        </Button>
                       )}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1">
@@ -1770,7 +1772,7 @@ export default function SkillsManagerPage() {
             title="选择 Agent 工作区"
             className={`h-6 max-w-[140px] rounded-full border px-2 text-[11px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${
               activeAgent
-                ? 'border-primary/40 bg-primary/10 text-foreground'
+                ? 'pill-active'
                 : 'border-border bg-card text-muted-foreground'
             }`}
           >

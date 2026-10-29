@@ -1,5 +1,6 @@
 // Obsidian Canvas 只读渲染：节点卡片 + 连线，支持缩放/平移
 import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
+import { Button } from './ui/controls';
 
 interface CanvasNode {
   id: string;
@@ -174,13 +175,9 @@ export default function WikiCanvasView({ content }: { content: string }) {
         })}
       </div>
       <div className="absolute right-2 top-2 flex gap-1">
-        <button
-          type="button"
-          onClick={fit}
-          className="rounded-md border border-border bg-card px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground"
-        >
+        <Button variant="outline" size="xs" className="bg-card text-muted-foreground" onClick={fit}>
           适配
-        </button>
+        </Button>
       </div>
     </div>
   );

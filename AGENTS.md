@@ -56,6 +56,13 @@ cd src-tauri && cargo check   # 改 Rust 时
 - **JSON 保留转义语义**（对齐 json.cn）：`formatJson/minifyJson` 的 keepEscape=true 走 `formatPreservingStrings`——字符串 token 逐字复制（`\n`/`\uXXXX` 原样保留、非 ASCII 不转义），只重排结构空白；**禁止**恢复「所有非 ASCII 强制转 \uXXXX」的旧行为。keepEscape=false 才走 `decodeStringEscapes` 解码。
 - **Agent 注册表与可见性**：`src/lib/agents.ts` 注册 56 个 agent（id 兼容：原有 5 个 claude/codex/pi/cursor/gemini 勿改）。可见性走 `src/lib/agentVisibility.ts`：默认显示「检测到的」（detectDir/skillsDir 存在），用户在 设置→Agent 管理 用开关自定义；组件用 `useAgents()` hook，服务层用 `effectiveAgents()`，MCP/提示词等只对有配置路径的 agent 开放（`hasMcpSupport`/`PROMPT_TARGETS`）。agents 记录只含可见 agent，读 `skill.agents[x]` 必须 `(… ?? 'none')` 兜底。新增 agent 目录时同步跑 `default.json` 的 fs allow 追加（见 git 历史中的生成脚本）。**禁止把 `useAgents().filter(...)` 这类 inline 派生数组直接喂给 useCallback/useEffect 依赖**——每次渲染都是新引用会造成无限 effect 循环（MCP 页勾选失效事故，见 451a043）；派生列表一律 `useMemo(() => agents.filter(...), [agents]`。
 
+## 按钮与选中态规范（Magpie 基线）
+
+- 所有可点击按钮一律用共享组件：`src/components/ui/controls.tsx` 的 `Button`（variant default/outline/ghost/destructive/link）或 `src/components/Toolbar.tsx` 的 `ToolbarButton`（默认 outline）。禁止手写 `<button>` 自定义配色。
+- **实心 primary（default）每视图最多 1 个**，仅真正主操作（保存/应用/发送）；校验/格式化/复制/下载等工具操作一律 outline/ghost。
+- 选中/激活态（Tab、筛选 pill、视图切换、导航）一律用 `src/index.css` 的 `.pill-active` / `.pill-inactive`，禁止自造 `bg-primary/10` 之类。
+- 禁止硬编码色板类（`bg-blue-*/text-red-*/dark:`）；语义色全走 token（primary/destructive/success/warning/muted/accent）。
+
 ## 已知工具坑（不是代码 bug）
 
 - **pi-lens 编辑后诊断陈旧**：edit 后常报「Cannot find name X」「module not found」等假错误（LSP 快照滞后），还会**反复重放陈旧快照**（如 Layout.tsx「Duplicate identifier refreshAgentVisibility」——实际 grep 导入仅 1 处；jsonl.ts「orphaned JsonlStats」——L150 接口完整）。以 `npx tsc -b --force` 为准，0 错误即通过，**不要**为让门禁变绿改代码。

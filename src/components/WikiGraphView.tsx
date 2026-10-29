@@ -438,7 +438,6 @@ export function WikiGraphView({
     reheat(0.5); // 滑块调整后重新模拟
   };
 
-  const toolBtn = 'h-7 w-7 inline-flex items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:text-foreground transition-colors';
   const inputCls = 'h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring';
 
   const FORCE_FIELDS: { key: keyof ForceParams; label: string; min: number; max: number; step: number }[] = [
@@ -463,7 +462,7 @@ export function WikiGraphView({
               <button
                 key={d}
                 type="button"
-                className={`rounded px-1.5 py-0.5 ${localDepth === d ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`rounded px-1.5 py-0.5 ${localDepth === d ? 'pill-active' : 'pill-inactive hover:text-foreground'}`}
                 onClick={() => setLocalDepth(d)}
               >
                 {d === 0 ? '全局' : `${d}跳`}
@@ -473,18 +472,18 @@ export function WikiGraphView({
         )}
         <button
           type="button"
-          className={`rounded-md border px-2 py-1 text-[11px] transition-colors ${hideOrphans ? 'border-primary text-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}
+          className={`rounded-md px-2 py-1 text-[11px] transition-colors ${hideOrphans ? 'pill-active' : 'pill-inactive hover:text-foreground'}`}
           title="隐藏没有任何关联的孤立节点"
           onClick={() => setHideOrphans((v) => !v)}
         >
           隐藏孤儿（{orphanCount}）
         </button>
         <div className="h-4 w-px bg-border" />
-        <Button variant="ghost" size="icon-sm" className={toolBtn} title="力度调节" onClick={() => setShowForces((v) => !v)}><SlidersHorizontal className="h-4 w-4" /></Button>
-        <Button variant="ghost" size="icon-sm" className={toolBtn} title="放大" onClick={() => zoomBy(1.25)}><ZoomIn className="h-4 w-4" /></Button>
-        <Button variant="ghost" size="icon-sm" className={toolBtn} title="缩小" onClick={() => zoomBy(0.9)}><ZoomOut className="h-4 w-4" /></Button>
-        <Button variant="ghost" size="icon-sm" className={toolBtn} title="重置视图" onClick={fitView}><RotateCcw className="h-4 w-4" /></Button>
-        <Button variant="ghost" size="icon-sm" className={toolBtn} title="适配窗口" onClick={fitView}><Maximize className="h-4 w-4" /></Button>
+        <Button variant="outline" size="icon-sm" className="text-muted-foreground" title="力度调节" onClick={() => setShowForces((v) => !v)}><SlidersHorizontal className="h-4 w-4" /></Button>
+        <Button variant="outline" size="icon-sm" className="text-muted-foreground" title="放大" onClick={() => zoomBy(1.25)}><ZoomIn className="h-4 w-4" /></Button>
+        <Button variant="outline" size="icon-sm" className="text-muted-foreground" title="缩小" onClick={() => zoomBy(0.9)}><ZoomOut className="h-4 w-4" /></Button>
+        <Button variant="outline" size="icon-sm" className="text-muted-foreground" title="重置视图" onClick={fitView}><RotateCcw className="h-4 w-4" /></Button>
+        <Button variant="outline" size="icon-sm" className="text-muted-foreground" title="适配窗口" onClick={fitView}><Maximize className="h-4 w-4" /></Button>
       </div>
 
       {/* 图 + 侧栏 */}
@@ -502,9 +501,9 @@ export function WikiGraphView({
             <div className="absolute right-2 top-2 z-10 w-56 rounded-lg border border-border bg-card p-3 text-xs shadow-none">
               <div className="mb-2 flex items-center justify-between">
                 <span className="font-medium text-foreground">力度调节</span>
-                <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => { setForces(DEFAULT_FORCES); reheat(0.8); }}>
+                <Button variant="ghost" size="xs" onClick={() => { setForces(DEFAULT_FORCES); reheat(0.8); }}>
                   重置
-                </button>
+                </Button>
               </div>
               {FORCE_FIELDS.map((f) => (
                 <div key={f.key} className="mb-2">
@@ -671,9 +670,9 @@ export function WikiGraphView({
                     </button>
                   </div>
                 </div>
-                <button type="button" className="mt-4 text-muted-foreground hover:text-foreground" onClick={() => setSelectedRelation(null)}>
+                <Button variant="ghost" size="xs" className="mt-4" onClick={() => setSelectedRelation(null)}>
                   ✕ 关闭
-                </button>
+                </Button>
               </>
             ) : selected ? (
               <>
@@ -720,16 +719,17 @@ export function WikiGraphView({
         {types.map(([t, count]) => {
           const hidden = hiddenTypes.has(t);
           return (
-            <button
+            <Button
               key={t}
-              type="button"
-              className={`flex items-center gap-1 rounded px-1 py-0.5 text-[11px] transition-opacity ${hidden ? 'opacity-30' : ''}`}
+              variant="ghost"
+              size="xs"
+              className={hidden ? 'opacity-30' : ''}
               onClick={() => toggleType(t)}
             >
               <span className="h-2 w-2 rounded-full" style={{ background: entityTypeColor(t) }} />
               <span className="text-muted-foreground">{t}</span>
               <span className="text-muted-foreground/60">{count}</span>
-            </button>
+            </Button>
           );
         })}
       </div>

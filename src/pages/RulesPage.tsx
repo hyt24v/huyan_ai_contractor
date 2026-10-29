@@ -295,7 +295,7 @@ function RulesPage() {
             placeholder="搜索名称/描述"
             className="h-8 flex-1"
           />
-          <Button size="sm" onClick={create} title="新建规则">
+          <Button size="sm" variant="outline" onClick={create} title="新建规则">
             <Plus className="h-4 w-4" />
           </Button>
           <Button
@@ -321,10 +321,8 @@ function RulesPage() {
               <button
                 key={t}
                 onClick={() => setTagFilter(t)}
-                className={`rounded-full border px-2.5 py-0.5 text-[11px] transition-colors ${
-                  tagFilter === t
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-border text-muted-foreground hover:text-foreground'
+                className={`rounded-full px-2.5 py-0.5 text-[11px] transition-colors ${
+                  tagFilter === t ? 'pill-active' : 'pill-inactive hover:bg-accent/50'
                 }`}
               >
                 {t === 'all' ? '全部' : t}
@@ -446,8 +444,14 @@ function RulesPage() {
                 onChange={setEditMode}
                 className="shrink-0"
               />
-              <Button size="icon-sm" variant="ghost" onClick={remove} title="删除规则">
-                <Trash2 className="h-4 w-4 text-destructive" />
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                onClick={remove}
+                title="删除规则"
+                className="text-muted-foreground hover:bg-destructive/10 hover:!text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
               </Button>
             </div>
 
@@ -470,12 +474,12 @@ function RulesPage() {
                           ? `${t.label} 未检测到（在设置 → Agent 管理中确认启用）`
                           : `${t.label} → ${t.file}`
                       }
-                      className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
+                      className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] transition-colors ${
                         !installed
-                          ? 'cursor-not-allowed border-border/50 text-muted-foreground/40'
+                          ? 'cursor-not-allowed border border-border/50 text-muted-foreground/40'
                           : enabled
-                            ? 'border-primary/50 bg-primary/10 text-primary'
-                            : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                            ? 'pill-active'
+                            : 'pill-inactive hover:bg-accent/50 hover:text-foreground'
                       }`}
                     >
                       {enabled ? <Link2 className="h-3 w-3" /> : <Link2Off className="h-3 w-3" />}

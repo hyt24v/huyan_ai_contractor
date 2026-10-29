@@ -514,7 +514,6 @@ export default function JsonToolPage() {
         />
         <ToolbarDivider />
         <ToolbarButton
-          primary
           onClick={() => {
             validate(text, mode);
             // 重新解析一次取结果，避免读到 setState 前的旧状态

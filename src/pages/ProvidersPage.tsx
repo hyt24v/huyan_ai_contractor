@@ -525,10 +525,10 @@ export default function ProvidersPage() {
             <button
               key={id}
               onClick={() => setAgentFilter(id)}
-              className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
+              className={`rounded-full px-2.5 py-1 text-[11px] transition-colors ${
                 selected
                   ? 'pill-active font-medium'
-                  : 'border-input text-muted-foreground hover:bg-accent'
+                  : 'pill-inactive hover:bg-accent'
               }`}
             >
               {id === 'all' ? '全部' : agentById(id).name}
