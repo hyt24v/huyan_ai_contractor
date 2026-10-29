@@ -72,9 +72,7 @@ export function Tabs<T extends string>({
           key={it.key}
           type="button"
           className={`inline-flex h-6 items-center gap-1 rounded-[5px] px-2 text-xs transition-colors ${
-            active === it.key
-              ? 'bg-card text-foreground'
-              : 'text-muted-foreground hover:text-foreground'
+            active === it.key ? 'pill-active' : 'pill-inactive hover:text-foreground'
           }`}
           onClick={() => onChange(it.key)}
         >

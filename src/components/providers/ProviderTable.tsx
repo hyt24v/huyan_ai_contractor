@@ -22,7 +22,7 @@ function ApiBadge({ api }: { api?: ProviderApi }) {
   );
 }
 
-/** 「生效」列单选圈：点击 = 应用该 provider 到其 agent（外层走 ConfirmApplyDialog） */
+/** 生效单选圈：点击 = 应用该 provider 到其 agent（外层走 ConfirmApplyDialog） */
 function ActiveRadio({
   active,
   writable,
@@ -66,8 +66,25 @@ export interface RowTestResult {
   ok: boolean;
 }
 
+/** 名称首字符头像（Magpie 式 vendor 图标占位） */
+function ProviderAvatar({ name }: { name: string }) {
+  return (
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-semibold text-muted-foreground">
+      {(name.trim()[0] ?? '?').toUpperCase()}
+    </span>
+  );
+}
+
+function hostOf(baseUrl: string): string {
+  try {
+    return new URL(baseUrl).host;
+  } catch {
+    return baseUrl;
+  }
+}
+
 /**
- * 模型服务单屏清单：一行 = 一个 provider（借鉴 magpie 的单屏清单密度）。
+ * 模型服务卡片列表（Magpie 式：一行一张白色圆角卡片，浮在页面底色上）。
  * 排序与筛选由调用方完成，这里只负责渲染。
  */
 export default function ProviderTable({
@@ -93,127 +110,100 @@ export default function ProviderTable({
   testResults?: Record<string, RowTestResult>;
 }) {
   return (
-    <table className="w-full border-collapse text-xs">
-      <thead className="sticky top-0 bg-card">
-        <tr className="border-b text-left text-[11px] text-muted-foreground">
-          <th className="px-3 py-2 font-medium">名称</th>
-          <th className="px-2 py-2 font-medium">目标 Agent</th>
-          <th className="px-2 py-2 font-medium">Base URL</th>
-          <th className="px-2 py-2 font-medium">模型</th>
-          <th className="px-2 py-2 font-medium">API 协议</th>
-          <th className="px-2 py-2 font-medium">API Key</th>
-          <th className="px-2 py-2 text-center font-medium">生效</th>
-          <th className="px-3 py-2 text-right font-medium">操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        {providers.map((p) => {
-          const active = isActive(store, p);
-          // 导入的 JSON 可能带注册表外的 agent id，按不可写兜底
-          const writable = PROVIDER_TARGETS[p.agent]?.writable ?? false;
-          return (
-            <tr
-              key={p.id}
-              className={`group border-b transition-colors last:border-0 hover:bg-accent/40 ${
-                active ? 'bg-primary/5' : ''
-              }`}
-            >
-              <td className="max-w-[12rem] px-3 py-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="truncate font-medium">{p.name}</span>
-                  {active && (
-                    <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                      当前
-                    </span>
-                  )}
-                </div>
-              </td>
-              <td className="whitespace-nowrap px-2 py-2 text-muted-foreground">
-                {agentName(p.agent)}
-              </td>
-              <td
-                className="max-w-[16rem] truncate px-2 py-2 font-mono text-[11px] text-muted-foreground"
-                title={p.baseUrl}
-              >
-                {p.baseUrl}
-                {testResults?.[p.id] && (
-                  <div
-                    className={`mt-0.5 truncate text-[10px] ${
-                      testResults[p.id].ok ? 'text-success' : 'text-warning'
-                    }`}
-                  >
-                    {testResults[p.id].text}
-                  </div>
+    <div className="flex flex-col gap-2 p-3">
+      {providers.map((p) => {
+        const active = isActive(store, p);
+        // 导入的 JSON 可能带注册表外的 agent id，按不可写兜底
+        const writable = PROVIDER_TARGETS[p.agent]?.writable ?? false;
+        const extraModels =
+          (p.models?.length ?? 0) - (p.model && p.models?.includes(p.model) ? 1 : 0);
+        const result = testResults?.[p.id];
+        return (
+          <div
+            key={p.id}
+            className={`group flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5 transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] ${
+              active ? 'border-primary/40' : ''
+            }`}
+          >
+            <ProviderAvatar name={p.name} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="truncate text-[13px] font-medium">{p.name}</span>
+                {active && (
+                  <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                    当前
+                  </span>
                 )}
-              </td>
-              <td
-                className="max-w-[10rem] truncate px-2 py-2 font-mono text-[11px]"
-                title={
-                  p.models && p.models.length > 0
-                    ? `默认：${p.model || '—'}\n全部：${p.models.join(', ')}`
-                    : (p.model ?? '')
-                }
-              >
-                {p.model || '—'}
-                {(() => {
-                  const extra =
-                    (p.models?.length ?? 0) -
-                    (p.model && p.models?.includes(p.model) ? 1 : 0);
-                  return extra > 0 ? (
-                    <span className="ml-1 text-muted-foreground">+{extra}</span>
-                  ) : null;
-                })()}
-              </td>
-              <td className="whitespace-nowrap px-2 py-2">
                 <ApiBadge api={p.api} />
-              </td>
-              <td className="whitespace-nowrap px-2 py-2 font-mono text-[11px] text-muted-foreground">
-                {maskKey(p.apiKey)}
-              </td>
-              <td className="px-2 py-2 text-center">
-                <ActiveRadio
-                  active={active}
-                  writable={writable}
-                  busy={busy}
-                  onApply={() => onApply(p)}
-                />
-              </td>
-              <td className="px-3 py-2 text-right">
-                <div className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-                  {onTest && (
-                    <button
-                      onClick={() => onTest(p)}
-                      disabled={testingId === p.id}
-                      title="测试端点连通性与延迟"
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-accent disabled:opacity-40"
-                    >
-                      {testingId === p.id ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <Gauge className="h-3 w-3" />
-                      )}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => onEdit(p)}
-                    title="编辑"
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-accent"
-                  >
-                    <Pencil className="h-3 w-3" />
-                  </button>
-                  <button
-                    onClick={() => onDelete(p)}
-                    title="从清单删除（可重新导入，不会改动 Agent 配置文件）"
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
+              </div>
+              <div className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
+                <span className="shrink-0">{agentName(p.agent)}</span>
+                <span className="shrink-0 opacity-50">·</span>
+                <span className="truncate font-mono" title={p.baseUrl}>
+                  {hostOf(p.baseUrl)}
+                </span>
+                <span className="shrink-0 opacity-50">·</span>
+                <span
+                  className="truncate font-mono"
+                  title={
+                    p.models && p.models.length > 0
+                      ? `默认：${p.model || '—'}\n全部：${p.models.join(', ')}`
+                      : (p.model ?? '')
+                  }
+                >
+                  {p.model || '—'}
+                  {extraModels > 0 ? ` +${extraModels}` : ''}
+                </span>
+                <span className="shrink-0 opacity-50">·</span>
+                <span className="shrink-0 font-mono">{maskKey(p.apiKey)}</span>
+              </div>
+              {result && (
+                <div
+                  className={`mt-0.5 truncate text-[10px] ${result.ok ? 'text-success' : 'text-warning'}`}
+                >
+                  {result.text}
                 </div>
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+              {onTest && (
+                <button
+                  onClick={() => onTest(p)}
+                  disabled={testingId === p.id}
+                  title="测试端点连通性与延迟"
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-accent disabled:opacity-40"
+                >
+                  {testingId === p.id ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Gauge className="h-3 w-3" />
+                  )}
+                </button>
+              )}
+              <button
+                onClick={() => onEdit(p)}
+                title="编辑"
+                className="inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-accent"
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
+              <button
+                onClick={() => onDelete(p)}
+                title="从清单删除（可重新导入，不会改动 Agent 配置文件）"
+                className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+            <ActiveRadio
+              active={active}
+              writable={writable}
+              busy={busy}
+              onApply={() => onApply(p)}
+            />
+          </div>
+        );
+      })}
+    </div>
   );
 }

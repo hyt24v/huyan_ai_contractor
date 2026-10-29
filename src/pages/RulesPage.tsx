@@ -347,8 +347,8 @@ function RulesPage() {
                 onClick={() => select(r.id)}
                 className={`mb-1 flex w-full flex-col gap-1 rounded-md border px-3 py-2 text-left transition-colors ${
                   selectedId === r.id
-                    ? 'border-primary/40 bg-accent'
-                    : 'border-transparent hover:bg-accent/50'
+                    ? 'pill-active'
+                    : 'pill-inactive hover:bg-accent/50'
                 }`}
               >
                 <div className="flex w-full items-center gap-2">

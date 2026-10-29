@@ -63,6 +63,14 @@
   .panel {
     @apply rounded-lg border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)];
   }
+  /* Magpie 式「白色浮起 pill」选中态：浅色靠投影、深色靠描边（card 与底色可能无差异） */
+  .pill-active {
+    @apply border border-border/70 bg-card text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.05)];
+  }
+  /* 未选中占位：透明 border 防切换跳动 */
+  .pill-inactive {
+    @apply border border-transparent text-muted-foreground;
+  }
 }
 
 /* 细滚动条 */

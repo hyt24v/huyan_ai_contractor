@@ -158,8 +158,8 @@ function NavItem({
       onClick={onClick}
       className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors ${
         active
-          ? 'bg-accent font-medium text-foreground shadow-sm'
-          : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+          ? 'pill-active font-medium'
+          : 'pill-inactive hover:bg-accent/60 hover:text-foreground'
       }`}
     >
       <span className="flex h-4 w-4 shrink-0 items-center justify-center [&>svg]:h-3.5 [&>svg]:w-3.5">
@@ -234,7 +234,7 @@ function IconButton({
       aria-label={title}
       disabled={disabled}
       onClick={onClick}
-      className={active ? 'bg-accent text-foreground' : 'text-muted-foreground'}
+      className={active ? 'pill-active' : 'text-muted-foreground'}
     >
       {children}
     </Button>
@@ -1814,8 +1814,8 @@ export default function SkillsManagerPage() {
                       onClick={() => setLayout('grid')}
                       className={
                         layout === 'grid'
-                          ? 'bg-accent text-foreground'
-                          : 'text-muted-foreground'
+                          ? 'pill-active'
+                          : 'border border-transparent text-muted-foreground'
                       }
                     >
                       <Grid2x2 className="h-3.5 w-3.5" />
@@ -1828,8 +1828,8 @@ export default function SkillsManagerPage() {
                       onClick={() => setLayout('list')}
                       className={
                         layout === 'list'
-                          ? 'bg-accent text-foreground'
-                          : 'text-muted-foreground'
+                          ? 'pill-active'
+                          : 'border border-transparent text-muted-foreground'
                       }
                     >
                       <List className="h-3.5 w-3.5" />

@@ -349,7 +349,7 @@ export default function WikiPage() {
               type="button"
               onClick={() => void openView(v)}
               className={`flex items-center gap-1 rounded px-2 py-0.5 text-[11px] whitespace-nowrap ${
-                view === v ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
+                view === v ? 'pill-active' : 'pill-inactive hover:text-foreground'
               }`}
             >
               <Icon className="h-3 w-3" />
@@ -427,7 +427,7 @@ export default function WikiPage() {
             type="button"
             onClick={() => setTopic(null)}
             className={`mb-0.5 flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs ${
-              topic === null ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'
+              topic === null ? 'pill-active' : 'pill-inactive hover:bg-accent/50'
             }`}
           >
             <BookOpen className="h-3.5 w-3.5 shrink-0" />
@@ -440,7 +440,7 @@ export default function WikiPage() {
               type="button"
               onClick={() => setTopic(t.name)}
               className={`mb-0.5 flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs ${
-                topic === t.name ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'
+                topic === t.name ? 'pill-active' : 'pill-inactive hover:bg-accent/50'
               }`}
             >
               <span className="flex-1 truncate">{t.name}</span>
@@ -462,8 +462,8 @@ export default function WikiPage() {
               onClick={() => void openArticle(a)}
               className={`mb-1 w-full rounded-md border px-2.5 py-2 text-left transition-colors ${
                 selected?.relPath === a.relPath
-                  ? 'border-primary/40 bg-primary/5'
-                  : 'border-transparent hover:bg-accent/50'
+                  ? 'pill-active'
+                  : 'pill-inactive hover:bg-accent/50'
               } ${a.archived ? 'opacity-50' : ''}`}
             >
               <div className="flex items-center gap-1.5">
@@ -489,8 +489,8 @@ export default function WikiPage() {
                 onClick={() => void openCanvas(c)}
                 className={`mb-1 flex w-full items-center gap-1.5 rounded-md border px-2.5 py-2 text-left text-xs transition-colors ${
                   canvasSel?.relPath === c.relPath
-                    ? 'border-primary/40 bg-primary/5'
-                    : 'border-transparent hover:bg-accent/50'
+                    ? 'pill-active'
+                    : 'pill-inactive hover:bg-accent/50'
                 }`}
               >
                 <Presentation className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />

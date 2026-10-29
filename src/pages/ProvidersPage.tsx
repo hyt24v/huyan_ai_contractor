@@ -527,7 +527,7 @@ export default function ProvidersPage() {
               onClick={() => setAgentFilter(id)}
               className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
                 selected
-                  ? 'border-primary/60 bg-primary/10 font-medium text-primary'
+                  ? 'pill-active font-medium'
                   : 'border-input text-muted-foreground hover:bg-accent'
               }`}
             >
