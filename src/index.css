@@ -29,6 +29,7 @@
     --chrome-muted: 240 4% 64%;
     --content: 0 0% 100%;
     /* JSON 树类型色（minimal-light 默认值） */
+    --json-key: 221 83% 53%;
     --json-string: 145 46% 34%;
     --json-number: 26 90% 37%;
     --json-boolean: 262 83% 58%;

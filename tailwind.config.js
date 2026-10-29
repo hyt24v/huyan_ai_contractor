@@ -47,6 +47,7 @@ export default {
         },
         content: 'hsl(var(--content))',
         json: {
+          key: 'hsl(var(--json-key))',
           string: 'hsl(var(--json-string))',
           number: 'hsl(var(--json-number))',
           boolean: 'hsl(var(--json-boolean))',

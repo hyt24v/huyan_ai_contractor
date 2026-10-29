@@ -194,7 +194,7 @@ function TreeNode({
             <ChevronRight className="h-3 w-3" />
           )}
         </button>
-        <span className="shrink-0 text-sky-600 dark:text-sky-400">
+        <span className="shrink-0 font-medium text-json-key">
           <Highlight text={node.key} query={query} />
         </span>
         <span className="shrink-0 text-muted-foreground">:</span>

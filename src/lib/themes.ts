@@ -42,6 +42,7 @@ export interface ThemeDefinition {
     /** 内容面板底色 */
     content: string;
     /** JSON 树类型色：字符串 */
+    jsonKey: string;
     jsonString: string;
     /** JSON 树类型色：数字 */
     jsonNumber: string;
@@ -84,6 +85,7 @@ export const THEMES: ThemeDefinition[] = [
       chrome: '#0c0c18',
       chromeMuted: '#565670',
       content: '#12121f',
+      jsonKey: '#82aaff',
       jsonString: '#c3e88d',
       jsonNumber: '#f78c6c',
       jsonBoolean: '#c792ea',
@@ -121,6 +123,7 @@ export const THEMES: ThemeDefinition[] = [
       chrome: '#1b2026',
       chromeMuted: '#5c6370',
       content: '#21252b',
+      jsonKey: '#61afef',
       jsonString: '#98c379',
       jsonNumber: '#d19a66',
       jsonBoolean: '#c678dd',
@@ -158,6 +161,7 @@ export const THEMES: ThemeDefinition[] = [
       chrome: '#14141f',
       chromeMuted: '#6c7086',
       content: '#181825',
+      jsonKey: '#89b4fa',
       jsonString: '#a6e3a1',
       jsonNumber: '#fab387',
       jsonBoolean: '#cba6f7',
@@ -195,6 +199,7 @@ export const THEMES: ThemeDefinition[] = [
       chrome: '#232a2e',
       chromeMuted: '#56635f',
       content: '#343f44',
+      jsonKey: '#7fbbb3',
       jsonString: '#a7c080',
       jsonNumber: '#e69875',
       jsonBoolean: '#d699b6',
@@ -232,6 +237,7 @@ export const THEMES: ThemeDefinition[] = [
       chrome: '#f6dfe8',
       chromeMuted: '#c49aa8',
       content: '#ffffff',
+      jsonKey: '#4a6bc9',
       jsonString: '#3f8a5f',
       jsonNumber: '#c2613a',
       jsonBoolean: '#8f6fb8',
@@ -269,6 +275,7 @@ export const THEMES: ThemeDefinition[] = [
       chrome: '#ebebef',
       chromeMuted: '#a1a1aa',
       content: '#ffffff',
+      jsonKey: '#2563eb',
       jsonString: '#2e7d4f',
       jsonNumber: '#b45309',
       jsonBoolean: '#7c3aed',
@@ -333,6 +340,7 @@ const TOKEN_CSS_VAR: Record<keyof ThemeDefinition['tokens'], string> = {
   chrome: '--chrome',
   chromeMuted: '--chrome-muted',
   content: '--content',
+  jsonKey: '--json-key',
   jsonString: '--json-string',
   jsonNumber: '--json-number',
   jsonBoolean: '--json-boolean',
