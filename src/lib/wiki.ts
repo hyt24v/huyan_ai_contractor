@@ -111,6 +111,17 @@ export function extractConfidence(body: string): number | undefined {
 }
 
 /** 扫描 wiki/ 目录（主题目录 + 可选二级分类），读每篇 frontmatter */
+let lastScanCache: { root: string; scan: WikiScan } | null = null;
+
+/** 读取上次扫描缓存（stale-while-revalidate：页面切回先展示缓存，后台再扫） */
+export function peekWikiScan(root: string): WikiScan | null {
+  return lastScanCache && lastScanCache.root === root ? lastScanCache.scan : null;
+}
+
+export function storeWikiScan(root: string, scan: WikiScan): void {
+  lastScanCache = { root, scan };
+}
+
 export async function scanWiki(wikiRoot: string, fs: FsPort = tauriFs): Promise<WikiScan> {
   const wikiDir = `${wikiRoot}/wiki`;
   const topics: WikiTopic[] = [];

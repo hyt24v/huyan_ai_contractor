@@ -48,6 +48,8 @@ interface SimState {
   alpha: number;
   running: boolean;
   frame: number;
+  /** 初次布局阶段：每个 rAF 批量跑多帧模拟，快速收敛且不阻塞首帧渲染 */
+  preroll: boolean;
 }
 
 function initSimState(graph: WikiGraph): SimState {
@@ -60,7 +62,7 @@ function initSimState(graph: WikiGraph): SimState {
   const edges = graph.relations
     .filter((r) => nodeMap.has(r.from) && nodeMap.has(r.to))
     .map((r) => ({ source: nodeMap.get(r.from)!, target: nodeMap.get(r.to)!, relation: r }));
-  return { nodes, nodeMap, edges, alpha: ALPHA_INITIAL, running: true, frame: 0 };
+  return { nodes, nodeMap, edges, alpha: ALPHA_INITIAL, running: true, frame: 0, preroll: true };
 }
 
 function simTick(sim: SimState, f: ForceParams): void {
@@ -180,13 +182,8 @@ export function WikiGraphView({
     const sim = initSimState(graph);
     simRef.current = sim;
     dragNodeRef.current = null;
-    // 预计算到收敛（无动画直接出稳定布局）
-    while (sim.alpha > ALPHA_MIN && sim.frame < 400) {
-      simTick(sim, forcesRef.current);
-      sim.alpha += (ALPHA_TARGET - sim.alpha) * ALPHA_DECAY;
-      sim.frame++;
-    }
-    sim.running = false;
+    // 不做同步预计算（264 节点 × 400 帧会阻塞主线程数秒）；
+    // 交给下方 rAF 循环按 preroll 模式分批收敛，首帧立即出图
     setTick((t) => t + 1);
     return () => cancelAnimationFrame(rafRef.current);
   }, [graph]);
@@ -203,9 +200,17 @@ export function WikiGraphView({
       const sim = simRef.current;
       if (sim) {
         if (sim.running && sim.alpha > ALPHA_MIN) {
-          simTick(sim, forcesRef.current);
-          sim.alpha += (ALPHA_TARGET - sim.alpha) * ALPHA_DECAY;
-          sim.frame++;
+          // preroll 阶段每帧批量 40 步（约 8 帧收敛），交互 reheat 后每帧 1 步
+          const steps = sim.preroll ? 40 : 1;
+          for (let i = 0; i < steps && sim.alpha > ALPHA_MIN; i++) {
+            simTick(sim, forcesRef.current);
+            sim.alpha += (ALPHA_TARGET - sim.alpha) * ALPHA_DECAY;
+            sim.frame++;
+          }
+          if (sim.alpha <= ALPHA_MIN) {
+            sim.preroll = false;
+            sim.running = false;
+          }
           setTick((t) => t + 1);
         } else if (sim.running) {
           sim.running = false;

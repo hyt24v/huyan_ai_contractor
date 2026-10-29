@@ -25,7 +25,9 @@ import {
 } from '../lib/settings';
 import {
   resolveWikiPath,
+  peekWikiScan,
   scanWiki,
+  storeWikiScan,
   searchWiki,
   parseFrontmatter,
   stripFrontmatter,
@@ -59,9 +61,9 @@ export default function WikiPage() {
   const [libs, setLibs] = useState<string[]>(getWikiPaths());
   const [wikiPath, setWikiPathState] = useState(getActiveWikiPath());
   const [readOnly, setReadOnly] = useState(false);
-  const [scan, setScan] = useState<WikiScan | null>(null);
+  const [scan, setScan] = useState<WikiScan | null>(() => peekWikiScan(getActiveWikiPath()));
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !peekWikiScan(getActiveWikiPath()));
   const [topic, setTopic] = useState<string | null>(null); // null = 全部
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<WikiArticle | null>(null);
@@ -86,7 +88,13 @@ export default function WikiPage() {
   const [graphError, setGraphError] = useState('');
 
   const refresh = useCallback(async (path: string) => {
-    setLoading(true);
+    // 有缓存先展示（切回页面秒开），无缓存才转加载态并清空旧库内容
+    const cached = peekWikiScan(path);
+    if (cached) setScan(cached);
+    else {
+      setScan(null);
+      setLoading(true);
+    }
     setError('');
     try {
       const root = await resolveWikiPath(path);
@@ -110,7 +118,9 @@ export default function WikiPage() {
         return;
       }
       setReadOnly(ro);
-      setScan(await scanWiki(root, fs));
+      const result = await scanWiki(root, fs);
+      setScan(result);
+      storeWikiScan(path, result);
       setGraph(null);
       setLogEntries(null);
       setCanvasSel(null);
